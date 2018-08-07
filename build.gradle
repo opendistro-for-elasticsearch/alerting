@@ -1,0 +1,89 @@
+// Explicitly setting up build script classpath.
+buildscript {
+  dependencies {
+    classpath brazilGradle.tool('BrazilGradleQualityDefaults')
+  }
+}
+
+/*
+ Applies brazil-quality-defaults plugin for enabling brazil specific quality
+ rules and reports for quality plugins.
+*/
+apply plugin: 'brazil-quality-defaults'
+
+/*
+ Applies Java plugin for compile and unit test of project's Java source code.
+*/
+apply plugin: 'java'
+
+/*
+ Java plugin default project layout is 'src/main/java' and 'src/test/java'.
+ Uncomment below if you instead want to use 'src' and 'tst'.
+
+sourceSets.main.java.srcDirs = ['src']
+sourceSets.test.java.srcDirs = ['tst']
+*/
+
+/*
+ Applies Checkstyle plugin quality checks on project’s Java source files and
+ generates reports from these checks.
+
+ Remove this if you want to skip these checks and report generation.
+*/
+apply plugin: 'checkstyle'
+
+checkstyle {
+  sourceSets = [sourceSets.main]
+  ignoreFailures = false
+}
+
+/*
+ Applies SpotBugs plugin quality checks on project’s Java source files and
+ generates reports from these checks.
+
+ Remove this if you want to skip these checks and report generation.
+*/
+apply plugin: 'com.github.spotbugs'
+
+spotbugs {
+  sourceSets = [sourceSets.main]
+  ignoreFailures = false
+}
+
+/*
+ Applies JaCoCo plugin to provide code coverage metrics for Java code.
+ Set minimum code coverage to fail build, where 0.01 = 1%.
+
+ Remove this if you want to skip generating code coverage report.
+*/
+apply plugin: 'jacoco'
+
+check.dependsOn jacocoTestCoverageVerification
+jacocoTestCoverageVerification {
+  violationRules {
+    rule {
+      limit {
+        minimum = 0.01
+      }
+    }
+  }
+}
+
+/*
+ Resolve build and test dependencies using BrazilGradle.
+*/
+dependencies {
+  implementation brazilGradle.build()
+  testImplementation brazilGradle.testbuild()
+}
+
+/*
+ Specifies that JUnit Platform (a.k.a. JUnit 5) should be used to execute tests.
+
+ For mixed JUnit 4 and 5 tests, add 'JUnit-4-12-migration = 5.x;' to
+ test-dependencies in Config.
+*/
+test {
+  useJUnitPlatform()
+}
+
