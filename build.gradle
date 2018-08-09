@@ -1,0 +1,12 @@
+buildscript {
+    ext.es_version = '6.3.2'
+
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'org.elasticsearch.gradle:build-tools:' + es_version
+    }
+}

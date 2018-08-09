@@ -1,0 +1,14 @@
+apply plugin: 'idea'
+apply plugin: 'elasticsearch.esplugin'
+
+esplugin {
+    name 'aes-alerting'
+    description 'Amazon Elasticsearch service alerting component'
+    classname 'com.amazon.elasticsearch.AlertingPlugin'
+}
+
+// Required by Elasticsearch build plugins
+ext {
+    licenseFile = rootProject.file('LICENSE.txt')
+    noticeFile = rootProject.file('NOTICE.txt')
+}
