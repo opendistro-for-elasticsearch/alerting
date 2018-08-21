@@ -1,0 +1,72 @@
+// This plugin's version (typically must match that of ES).
+version = '6.2.4'
+group = 'com.amazon'
+
+
+
+buildscript {
+    ext {
+        // ES version we depend upon / compile against.
+        version_es = '6.2.4'
+    }
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        jcenter()
+    }
+
+    dependencies {
+        classpath "org.elasticsearch.gradle:build-tools:" + version_es
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'elasticsearch.esplugin'
+//apply plugin: 'checkstyle'
+
+test.enabled = true
+
+//thirdPartyAudit.enabled = false
+// TODO check if there is some way around whitelisting these classes
+thirdPartyAudit.excludes = [
+        // uses internal java api: sun.misc.Unsafe
+        'com.google.common.cache.Striped64',
+        'com.google.common.cache.Striped64$1',
+        'com.google.common.cache.Striped64$Cell',
+        'com.google.common.primitives.UnsignedBytes$LexicographicalComparatorHolder$UnsafeComparator',
+        'com.google.common.primitives.UnsignedBytes$LexicographicalComparatorHolder$UnsafeComparator$1',
+]
+
+dependencies {
+    // Elasticsearch dependencies:
+    compile 'org.elasticsearch.client:elasticsearch-rest-client:6.2.4'
+    // Painless dependencies:
+    compile group: 'org.codelibs.elasticsearch.module', name: 'lang-painless', version: '6.2.4'
+    compile group: 'org.elasticsearch.plugin', name: 'elasticsearch-scripting-painless-spi', version: '6.2.4'
+    // Unit testing dependencies
+    compile group: 'com.google.guava', name: 'guava', version: '26.0-jre'
+    testCompile group: 'org.elasticsearch.test', name: 'framework', version: '6.2.4'
+    testCompile group: 'org.codelibs', name: 'elasticsearch-cluster-runner', version: '6.2.4.0'
+    compile group: 'org.elasticsearch.plugin', name: 'transport-netty4-client', version: '6.2.4'
+    compile group: 'org.elasticsearch.client', name: 'transport', version: '6.2.4'
+    // Other dependencies:
+    compile group: 'org.ow2.asm', name: 'asm', version: '6.2.+'
+    compile group: 'org.antlr', name: 'antlr4', version: '4.7.+'
+    compile group: 'com.google.code.gson', name: 'gson', version: '2.8.+'
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.+'
+    compile group: 'org.json', name: 'json', version: '20180130'
+}
+
+esplugin {
+    name 'AES-alerting'
+    description 'Policying plugin for Amazon ElasticSearch'
+    classname 'com.amazon.elasticsearch.policy.PolicyPlugin'
+}
+
+ext {
+  projectSubstitutions = [:]
+  licenseFile = rootProject.file('LICENSE.txt')
+  noticeFile = rootProject.file('NOTICE.txt')
+}
