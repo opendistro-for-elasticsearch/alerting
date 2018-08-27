@@ -1,12 +1,10 @@
-buildscript {
-    ext.es_version = '6.3.2'
+apply plugin: 'base'
 
-    repositories {
-        mavenCentral()
-        jcenter()
-    }
+ext.es_version = '6.4.0'
 
-    dependencies {
-        classpath 'org.elasticsearch.gradle:build-tools:' + es_version
-    }
+evaluationDependsOnChildren()
+task 'build-all-plugins'(type: Sync) {
+    from project(':monitoring').tasks.bundlePlugin
+    into 'build/distributions'
 }
+assemble.dependsOn('build-all-plugins')

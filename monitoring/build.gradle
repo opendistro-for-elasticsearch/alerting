@@ -1,0 +1,40 @@
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.2.60"
+}
+
+apply plugin: 'java'
+
+// Can't use elasticsearch's build tools as they mandate java 10 for building and AWS CodeBuild only supports Java 8 & 9
+repositories {
+    mavenCentral()
+}
+
+// Copied from https://tiny.amazon.com/xd67h1yb
+dependencies {
+    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    // ES doesn't provide a full painless scripting engine maven artifact that we can compile against. Use a third party
+    // artifact as a replacement for compilation and testing. See https://github.com/elastic/elasticsearch/issues/24528
+    compileOnly "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
+    testImplementation "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
+
+    // Use transport client as it supports more versions of ES than the rest client and has more comprehensive APIs.
+    implementation("org.elasticsearch.client:transport:${es_version}") {
+        exclude group: 'org.elasticsearch'
+    }
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+
+    testImplementation "org.elasticsearch.test:framework:${es_version}"
+}
+
+// Copied from https://code.amazon.com/packages/ElasticSearch/blobs/93b6065a6b9e33b16ab447cbdce478ca63b1a1bf/--/elasticsearch/src/buildSrc/src/main/groovy/org/elasticsearch/gradle/plugin/PluginBuildPlugin.groovy#L128-L147
+Zip bundle = project.tasks.create(name: 'bundlePlugin', type: Zip, dependsOn: [project.jar]) {
+    from file('src/main/resources/plugin-descriptor.properties')
+    from file('src/main/plugin-metadata')
+    from project.jar // this plugin's jar
+    from project.configurations.default // include only runtime jars in plugin bundle
+    from('src/main') {
+        include 'config/**'
+        include 'bin/**'
+    }
+}
+project.assemble.dependsOn(bundle)

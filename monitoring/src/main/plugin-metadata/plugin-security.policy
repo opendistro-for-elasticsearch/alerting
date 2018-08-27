@@ -1,0 +1,10 @@
+grant {
+	// needed to find the classloader to load whitelisted classes.
+	permission java.lang.RuntimePermission "createClassLoader";
+	permission java.lang.RuntimePermission "getClassLoader";
+
+	// needed to allow connections to Elasticsearch, can probably be defined
+	// more strict.
+	permission java.net.SocketPermission "*", "accept,connect,resolve";
+    permission java.net.NetPermission "getProxySelector";
+};
