@@ -32,7 +32,7 @@ public class RestDeleteMonitorAction extends BaseRestHandler {
     public RestDeleteMonitorAction(final Settings settings, final RestController controller, final MonitorManager monitorManager) {
         super(settings);
         this.monitorManager = monitorManager;
-        controller.registerHandler(DELETE, "/_awses/monitors/{alertID}", this); // Delete a monitor
+        controller.registerHandler(DELETE, "/_awses/monitors/{monitorID}", this); // Delete a monitor
     }
 
     @Override
@@ -44,11 +44,11 @@ public class RestDeleteMonitorAction extends BaseRestHandler {
         String result = "";
         RestStatus statusCode = RestStatus.OK;
         try {
-            if (!request.hasParam("alertID")) {
-                result = "Your request must contain a alertID.";
+            if (!request.hasParam("monitorID")) {
+                result = "Your request must contain a monitorID.";
                 statusCode = RestStatus.BAD_REQUEST;
             } else {
-                result = this.monitorManager.deletePolicy(request.param("alertID"));
+                result = this.monitorManager.deletePolicy(request.param("monitorID"));
             }
         } catch (Exception e) {
             statusCode = RestStatus.BAD_REQUEST;

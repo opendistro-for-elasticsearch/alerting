@@ -51,11 +51,11 @@ public class RestPutMonitorAction extends BaseRestHandler {
         String result = "";
         RestStatus statusCode = RestStatus.OK;
         try {
-            if (!request.hasParam("alertID")) {
-                result = "Your request must contain a alertID.";
+            if (!request.hasParam("monitorID")) {
+                result = "Your request must contain a monitorID.";
                 statusCode = RestStatus.BAD_REQUEST;
             } else {
-                result = this.monitorManager.updatePolicy(request.content().utf8ToString(), request.param("alertID"));
+                result = this.monitorManager.updatePolicy(request.content().utf8ToString(), request.param("monitorID"));
             }
         } catch (Exception e) {
             statusCode = RestStatus.BAD_REQUEST;
