@@ -1,6 +1,5 @@
 package com.amazon.elasticsearch.monitor
 
-import org.elasticsearch.common.xcontent.DeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -18,16 +17,13 @@ data class Monitor(val name: String, val enabled: Boolean, val schedule: String,
     companion object {
 
         @JvmStatic fun fromJson(jsonMonitor : String) =
-                fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY,
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, jsonMonitor))
+                fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, jsonMonitor))
 
         @JvmStatic fun fromJson(istream : InputStream) =
-                fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY,
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, istream))
+                fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, istream))
 
         @JvmStatic fun fromJson(bytes : ByteArray) =
-                fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY,
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, bytes))
+                fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, bytes))
 
         fun fromJson(jp : XContentParser) : Monitor {
             var name : String? = null

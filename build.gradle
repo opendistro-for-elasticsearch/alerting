@@ -1,6 +1,7 @@
 apply plugin: 'base'
 
-ext.es_version = '6.4.0'
+ext.es_version = '6.2.4'
+ext.kotlin_version = '1.2.60'
 
 evaluationDependsOnChildren()
 task 'build-all-plugins'(type: Sync) {

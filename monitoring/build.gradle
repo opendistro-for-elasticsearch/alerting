@@ -1,40 +1,80 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.elasticsearch.gradle:build-tools:${es_version}"
+    }
+}
+
 plugins {
     id "org.jetbrains.kotlin.jvm" version "1.2.60"
 }
 
-apply plugin: 'java'
+group = 'com.amazon.elasticsearch'
+version = 1.0
 
-// Can't use elasticsearch's build tools as they mandate java 10 for building and AWS CodeBuild only supports Java 8 & 9
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'elasticsearch.esplugin'
+
 repositories {
     mavenCentral()
 }
 
-// Copied from https://tiny.amazon.com/xd67h1yb
+ext {
+    projectSubstitutions = [:]
+    licenseFile = rootProject.file('LICENSE.txt')
+    noticeFile = rootProject.file('NOTICE.txt')
+}
+
+esplugin {
+    name 'aes-monitoring'
+    description 'Amazon Elasticsearch service monitoring plugin'
+    classname 'com.amazon.elasticsearch.MonitoringPlugin'
+    extendedPlugins = ['lang-painless']
+}
+
+// We don't have unit tests, only integration tests.
+test {
+    enabled = false
+}
+
+// Uncomment to attach a debugger to elasticsearch cluster
+//integTest {
+//     debug(true)
+//}
+
+integTestRunner {
+    systemProperty 'tests.security.manager', 'false'
+    include '**/*Tests.class'
+
+    // Uncomment to attach a debugger to integration tests JVM
+//    jvmArg '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+}
+
+integTestCluster {
+    // extraConfigFile doesn't allow directories, only files, so we need to add each individually
+    fileTree(dir: 'src/main/config').each { File file ->
+        extraConfigFile 'elasticsearch-carrot2/' + file.name, file
+    }
+    distribution = (es_version < "6.3.0") ? 'zip' : 'oss-zip' // Use oss-zip distribution starting from 6.3.0
+}
+
+licenseHeaders.enabled = false
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+
 dependencies {
-    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     // ES doesn't provide a full painless scripting engine maven artifact that we can compile against. Use a third party
     // artifact as a replacement for compilation and testing. See https://github.com/elastic/elasticsearch/issues/24528
     compileOnly "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
-    testImplementation "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
+
+    // Elasticsearch Nanny state
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+    compile "org.jetbrains:annotations:13.0"
 
     // Use transport client as it supports more versions of ES than the rest client and has more comprehensive APIs.
-    implementation("org.elasticsearch.client:transport:${es_version}") {
-        exclude group: 'org.elasticsearch'
-    }
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-
-    testImplementation "org.elasticsearch.test:framework:${es_version}"
+    compile "org.elasticsearch.client:transport:${es_version}"
 }
-
-// Copied from https://code.amazon.com/packages/ElasticSearch/blobs/93b6065a6b9e33b16ab447cbdce478ca63b1a1bf/--/elasticsearch/src/buildSrc/src/main/groovy/org/elasticsearch/gradle/plugin/PluginBuildPlugin.groovy#L128-L147
-Zip bundle = project.tasks.create(name: 'bundlePlugin', type: Zip, dependsOn: [project.jar]) {
-    from file('src/main/resources/plugin-descriptor.properties')
-    from file('src/main/plugin-metadata')
-    from project.jar // this plugin's jar
-    from project.configurations.default // include only runtime jars in plugin bundle
-    from('src/main') {
-        include 'config/**'
-        include 'bin/**'
-    }
-}
-project.assemble.dependsOn(bundle)

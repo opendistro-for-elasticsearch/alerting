@@ -20,10 +20,9 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.RestStatus;
@@ -53,8 +52,8 @@ public class MonitorManager {
 
     public MonitorManager(Settings settings) {
         this.client = new PreBuiltTransportClient(settings)
-        .addTransportAddress(new TransportAddress(InetAddress.getLoopbackAddress(), 9300));
-        this.logger = Loggers.getLogger(getClass(), settings);
+                .addTransportAddress(new TransportAddress(InetAddress.getLoopbackAddress(), 9300));
+        this.logger = Loggers.getLogger(getClass());
         this.settings = settings;
     }
 
@@ -224,8 +223,7 @@ public class MonitorManager {
      */
     private SearchResponse doSearch(Monitor monitor) throws IOException {
         SearchSourceBuilder searchSource = SearchSourceBuilder.fromXContent(XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                        monitor.getSearch()));
+                .createParser(NamedXContentRegistry.EMPTY, monitor.getSearch()));
         return client.prepareSearch().setSource(searchSource).get();
     }
 
