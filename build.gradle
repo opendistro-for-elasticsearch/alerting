@@ -1,7 +1,27 @@
-apply plugin: 'base'
+// ES Gradle plugin isn't available on gradle plugins portal
+buildscript {
+    ext.es_version = '6.2.4'
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.elasticsearch.gradle:build-tools:${es_version}"
+    }
+}
 
-ext.es_version = '6.2.4'
-ext.kotlin_version = '1.2.60'
+plugins {
+    id 'base'
+    id 'org.jetbrains.kotlin.jvm' version '1.2.60' apply false
+}
+
+allprojects {
+    group = 'com.amazon.elasticsearch'
+    version = '1.0'
+
+    repositories {
+        mavenCentral()
+    }
+}
 
 evaluationDependsOnChildren()
 task 'build-all-plugins'(type: Sync) {

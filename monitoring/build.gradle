@@ -1,22 +1,7 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath "org.elasticsearch.gradle:build-tools:${es_version}"
-    }
-}
-
-plugins {
-    id "org.jetbrains.kotlin.jvm" version "1.2.60"
-}
-
-group = 'com.amazon.elasticsearch'
-version = 1.0
-
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
+apply plugin: 'org.jetbrains.kotlin.jvm'
 
 repositories {
     mavenCentral()
@@ -40,10 +25,8 @@ test {
     enabled = false
 }
 
-// Uncomment to attach a debugger to elasticsearch cluster
-//integTest {
-//     debug(true)
-//}
+// Uncomment to attach a debugger to elasticsearch cluster JVM
+//integTest.debug(true)
 
 integTestRunner {
     systemProperty 'tests.security.manager', 'false'
@@ -71,10 +54,12 @@ dependencies {
     compileOnly "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
 
     // Elasticsearch Nanny state
-    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
-    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-common"
     compile "org.jetbrains:annotations:13.0"
 
     // Use transport client as it supports more versions of ES than the rest client and has more comprehensive APIs.
     compile "org.elasticsearch.client:transport:${es_version}"
+
+    compile project(":core")
 }
