@@ -29,3 +29,9 @@ task 'build-all-plugins'(type: Sync) {
     into 'build/distributions'
 }
 assemble.dependsOn('build-all-plugins')
+
+subprojects {
+    dependencies {
+        compile "com.google.code.findbugs:jsr305:3.0.2"
+    }
+}
