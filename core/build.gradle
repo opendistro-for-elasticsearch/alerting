@@ -7,9 +7,6 @@ dependencies {
     compileOnly "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
 
     compile "org.jetbrains.kotlin:kotlin-stdlib"
-
-    // Use transport client as it supports more versions of ES than the rest client and has more comprehensive APIs.
-    compile "org.elasticsearch.client:transport:${es_version}"
 }
 
 compileKotlin {

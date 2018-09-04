@@ -3,14 +3,18 @@
  */
 package com.amazon.elasticsearch.resthandler;
 
-import com.amazon.elasticsearch.monitor.MonitorManager;
+import com.amazon.elasticsearch.model.ScheduledJob;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
+import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.rest.RestResponse;
+import org.elasticsearch.rest.action.RestResponseListener;
 
 import java.io.IOException;
 
@@ -22,16 +26,8 @@ import static org.elasticsearch.rest.RestRequest.Method.DELETE;
  */
 public class RestDeleteMonitorAction extends BaseRestHandler {
 
-    private final MonitorManager monitorManager;
-
     public RestDeleteMonitorAction(final Settings settings, final RestController controller) {
-        this(settings, controller, new MonitorManager(settings));
-    }
-
-    //VisibleForTesting
-    public RestDeleteMonitorAction(final Settings settings, final RestController controller, final MonitorManager monitorManager) {
         super(settings);
-        this.monitorManager = monitorManager;
         controller.registerHandler(DELETE, "/_awses/monitors/{monitorID}", this); // Delete a monitor
     }
 
@@ -40,28 +36,25 @@ public class RestDeleteMonitorAction extends BaseRestHandler {
         return "Delete a monitor.";
     }
 
-    protected RestChannelConsumer doPolicyRequest(final RestRequest request, final NodeClient client) {
-        String result = "";
-        RestStatus statusCode = RestStatus.OK;
-        try {
-            if (!request.hasParam("monitorID")) {
-                result = "Your request must contain a monitorID.";
-                statusCode = RestStatus.BAD_REQUEST;
-            } else {
-                result = this.monitorManager.deletePolicy(request.param("monitorID"));
-            }
-        } catch (Exception e) {
-            statusCode = RestStatus.BAD_REQUEST;
-            result = e.getMessage();
-        }
-        final RestStatus resultStatusCode = statusCode;
-        final String resultMessage = result;
-        return restChannel -> restChannel.sendResponse(new BytesRestResponse(resultStatusCode, resultMessage));
-    }
-
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
-        return doPolicyRequest(request, client);
+        String monitorId = request.param("monitorID");
+        if (monitorId == null || monitorId.isEmpty()) {
+            throw new IllegalArgumentException("missing monitor id to delete");
+        }
+        DeleteRequest deleteRequest = new DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX,
+                ScheduledJob.SCHEDULED_JOB_TYPE, monitorId);
+
+        return channel -> client.delete(deleteRequest, deleteMonitorResponse(channel));
+    }
+
+    private static RestResponseListener<DeleteResponse> deleteMonitorResponse(RestChannel channel) {
+        return new RestResponseListener<DeleteResponse>(channel) {
+            @Override
+            public RestResponse buildResponse(DeleteResponse deleteResponse) throws Exception {
+                return new BytesRestResponse(deleteResponse.status(), channel.newBuilder());
+            }
+        };
     }
 
 }

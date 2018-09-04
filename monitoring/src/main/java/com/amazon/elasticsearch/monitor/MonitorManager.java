@@ -12,29 +12,13 @@
  */
 package com.amazon.elasticsearch.monitor;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.delete.DeleteResponse;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.logging.Loggers;
-import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.util.Locale;
-import java.util.Map;
 
 /**
  * The monitor manager currently contains all the business logic for creating, deleting, retreiving, and running the policies
@@ -42,177 +26,7 @@ import java.util.Map;
  */
 public class MonitorManager {
 
-    private Client client;
-    private Logger logger;
-    private Settings settings;
-    private Locale aLocale = new Locale("en", "US");
-
-    private final String SCHEDULED_JOBS_INDEX = ".scheduled-jobs";
-    private final String SCHEDULED_JOBS_TYPE = ".job";
-
-    public MonitorManager(Settings settings) {
-        this.client = new PreBuiltTransportClient(settings)
-                .addTransportAddress(new TransportAddress(InetAddress.getLoopbackAddress(), 9300));
-        this.logger = Loggers.getLogger(getClass());
-        this.settings = settings;
-    }
-
-    /**
-     * Retrieve one monitor.
-     *
-     * @param policyName The monitor name to retrieve.
-     *
-     * @return The string representation from the monitor.
-     */
-    public String getMonitor(@NotNull String policyName, boolean pretty) {
-        try {
-            logger.log(Level.INFO, String.format(aLocale, "Getting monitor: %s", policyName));
-            GetResponse response = client.prepareGet(SCHEDULED_JOBS_INDEX, SCHEDULED_JOBS_TYPE, policyName).get();
-            if (response.isExists()) {
-                return response.getSourceAsString();
-            } else {
-                return null;
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * Retrieve all policies.
-     *
-     * @return The response string from all policies.
-     */
-    public String getAllPolicies(boolean pretty, Map<String, String> queryParams) {
-        throw new UnsupportedOperationException("Not implemented");
-
-    }
-
-    /**
-     * Create a monitor.
-     *
-     * @param jsonMonitor The monitor string included in the request.
-     * @return A string containing the successful creation of an monitor.
-     */
-    public String createPolicy(String jsonMonitor) {
-        try {
-            Monitor monitor = Monitor.fromJson(jsonMonitor);
-            // Check if a monitor with this name already exists
-            String monitorName = monitor.getName();
-            if (loadMonitor(monitorName) != null) {
-                return String.format(aLocale, "Monitor: %s already exists", monitorName);
-            }
-            IndexResponse response = client.prepareIndex(SCHEDULED_JOBS_INDEX, SCHEDULED_JOBS_TYPE, monitorName)
-                    .setSource(jsonMonitor, XContentType.JSON)
-                    .get();
-            if (response.status() == RestStatus.CREATED) {
-                logger.info("Successfully created monitor: {}.", monitorName);
-                return "{\"status\": \"Success\"}";
-            } else {
-                logger.error("Unable to create monitor: {}.  Return status: {}", monitorName, response.status());
-                return "{\"status\": \"Failure\", \"message\": \"" + response.status().toString() + "\"}";
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public String searchMonitors(String search) {
-        throw new UnsupportedOperationException("Not implemented");
-    }
-
-    public String acknowledgeMonitor(String monitorID, String actions) {
-        throw new UnsupportedOperationException("Not implemented");
-    }
-
-    /**
-     * Update a monitor.
-     *
-     * @param jsonMonitor The monitor string included in the request.
-     * @param monitorName The name of the monitor to update.
-     *
-     * @return A message indicating success or failure of the operation
-     * TODO add validation to update!
-     */
-    public String updatePolicy(String jsonMonitor, String monitorName) throws RuntimeException {
-        try {
-            if (loadMonitor(monitorName) == null) {
-                throw new IllegalArgumentException(String.format(aLocale,
-                        "Monitor: %s does not exist and cannot be updated.",
-                        monitorName));
-            }
-            UpdateResponse response = client.prepareUpdate(SCHEDULED_JOBS_INDEX, SCHEDULED_JOBS_TYPE, monitorName)
-                    .setDoc(jsonMonitor, XContentType.JSON)
-                    .get();
-            if (response.status() == RestStatus.OK) {
-                logger.info("Successfully updated monitor {}", monitorName);
-                return "{\"status\": \"Success\"}";
-            } else {
-                logger.error("Unable to updates monitor: {}.  Return status: {}", monitorName, response.status());
-                return "{\"status\": \"Failure\", \"message\": \"" + response.status().toString() + "\"}";
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * Delete an monitor.
-     *
-     * @param monitorName The name of the monitor to delete.
-     *
-     * @return a message indicating success or failure
-     */
-    public String deletePolicy(String monitorName) {
-        try {
-            DeleteResponse response = client.prepareDelete(SCHEDULED_JOBS_INDEX, SCHEDULED_JOBS_TYPE, monitorName).get();
-            if (response.status() == RestStatus.NOT_FOUND) {
-                throw new IllegalArgumentException(String.format(aLocale,
-                        "Monitor: %s does not exist and cannot be deleted.", monitorName));
-            } else {
-                return "{\"status\": \"Success\"}";
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
-        }
-    }
-
-    @Nullable private byte[] loadMonitorSource(String monitorName) {
-        logger.log(Level.INFO, String.format(aLocale, "Getting monitor: %s", monitorName));
-        GetResponse response = client.prepareGet(SCHEDULED_JOBS_INDEX, SCHEDULED_JOBS_TYPE, monitorName).get();
-        if (!response.isExists()) {
-            return null;
-        } else {
-            return response.getSourceAsBytes();
-        }
-    }
-
-    @Nullable private Monitor loadMonitor(String monitorName) {
-        byte[] monitorSource = loadMonitorSource(monitorName);
-        if (monitorSource != null) {
-            return Monitor.fromJson(monitorSource);
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * Perform the input operation of the monitor, then apply the condition on the result.
-     * This function performs a privileged operation to turn the search results into a java
-     * Map<String, Object> object which will be used as the context for the painless script.
-     *
-     * @param monitorName the name of the monitor
-     *
-     * @return The result of the condition applied to the input operation.
-     */
-    public String testMonitor(String monitorName) {
-        Monitor monitor = loadMonitor(monitorName);
-        if (monitor == null) {
-            logger.error("Monitor {} does not exist, cannot be tested.", monitorName);
-            return "{\"Status\" : \"Failure\"}";
-        } else {
-            return "{\"status\" : \"Not implemented\"}";
-        }
+    private MonitorManager() {
     }
 
     /**
@@ -221,7 +35,7 @@ public class MonitorManager {
      * @param monitor The monitor whose input to execute
      * @return The result of the input operation.
      */
-    private SearchResponse doSearch(Monitor monitor) throws IOException {
+    private static SearchResponse doSearch(Client client, Monitor monitor) throws IOException {
         SearchSourceBuilder searchSource = SearchSourceBuilder.fromXContent(XContentType.JSON.xContent()
                 .createParser(NamedXContentRegistry.EMPTY, monitor.getSearch()));
         return client.prepareSearch().setSource(searchSource).get();

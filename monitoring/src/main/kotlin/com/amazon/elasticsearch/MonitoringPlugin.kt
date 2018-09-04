@@ -5,8 +5,7 @@ package com.amazon.elasticsearch
 
 import com.amazon.elasticsearch.resthandler.RestDeleteMonitorAction
 import com.amazon.elasticsearch.resthandler.RestGetMonitorAction
-import com.amazon.elasticsearch.resthandler.RestPostMonitorAction
-import com.amazon.elasticsearch.resthandler.RestPutMonitorAction
+import com.amazon.elasticsearch.resthandler.RestIndexMonitorAction
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
 import org.elasticsearch.common.settings.ClusterSettings
@@ -29,17 +28,16 @@ import java.util.function.Supplier
  */
 class MonitoringPlugin : ActionPlugin, Plugin() {
 
-    override fun getRestHandlers(settings: Settings?,
-                                 restController: RestController?,
-                                 clusterSettings: ClusterSettings?,
-                                 indexScopedSettings: IndexScopedSettings?,
-                                 settingsFilter: SettingsFilter?,
+    override fun getRestHandlers(settings: Settings,
+                                 restController: RestController,
+                                 clusterSettings: ClusterSettings,
+                                 indexScopedSettings: IndexScopedSettings,
+                                 settingsFilter: SettingsFilter,
                                  indexNameExpressionResolver: IndexNameExpressionResolver?,
-                                 nodesInCluster: Supplier<DiscoveryNodes>?): List<RestHandler> {
+                                 nodesInCluster: Supplier<DiscoveryNodes>): List<RestHandler> {
         return listOf(RestGetMonitorAction(settings, restController),
-                RestPutMonitorAction(settings, restController),
                 RestDeleteMonitorAction(settings, restController),
-                RestPostMonitorAction(settings, restController))
+                RestIndexMonitorAction(settings, restController))
 
     }
 }

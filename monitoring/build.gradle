@@ -25,12 +25,16 @@ test {
     enabled = false
 }
 
-// Uncomment to attach a debugger to elasticsearch cluster JVM
+// Uncomment to attach a debugger to elasticsearch cluster JVM during run or integTest
+//run.debug true
 //integTest.debug(true)
 
 integTestRunner {
     systemProperty 'tests.security.manager', 'false'
     include '**/*Tests.class'
+    // TODO: Figure out how to have the runner execute both java and kotlin test classes which are present in
+    // different output dirs.  Right now we only have kotlin tests.
+    testClassesDir = compileTestKotlin.destinationDir
 
     // Uncomment to attach a debugger to integration tests JVM
 //    jvmArg '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
@@ -57,9 +61,6 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common"
     compile "org.jetbrains:annotations:13.0"
-
-    // Use transport client as it supports more versions of ES than the rest client and has more comprehensive APIs.
-    compile "org.elasticsearch.client:transport:${es_version}"
 
     compile project(":core")
 }

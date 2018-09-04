@@ -4,6 +4,11 @@ interface ScheduledJob {
     enum class Type { MONITOR }
     enum class SchemaVersion { V1 }
 
+    companion object {
+        const val SCHEDULED_JOBS_INDEX = ".scheduled-jobs"
+        const val SCHEDULED_JOB_TYPE = "job"
+    }
+
     val name : String
     val type : Type
     val schemaVersion : SchemaVersion
