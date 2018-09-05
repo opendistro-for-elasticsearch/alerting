@@ -9,8 +9,9 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
  * A value object that represents a Monitor. Monitors are used to periodically execute a search query and check the
  * results.
  */
-data class Monitor(val id: String, val name: String, val enabled: Boolean, val schedule: String, val search: String,
-                   val actions: List<String>) : ToXContentObject {
+data class Monitor(val id: String = NO_ID, val version: Long = NO_VERSION,
+                   val name: String, val enabled: Boolean, val schedule: String,
+                   val search: String, val actions: List<String>) : ToXContentObject {
 
     fun toXContent(builder: XContentBuilder) : XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -36,11 +37,13 @@ data class Monitor(val id: String, val name: String, val enabled: Boolean, val s
         const val SEARCH_FIELD = "search"
         const val ACTIONS_FIELD = "actions"
         const val NO_ID = ""
+        const val NO_VERSION = 1L
 
         @JvmStatic fun fromJson(bytesRef : BytesReference, id: String) =
                 fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, bytesRef), id)
 
-        @JvmOverloads @JvmStatic fun fromJson(jp: XContentParser, id: String = NO_ID) : Monitor {
+        @JvmOverloads @JvmStatic
+        fun fromJson(jp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION) : Monitor {
             var name : String? = null
             var enabled = true
             var schedule: String? = null
@@ -75,6 +78,7 @@ data class Monitor(val id: String, val name: String, val enabled: Boolean, val s
             }
 
             return Monitor(id,
+                    version,
                     requireNotNull(name) { "Monitor name is null" },
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },

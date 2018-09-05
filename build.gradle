@@ -24,9 +24,10 @@ allprojects {
 }
 
 evaluationDependsOnChildren()
-task 'build-all-plugins'(type: Sync) {
+task 'build-all-plugins'(type: Sync, group: 'build') {
     from project(':monitoring').tasks.bundlePlugin
     into 'build/distributions'
+    dependsOn project(':monitoring').tasks.build
 }
 assemble.dependsOn('build-all-plugins')
 

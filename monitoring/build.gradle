@@ -27,7 +27,7 @@ test {
 
 // Uncomment to attach a debugger to elasticsearch cluster JVM during run or integTest
 //run.debug true
-//integTest.debug(true)
+//integTest.debug true
 
 integTestRunner {
     systemProperty 'tests.security.manager', 'false'
