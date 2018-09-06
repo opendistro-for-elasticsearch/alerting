@@ -4,6 +4,8 @@
 package com.amazon.elasticsearch.resthandler
 
 import com.amazon.elasticsearch.model.ScheduledJob
+import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_ID
+import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_VERSION
 import com.amazon.elasticsearch.monitor.Monitor
 import org.apache.http.HttpEntity
 import org.apache.http.entity.ContentType
@@ -57,7 +59,7 @@ class MonitorRestApiTests : ESRestTestCase() {
         val responseBody = createResponse.asMap()
         val createdId = responseBody["_id"] as String
         val createdVersion = responseBody["_version"] as Int
-        assertNotEquals("response is missing Id", Monitor.NO_ID, createdId)
+        assertNotEquals("response is missing Id", NO_ID, createdId)
         assertTrue("incorrect version", createdVersion > 0)
         assertEquals("Incorrect Location header", "/_awses/monitors/$createdId", createResponse.getHeader("Location"))
     }
@@ -164,8 +166,8 @@ class MonitorRestApiTests : ESRestTestCase() {
                 .createParser(NamedXContentRegistry.EMPTY, response.entity.content)
         require(parser.nextToken() == START_OBJECT) { "Invalid response" }
 
-        var id : String = Monitor.NO_ID
-        var version : Long = Monitor.NO_VERSION
+        var id : String = NO_ID
+        var version : Long = NO_VERSION
         var monitor : Monitor? = null
 
         while (parser.nextToken() != END_OBJECT) {
@@ -202,7 +204,7 @@ class MonitorRestApiTests : ESRestTestCase() {
                 enabled = ESTestCase.randomBoolean(),
                 search = "not implemented",
                 schedule = "not implemented",
-                actions = listOf())
+                triggers = listOf())
     }
 
     private fun randomSearch(): String {

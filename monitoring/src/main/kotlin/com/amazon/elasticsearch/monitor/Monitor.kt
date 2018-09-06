@@ -1,33 +1,50 @@
+/*
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ */
+
 package com.amazon.elasticsearch.monitor
 
+import com.amazon.elasticsearch.model.ScheduledJob
+import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_ID
+import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_VERSION
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.*
 import org.elasticsearch.common.xcontent.XContentParser.Token
 
-// TODO: This class should be replaced by ScheduledJob
 /**
- * A value object that represents a Monitor. Monitors are used to periodically execute a search query and check the
- * results.
+ * A [Monitor] is a [ScheduledJob] used for alarming.
+ *
+ * Though [ScheduledJob]s support multiple inputs, a [Monitor] (currently) only supports a single input which must be
+ * a search query.
  */
-data class Monitor(val id: String = NO_ID, val version: Long = NO_VERSION,
-                   val name: String, val enabled: Boolean, val schedule: String,
-                   val search: String, val actions: List<String>) : ToXContentObject {
+data class Monitor(override val id: String = NO_ID,
+                   override val version: Long = NO_VERSION,
+                   override val name: String,
+                   override val enabled: Boolean,
+                   override val schedule: String,
+                   val search: String,
+                   override val triggers: List<String>) : ToXContentObject, ScheduledJob {
 
-    fun toXContent(builder: XContentBuilder) : XContentBuilder {
-        return toXContent(builder, ToXContent.EMPTY_PARAMS)
-    }
+    override val inputs: List<String> = listOf(search)
+
+    override val type: ScheduledJob.Type = ScheduledJob.Type.MONITOR
+
+    fun toXContent(builder: XContentBuilder) : XContentBuilder = toXContent(builder, ToXContent.EMPTY_PARAMS)
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
+        super.toXContent(builder, params)
         builder.field(NAME_FIELD, name)
         builder.field(ENABLED_FIELD, enabled)
         builder.field(SCHEDULE_FIELD, schedule)
         builder.field(SEARCH_FIELD, search)
-        builder.startArray(ACTIONS_FIELD)
-        actions.forEach { builder.value(it) }
+        builder.startArray(TRIGGERS_FIELD)
+        triggers.forEach { builder.value(it) }
         builder.endArray()
         return builder.endObject()
     }
+
+    override fun isFragment(): Boolean = false
 
     companion object {
 
@@ -35,9 +52,7 @@ data class Monitor(val id: String = NO_ID, val version: Long = NO_VERSION,
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
         const val SEARCH_FIELD = "search"
-        const val ACTIONS_FIELD = "actions"
-        const val NO_ID = ""
-        const val NO_VERSION = 1L
+        const val TRIGGERS_FIELD = "triggers"
 
         @JvmStatic fun fromJson(bytesRef : BytesReference, id: String) =
                 fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, bytesRef), id)
@@ -48,7 +63,7 @@ data class Monitor(val id: String = NO_ID, val version: Long = NO_VERSION,
             var enabled = true
             var schedule: String? = null
             var search: String? = null
-            var actions: MutableList<String?> = mutableListOf()
+            val triggers: MutableList<String?> = mutableListOf()
 
             require (jp.nextToken() == Token.START_OBJECT) { "invalid monitor json" }
 
@@ -61,19 +76,12 @@ data class Monitor(val id: String = NO_ID, val version: Long = NO_VERSION,
                     ENABLED_FIELD  -> enabled = jp.booleanValue()
                     SCHEDULE_FIELD -> schedule = jp.textOrNull()
                     SEARCH_FIELD   -> search = jp.textOrNull()
-                    ACTIONS_FIELD  -> {
+                    TRIGGERS_FIELD  -> {
                         while (jp.nextToken() != Token.END_ARRAY) {
-                            actions.add(jp.textOrNull())
+                            triggers.add(jp.textOrNull())
                         }
                     }
-                    else -> {
-
-                        if (jp.currentToken() == Token.START_ARRAY || jp.currentToken() == Token.START_OBJECT) {
-                            jp.skipChildren()
-                        } else {
-                            jp.nextToken()
-                        }
-                    }
+                    else -> jp.skipChildren()
                 }
             }
 
@@ -83,7 +91,7 @@ data class Monitor(val id: String = NO_ID, val version: Long = NO_VERSION,
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     requireNotNull(search) { "Monitor search is missing" },
-                    actions.filterNotNull())
+                    triggers.filterNotNull())
 
         }
     }
