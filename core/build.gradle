@@ -2,11 +2,12 @@ apply plugin: 'java'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 
 dependencies {
-    // ES doesn't provide a full painless scripting engine maven artifact that we can compile against. Use a third party
-    // artifact as a replacement for compilation and testing. See https://github.com/elastic/elasticsearch/issues/24528
-    compileOnly "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
-
+    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib"
+
+    testImplementation "org.elasticsearch.test:framework:${es_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-test"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit"
 }
 
 compileKotlin {

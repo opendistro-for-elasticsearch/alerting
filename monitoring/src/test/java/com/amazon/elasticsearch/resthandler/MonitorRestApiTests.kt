@@ -3,22 +3,32 @@
  */
 package com.amazon.elasticsearch.resthandler
 
+import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
-import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_ID
-import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_VERSION
+import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.model.SNSAction
+import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.monitor.Monitor
 import org.apache.http.HttpEntity
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
+import org.apache.logging.log4j.Level
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser.Token.END_OBJECT
 import org.elasticsearch.common.xcontent.XContentParser.Token.START_OBJECT
+import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.script.Script
+import org.elasticsearch.search.SearchModule
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -26,6 +36,8 @@ import org.junit.Before
 
 @TestLogging("level:DEBUG")
 class MonitorRestApiTests : ESRestTestCase() {
+
+    val USE_TYPED_KEYS = ToXContent.MapParams(mapOf("with_type" to "true"))
 
     @Before
     fun `recreate scheduled jobs index`() {
@@ -49,6 +61,24 @@ class MonitorRestApiTests : ESRestTestCase() {
         fail("Plugin not installed")
     }
 
+    override fun xContentRegistry(): NamedXContentRegistry {
+        return NamedXContentRegistry(mutableListOf(Monitor.XCONTENT_REGISTRY,
+                SearchInput.XCONTENT_REGISTRY,
+                SNSAction.XCONTENT_REGISTRY) +
+                SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
+    }
+
+    fun `test parsing monitor as a scheduled job`() {
+        val monitor = randomMonitor()
+        createRandomMonitor()
+
+        val builder = monitor.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), USE_TYPED_KEYS)
+        val string = builder.string()
+        val xcp = createParser(XContentType.JSON.xContent(), string)
+        val scheduledJob = ScheduledJob.parse(xcp)
+        assertEquals(monitor, scheduledJob)
+    }
+
     @Throws(Exception::class)
     fun `test creating a monitor`() {
         val monitor = randomMonitor()
@@ -59,7 +89,7 @@ class MonitorRestApiTests : ESRestTestCase() {
         val responseBody = createResponse.asMap()
         val createdId = responseBody["_id"] as String
         val createdVersion = responseBody["_version"] as Int
-        assertNotEquals("response is missing Id", NO_ID, createdId)
+        assertNotEquals("response is missing Id", Monitor.NO_ID, createdId)
         assertTrue("incorrect version", createdVersion > 0)
         assertEquals("Incorrect Location header", "/_awses/monitors/$createdId", createResponse.getHeader("Location"))
     }
@@ -75,10 +105,11 @@ class MonitorRestApiTests : ESRestTestCase() {
     }
 
     @Throws(Exception::class)
-    fun `test updating a monitor`() {
+    fun `test updating search for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedSearch = randomSearch()
+        val updatedSearch = SearchInput(emptyList(),
+                SearchSourceBuilder().query(QueryBuilders.termQuery("foo", "bar")))
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
                 emptyMap(), monitor.copy(search = updatedSearch).toHttpEntity())
 
@@ -88,7 +119,41 @@ class MonitorRestApiTests : ESRestTestCase() {
         assertEquals("Version not incremented", (monitor.version + 1).toInt(), responseBody["_version"] as Int)
 
         val updatedMonitor = getMonitor(monitor.id)
-        assertEquals("Monitor not updated", updatedSearch, updatedMonitor.search)
+        assertEquals("Monitor search not updated", listOf(updatedSearch), updatedMonitor.inputs)
+    }
+
+    @Throws(Exception::class)
+    fun `test updating conditions for a monitor`() {
+        val monitor = createRandomMonitor()
+
+        val updatedTrigger = Condition("foo", 1, false, Script("return true"), emptyList<SNSAction>())
+        val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
+                emptyMap(), monitor.copy(conditions = listOf(updatedTrigger)).toHttpEntity())
+
+        assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
+        val responseBody = updateResponse.asMap()
+        assertEquals("Updated monitor id doesn't match", monitor.id, responseBody["_id"] as String)
+        assertEquals("Version not incremented", (monitor.version + 1).toInt(), responseBody["_version"] as Int)
+
+        val updatedMonitor = getMonitor(monitor.id)
+        assertEquals("Monitor trigger not updated", updatedTrigger, updatedMonitor.conditions.get(0))
+    }
+
+    @Throws(Exception::class)
+    fun `test updating schedule for a monitor`() {
+        val monitor = createRandomMonitor()
+
+        val updatedSchedule = Schedule("0 9 * * *")
+        val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
+                emptyMap(), monitor.copy(schedule = updatedSchedule).toHttpEntity())
+
+        assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
+        val responseBody = updateResponse.asMap()
+        assertEquals("Updated monitor id doesn't match", monitor.id, responseBody["_id"] as String)
+        assertEquals("Version not incremented", (monitor.version + 1).toInt(), responseBody["_version"] as Int)
+
+        val updatedMonitor = getMonitor(monitor.id)
+        assertEquals("Monitor trigger not updated", updatedSchedule, updatedMonitor.schedule)
     }
 
     @Throws(Exception::class)
@@ -162,19 +227,21 @@ class MonitorRestApiTests : ESRestTestCase() {
         val response = client().performRequest("GET", "_awses/monitors/$monitorId")
         assertEquals("Unable to get monitor $monitorId", RestStatus.OK, response.restStatus())
 
-        val parser = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, response.entity.content)
-        require(parser.nextToken() == START_OBJECT) { "Invalid response" }
 
-        var id : String = NO_ID
-        var version : Long = NO_VERSION
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        XContentParserUtils.ensureExpectedToken(START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+
+        var id : String = ScheduledJob.NO_ID
+        var version : Long = ScheduledJob.NO_VERSION
         var monitor : Monitor? = null
 
         while (parser.nextToken() != END_OBJECT) {
+            parser.nextToken()
+
             when (parser.currentName()) {
-                "_id" ->      { parser.nextToken(); id = parser.text() }
-                "_version" -> { parser.nextToken(); version = parser.longValue() }
-                "monitor" -> monitor = Monitor.fromJson(parser)
+                "_id" ->      id = parser.text()
+                "_version" ->  version = parser.longValue()
+                "monitor" ->  monitor = Monitor.parse(parser)
             }
         }
         return monitor!!.copy(id  = id, version = version)
@@ -202,13 +269,13 @@ class MonitorRestApiTests : ESRestTestCase() {
     private fun randomMonitor(): Monitor {
         return Monitor(name = randomAlphaOfLength(10),
                 enabled = ESTestCase.randomBoolean(),
-                search = "not implemented",
-                schedule = "not implemented",
-                triggers = listOf())
+                search = SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery())),
+                schedule = Schedule("* * 0/2 * * ?"),
+                conditions = listOf())
     }
 
     private fun randomSearch(): String {
         return randomAlphaOfLength(20)
-        // TODO("Return an actual search string")
+        // TODO("Return an actual source string")
     }
 }

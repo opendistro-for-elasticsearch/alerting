@@ -3,6 +3,9 @@
  */
 package com.amazon.elasticsearch
 
+import com.amazon.elasticsearch.model.SNSAction
+import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitor.Monitor
 import com.amazon.elasticsearch.resthandler.RestDeleteMonitorAction
 import com.amazon.elasticsearch.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.resthandler.RestIndexMonitorAction
@@ -12,6 +15,7 @@ import org.elasticsearch.common.settings.ClusterSettings
 import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
 import org.elasticsearch.rest.RestController
@@ -19,12 +23,10 @@ import org.elasticsearch.rest.RestHandler
 import java.util.function.Supplier
 
 /**
- * The entry point for the Monitoring plugin.
- * This class registers the following handlers:
- * 1. Get Monitors(s)
- * 2. Create (put) Monitor.
- * 3. Delete Monitor.
- * 4. Test Monitor.
+ * Entry point of the Amazon Elasticsearch monitoring plugin
+ * This class initializes the [RestGetMonitorAction], [RestDeleteMonitorAction], [RestIndexMonitorAction] rest handlers.
+ * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [SNSAction.XCONTENT_REGISTRY] to the
+ * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
 class MonitoringPlugin : ActionPlugin, Plugin() {
 
@@ -38,6 +40,11 @@ class MonitoringPlugin : ActionPlugin, Plugin() {
         return listOf(RestGetMonitorAction(settings, restController),
                 RestDeleteMonitorAction(settings, restController),
                 RestIndexMonitorAction(settings, restController))
+    }
 
+    override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {
+        return listOf(Monitor.XCONTENT_REGISTRY,
+                SearchInput.XCONTENT_REGISTRY,
+                SNSAction.XCONTENT_REGISTRY)
     }
 }

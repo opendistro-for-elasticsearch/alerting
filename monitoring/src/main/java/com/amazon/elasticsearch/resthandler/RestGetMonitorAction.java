@@ -3,6 +3,7 @@
  */
 package com.amazon.elasticsearch.resthandler;
 
+import com.amazon.elasticsearch.model.Input;
 import com.amazon.elasticsearch.model.ScheduledJob;
 import com.amazon.elasticsearch.monitor.Monitor;
 import org.elasticsearch.action.get.GetRequest;
@@ -10,6 +11,9 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentParserUtils;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
@@ -41,7 +45,7 @@ public class RestGetMonitorAction extends BaseRestHandler {
 
     @Override
     public String getName() {
-        return "Get one or all monitors.";
+        return "Get one monitor.";
     }
 
     @Override
@@ -56,7 +60,6 @@ public class RestGetMonitorAction extends BaseRestHandler {
         if (request.method() == HEAD) {
             getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE);
         }
-
         return channel -> client.get(getRequest, getMonitorResponse(channel));
     }
 
@@ -73,7 +76,10 @@ public class RestGetMonitorAction extends BaseRestHandler {
                         .field("_id", getResponse.getId())
                         .field("_version", getResponse.getVersion());
                 if (!getResponse.isSourceEmpty()) {
-                    builder.field("monitor", Monitor.fromJson(getResponse.getSourceAsBytesRef(), getResponse.getId()));
+                    XContentParser xcp = XContentType.JSON.xContent()
+                            .createParser(channel.request().getXContentRegistry(), getResponse.getSourceAsBytesRef());
+                    ScheduledJob monitor = ScheduledJob.Companion.parse(xcp, getResponse.getId(), getResponse.getVersion());
+                    builder.field("monitor", monitor);
                 }
                 builder.endObject();
                 return new BytesRestResponse(RestStatus.OK, builder);

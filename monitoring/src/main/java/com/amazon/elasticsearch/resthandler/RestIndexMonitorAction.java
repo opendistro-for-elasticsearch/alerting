@@ -8,7 +8,10 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentParser.Token;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
@@ -21,11 +24,14 @@ import org.elasticsearch.rest.action.RestActions;
 import org.elasticsearch.rest.action.RestResponseListener;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOBS_INDEX;
 import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOB_TYPE;
 import static org.elasticsearch.rest.RestRequest.Method.POST;
 import static org.elasticsearch.rest.RestRequest.Method.PUT;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 /**
  * Rest handlers to create and update monitors
@@ -51,9 +57,14 @@ public class RestIndexMonitorAction extends BaseRestHandler {
         }
 
         // Validate request by parsing JSON to Monitor
-        Monitor monitor = Monitor.fromJson(request.contentParser(), id);
+        XContentParser xcp = request.contentParser();
+        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation);
+        Monitor monitor = Monitor.parse(xcp, id);
+        Map<String, String> typedKeys = new HashMap<String, String>();
+        typedKeys.put("with_type", "true");
         final IndexRequest indexRequest = new IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
-                .source(request.content(), XContentType.JSON);
+                .source(monitor.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()),
+                        new ToXContent.MapParams(typedKeys)).string(), XContentType.JSON);
         if (request.method() == PUT) {
             indexRequest.id(id).version(RestActions.parseVersion(request));
         }

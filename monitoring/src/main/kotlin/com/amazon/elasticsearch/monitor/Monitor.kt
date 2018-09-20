@@ -1,97 +1,112 @@
-/*
- * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- */
-
 package com.amazon.elasticsearch.monitor
 
+import com.amazon.elasticsearch.model.Condition
+import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
-import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_ID
-import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_VERSION
-import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.xcontent.*
+import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.model.Input
+import org.elasticsearch.common.CheckedFunction
+import org.elasticsearch.common.ParseField
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import java.io.IOException
 
 /**
- * A [Monitor] is a [ScheduledJob] used for alarming.
- *
- * Though [ScheduledJob]s support multiple inputs, a [Monitor] (currently) only supports a single input which must be
- * a search query.
+ * A value object that represents a Monitor. Monitors are used to periodically execute a source query and check the
+ * results.
  */
-data class Monitor(override val id: String = NO_ID,
-                   override val version: Long = NO_VERSION,
-                   override val name: String,
-                   override val enabled: Boolean,
-                   override val schedule: String,
-                   val search: String,
-                   override val triggers: List<String>) : ToXContentObject, ScheduledJob {
+data class Monitor(override val id: String = NO_ID, override val version: Long = NO_VERSION,
+                   override val name: String, override val enabled: Boolean, override val schedule: Schedule,
+                   val search: SearchInput, override val conditions: List<Condition>) : ScheduledJob {
 
-    override val inputs: List<String> = listOf(search)
+    override val type: String = "monitor"
+    override val inputs: List<SearchInput> = listOf(search)
 
-    override val type: ScheduledJob.Type = ScheduledJob.Type.MONITOR
-
-    fun toXContent(builder: XContentBuilder) : XContentBuilder = toXContent(builder, ToXContent.EMPTY_PARAMS)
+    fun toXContent(builder: XContentBuilder) : XContentBuilder {
+        return toXContent(builder, ToXContent.EMPTY_PARAMS)
+    }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        super.toXContent(builder, params)
+        if (params.paramAsBoolean("with_type", false)) builder.startObject(type)
         builder.field(NAME_FIELD, name)
-        builder.field(ENABLED_FIELD, enabled)
-        builder.field(SCHEDULE_FIELD, schedule)
-        builder.field(SEARCH_FIELD, search)
-        builder.startArray(TRIGGERS_FIELD)
-        triggers.forEach { builder.value(it) }
-        builder.endArray()
+                .field(ENABLED_FIELD, enabled)
+                .field(SCHEDULE_FIELD, schedule)
+                .field(INPUTS_FIELD, inputs.toTypedArray())
+                .field(TRIGGERS_FIELD, conditions.toTypedArray())
+        if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
     }
 
-    override fun isFragment(): Boolean = false
+    override fun fromDocument(id: String, version: Long) : Monitor = copy(id = id, version = version)
+
 
     companion object {
 
         const val NAME_FIELD = "name"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
-        const val SEARCH_FIELD = "search"
         const val TRIGGERS_FIELD = "triggers"
+        const val NO_ID = ""
+        const val NO_VERSION = 1L
+        const val INPUTS_FIELD = "inputs"
 
-        @JvmStatic fun fromJson(bytesRef : BytesReference, id: String) =
-                fromJson(XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, bytesRef), id)
+        // This is defined here instead of in ScheduledJob to avoid having the ScheduledJob class know about all
+        // the different subclasses and creating circular dependencies
+        val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(ScheduledJob::class.java,
+                ParseField("monitor"),
+                CheckedFunction { Monitor.parse(it) })
 
-        @JvmOverloads @JvmStatic
-        fun fromJson(jp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION) : Monitor {
-            var name : String? = null
+        @JvmStatic @JvmOverloads
+        @Throws(IOException::class)
+        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
+            lateinit var name : String
+            lateinit var schedule: Schedule
             var enabled = true
-            var schedule: String? = null
-            var search: String? = null
-            val triggers: MutableList<String?> = mutableListOf()
+            val triggers: MutableList<Condition> = mutableListOf()
+            val inputs: MutableList<Input> = mutableListOf()
 
-            require (jp.nextToken() == Token.START_OBJECT) { "invalid monitor json" }
-
-            while (jp.nextToken() != Token.END_OBJECT) {
-                val fieldName = jp.currentName()
-                jp.nextToken()
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
 
                 when (fieldName) {
-                    NAME_FIELD     -> name = jp.textOrNull()
-                    ENABLED_FIELD  -> enabled = jp.booleanValue()
-                    SCHEDULE_FIELD -> schedule = jp.textOrNull()
-                    SEARCH_FIELD   -> search = jp.textOrNull()
-                    TRIGGERS_FIELD  -> {
-                        while (jp.nextToken() != Token.END_ARRAY) {
-                            triggers.add(jp.textOrNull())
+                    NAME_FIELD     -> name = xcp.text()
+                    ENABLED_FIELD  -> enabled = xcp.booleanValue()
+                    SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
+                    INPUTS_FIELD -> {
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        while (xcp.nextToken() != Token.END_ARRAY) {
+                            inputs.add(Input.parse(xcp))
                         }
                     }
-                    else -> jp.skipChildren()
+                    TRIGGERS_FIELD -> {
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        while (xcp.nextToken() != Token.END_ARRAY) {
+                            triggers.add(Condition.parse(xcp))
+                        }
+                    }
+                    else -> {
+                        xcp.skipChildren()
+                    }
                 }
             }
+
+            require(inputs.size == 1) { "Monitors can only have a single search input" }
 
             return Monitor(id,
                     version,
                     requireNotNull(name) { "Monitor name is null" },
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
-                    requireNotNull(search) { "Monitor search is missing" },
-                    triggers.filterNotNull())
+                    inputs.first() as SearchInput,
+                    triggers.toList())
+
 
         }
     }

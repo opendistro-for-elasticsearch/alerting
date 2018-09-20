@@ -37,7 +37,7 @@ public class MonitorManager {
      */
     private static SearchResponse doSearch(Client client, Monitor monitor) throws IOException {
         SearchSourceBuilder searchSource = SearchSourceBuilder.fromXContent(XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, monitor.getSearch()));
+                .createParser(NamedXContentRegistry.EMPTY, monitor.getInputs().toString()));
         return client.prepareSearch().setSource(searchSource).get();
     }
 
@@ -55,13 +55,13 @@ public class MonitorManager {
 //            Map<String, Object> context;
 //            context = AccessController.doPrivileged(new PrivilegedAction<Map<String, Object>>() {
 //                public Map<String, Object> run() {
-//                    return new Gson().fromJson(queryResult, new TypeToken<HashMap<String, Object>>() {}.getType());
+//                    return new Gson().parse(queryResult, new TypeToken<HashMap<String, Object>>() {}.getType());
 //                }
 //            });
 //            PainlessPolicy painlessPolicy = new PainlessPolicy(policyName, script, context, Collections.emptyMap());
 //            result = String.format(aLocale,"Here is the result: \n %s \n", painlessPolicy.getResult());
 //        } catch (Exception e) {
-//            result = "Failed to perform search and painless with exception: "  + e.getMessage();
+//            result = "Failed to perform source and painless with exception: "  + e.getMessage();
 //            result += "\n Stack trace: \n";
 //            for (StackTraceElement stackTraceElement : e.getStackTrace()) {
 //                result += stackTraceElement.toString() + "\n";
