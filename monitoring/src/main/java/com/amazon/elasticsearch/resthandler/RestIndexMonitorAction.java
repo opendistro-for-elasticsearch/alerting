@@ -10,6 +10,7 @@ import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentParser.Token;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -60,11 +61,11 @@ public class RestIndexMonitorAction extends BaseRestHandler {
         XContentParser xcp = request.contentParser();
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation);
         Monitor monitor = Monitor.parse(xcp, id);
-        Map<String, String> typedKeys = new HashMap<String, String>();
-        typedKeys.put("with_type", "true");
+
+        XContentBuilder builder = XContentFactory.contentBuilder(request.getXContentType());
         final IndexRequest indexRequest = new IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
-                .source(monitor.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()),
-                        new ToXContent.MapParams(typedKeys)).string(), XContentType.JSON);
+                .source(monitor.toXContentWithType(builder));
+
         if (request.method() == PUT) {
             indexRequest.id(id).version(RestActions.parseVersion(request));
         }

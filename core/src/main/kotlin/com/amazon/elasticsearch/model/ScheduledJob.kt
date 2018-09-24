@@ -7,8 +7,9 @@ package com.amazon.elasticsearch.model
 import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_ID
 import com.amazon.elasticsearch.model.ScheduledJob.Companion.NO_VERSION
 import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.elasticsearch.model.ScheduledJob.Type
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
+import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -17,28 +18,24 @@ import java.io.IOException
 /**
  * A job that runs periodically in the ElasticSearch cluster.
  *
- * There can be many [Type]s of [ScheduledJob]s (identified by the [type] field) that perform different kinds of work.
- * All of the different types of jobs are scheduled and run in a single global Scheduler running on each node. Each
- * [Type] of job will have additional fields that specify what the job is supposed to do. There will be separate APIs
- * for creating, reading, updating and deleting scheduled jobs.
+ * All implementations of [ScheduledJob]s are stored in the [SCHEDULED_JOBS_INDEX] index and are scheduled in a
+ * single global Scheduler running on each node. Each implementation should have its own separate APIs for writing,
+ * updating and deleting instances of that job type into the [SCHEDULED_JOBS_INDEX] index. The index is periodically
+ * scanned for updates which are then scheduled or unscheduled with the Scheduler.
  *
- * All types of [ScheduledJob]s are stored as documents in a special index in the cluster (see [SCHEDULED_JOBS_INDEX]).
- * Like all documents stored in the cluster they have an [id] and a [version].  Jobs that have not been persisted in the
- * cluster should use the special sentinel values [NO_ID] and [NO_VERSION] for these fields.
+ * Like all documents in Elasticsearch [ScheduledJob]s also have an [id] and a [version].  Jobs that have not been
+ * persisted in the cluster should use the special sentinel values [NO_ID] and [NO_VERSION] for these fields.
  */
 interface ScheduledJob : ToXContentObject {
 
-    /** Enum of all supported types of [ScheduledJob]s. */
-    enum class Type {
-        MONITOR
-    }
+    fun toXContentWithType(builder: XContentBuilder) : XContentBuilder = toXContent(builder, XCONTENT_WITH_TYPE)
 
     companion object {
         /** The name of the ElasticSearch index in which we store jobs */
         const val SCHEDULED_JOBS_INDEX = ".scheduled-jobs"
 
         /**
-         * The mapping type of [ScheduledJob]s in the ES index. Unrelated to [Type].
+         * The mapping type of [ScheduledJob]s in the ES index. Unrelated to [ScheduledJob.type].
          *
          * This should go away starting ES 7. We use "_doc" for future compatibility as described here:
          * https://www.elastic.co/guide/en/elasticsearch/reference/6.x/removal-of-types.html#_schedule_for_removal_of_mapping_types
@@ -49,6 +46,7 @@ interface ScheduledJob : ToXContentObject {
 
         const val NO_VERSION = 1L
 
+        private val XCONTENT_WITH_TYPE = ToXContent.MapParams(mapOf("with_type" to "true"))
 
         /**
          * This function parses the job, delegating to the specific subtype parser registered in the [XContentParser.getXContentRegistry]
