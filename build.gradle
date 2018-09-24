@@ -27,7 +27,9 @@ evaluationDependsOnChildren()
 task 'build-all-plugins'(type: Sync, group: 'build') {
     from project(':monitoring').tasks.bundlePlugin
     into 'build/distributions'
-    dependsOn project(':monitoring').tasks.build
+    // Don't depend on the 'build' task until we can figure out how to not run as root in CodeBuild. ES doesn't like root. 
+//    dependsOn project(':monitoring').tasks.build
+    dependsOn project(':monitoring').tasks.assemble
 }
 assemble.dependsOn('build-all-plugins')
 
