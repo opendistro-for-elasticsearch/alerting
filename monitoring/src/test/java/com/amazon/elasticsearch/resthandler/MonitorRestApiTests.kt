@@ -4,6 +4,7 @@
 package com.amazon.elasticsearch.resthandler
 
 import com.amazon.elasticsearch.model.Condition
+import com.amazon.elasticsearch.model.CronSchedule
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
@@ -142,7 +143,7 @@ class MonitorRestApiTests : ESRestTestCase() {
     fun `test updating schedule for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedSchedule = Schedule("0 9 * * *")
+        val updatedSchedule = CronSchedule("0 9 * * *")
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
                 emptyMap(), monitor.copy(schedule = updatedSchedule).toHttpEntity())
 
@@ -269,7 +270,7 @@ class MonitorRestApiTests : ESRestTestCase() {
         return Monitor(name = randomAlphaOfLength(10),
                 enabled = ESTestCase.randomBoolean(),
                 inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
-                schedule = Schedule("* * 0/2 * * ?"),
+                schedule = CronSchedule("* * 0/2 * * ?"),
                 triggers = listOf())
     }
 
