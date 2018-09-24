@@ -8,13 +8,12 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.script.Script
 import java.io.IOException
 
-data class Condition(val name: String, val severity: Int, val acknowledged: Boolean, val condition: Script, val actions: List<Action>) : ToXContent {
+data class Condition(val name: String, val severity: Int, val condition: Script, val actions: List<Action>) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
                 .field(NAME_FIELD, name)
                 .field(SEVERITY_FILED, severity)
-                .field(ACKNOWLEDGED_FIELD, acknowledged)
                 .startObject(CONDITION_FIELD)
                 .field(SCRIPT_FIELD, condition)
                 .endObject()
@@ -26,7 +25,6 @@ data class Condition(val name: String, val severity: Int, val acknowledged: Bool
     companion object {
         const val NAME_FIELD = "name"
         const val SEVERITY_FILED = "severity"
-        const val ACKNOWLEDGED_FIELD = "acknowledged"
         const val CONDITION_FIELD = "condition"
         const val ACTIONS_FIELD = "actions"
         const val SCRIPT_FIELD = "script"
@@ -35,7 +33,6 @@ data class Condition(val name: String, val severity: Int, val acknowledged: Bool
         fun parse(xcp: XContentParser) : Condition {
             lateinit var name: String
             var severity = 0
-            var acknowledged = false
             lateinit var condition: Script
             val actions: MutableList<Action> = mutableListOf()
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -47,7 +44,6 @@ data class Condition(val name: String, val severity: Int, val acknowledged: Bool
                 when (fieldName) {
                     NAME_FIELD -> name = xcp.text()
                     SEVERITY_FILED -> severity = xcp.intValue()
-                    ACKNOWLEDGED_FIELD -> acknowledged = xcp.booleanValue()
                     CONDITION_FIELD -> {
                         xcp.nextToken()
                         condition = Script.parse(xcp)
@@ -65,7 +61,6 @@ data class Condition(val name: String, val severity: Int, val acknowledged: Bool
 
             return Condition(requireNotNull(name) { "Condition name is null" },
                     requireNotNull(severity) { "Condition severity is null" },
-                    requireNotNull(acknowledged),
                     requireNotNull(condition) { "Condition is null" },
                     requireNotNull(actions) { "Condition actions are null" })
         }

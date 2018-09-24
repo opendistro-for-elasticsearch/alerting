@@ -72,7 +72,6 @@ class XContentTests {
     private fun randomCondition(): Condition {
         return Condition(name = "foo",
                 severity = 1,
-                acknowledged = false,
                 condition = randomScript(),
                 actions = listOf(randomAction())
         )

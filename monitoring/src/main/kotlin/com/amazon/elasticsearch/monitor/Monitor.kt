@@ -21,10 +21,9 @@ import java.io.IOException
  */
 data class Monitor(override val id: String = NO_ID, override val version: Long = NO_VERSION,
                    override val name: String, override val enabled: Boolean, override val schedule: Schedule,
-                   val search: SearchInput, override val conditions: List<Condition>) : ScheduledJob {
+                   val inputs: List<Input>, val triggers: List<Condition>) : ScheduledJob {
 
     override val type: String = "monitor"
-    override val inputs: List<SearchInput> = listOf(search)
 
     fun toXContent(builder: XContentBuilder) : XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -37,7 +36,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                 .field(ENABLED_FIELD, enabled)
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
-                .field(TRIGGERS_FIELD, conditions.toTypedArray())
+                .field(TRIGGERS_FIELD, triggers.toTypedArray())
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
     }
@@ -104,7 +103,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                     requireNotNull(name) { "Monitor name is null" },
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
-                    inputs.first() as SearchInput,
+                    inputs,
                     triggers.toList())
 
 

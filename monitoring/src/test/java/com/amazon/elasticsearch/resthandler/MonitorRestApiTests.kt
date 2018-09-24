@@ -3,27 +3,26 @@
  */
 package com.amazon.elasticsearch.resthandler
 
+import com.amazon.elasticsearch.model.Condition
+import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.model.SNSAction
-import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.monitor.Monitor
 import org.apache.http.HttpEntity
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
-import org.apache.logging.log4j.Level
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser.Token.END_OBJECT
 import org.elasticsearch.common.xcontent.XContentParser.Token.START_OBJECT
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.common.xcontent.XContentBuilder
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
@@ -111,7 +110,7 @@ class MonitorRestApiTests : ESRestTestCase() {
         val updatedSearch = SearchInput(emptyList(),
                 SearchSourceBuilder().query(QueryBuilders.termQuery("foo", "bar")))
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
-                emptyMap(), monitor.copy(search = updatedSearch).toHttpEntity())
+                emptyMap(), monitor.copy(inputs = listOf(updatedSearch)).toHttpEntity())
 
         assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -126,9 +125,9 @@ class MonitorRestApiTests : ESRestTestCase() {
     fun `test updating conditions for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedTrigger = Condition("foo", 1, false, Script("return true"), emptyList<SNSAction>())
+        val updatedTrigger = Condition("foo", 1, Script("return true"), emptyList())
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
-                emptyMap(), monitor.copy(conditions = listOf(updatedTrigger)).toHttpEntity())
+                emptyMap(), monitor.copy(triggers = listOf(updatedTrigger)).toHttpEntity())
 
         assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -136,7 +135,7 @@ class MonitorRestApiTests : ESRestTestCase() {
         assertEquals("Version not incremented", (monitor.version + 1).toInt(), responseBody["_version"] as Int)
 
         val updatedMonitor = getMonitor(monitor.id)
-        assertEquals("Monitor trigger not updated", updatedTrigger, updatedMonitor.conditions.get(0))
+        assertEquals("Monitor trigger not updated", updatedTrigger, updatedMonitor.triggers[0])
     }
 
     @Throws(Exception::class)
@@ -269,9 +268,9 @@ class MonitorRestApiTests : ESRestTestCase() {
     private fun randomMonitor(): Monitor {
         return Monitor(name = randomAlphaOfLength(10),
                 enabled = ESTestCase.randomBoolean(),
-                search = SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery())),
+                inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
                 schedule = Schedule("* * 0/2 * * ?"),
-                conditions = listOf())
+                triggers = listOf())
     }
 
     private fun randomSearch(): String {

@@ -17,15 +17,10 @@ import java.io.IOException
 /**
  * A job that runs periodically in the ElasticSearch cluster.
  *
- * A [ScheduledJob] has 3 major components:
- *  * A [schedule] which specifies when the job runs.
- *  * One or more [inputs] which specifies the input data for the job (such as search query, or static values)
- *  * One or more [triggers] which specifies the conditions that the input must match.
- *  * One or more actions to take if the trigger condition is satisfied (i.e. the trigger "fires")
- *
  * There can be many [Type]s of [ScheduledJob]s (identified by the [type] field) that perform different kinds of work.
  * All of the different types of jobs are scheduled and run in a single global Scheduler running on each node. Each
- * [Type] of job will implement it's own external APIs for user's to read, write, query and otherwise manipulate jobs.
+ * [Type] of job will have additional fields that specify what the job is supposed to do. There will be separate APIs
+ * for creating, reading, updating and deleting scheduled jobs.
  *
  * All types of [ScheduledJob]s are stored as documents in a special index in the cluster (see [SCHEDULED_JOBS_INDEX]).
  * Like all documents stored in the cluster they have an [id] and a [version].  Jobs that have not been persisted in the
@@ -56,8 +51,12 @@ interface ScheduledJob : ToXContentObject {
 
 
         /**
-         * This function parses the job from a [typed keys](https://www.elastic.co/guide/en/elasticsearch/reference/current/returning-aggregation-type.html)
-         * json representation. If the job comes from an elasticsearch index it's [id] and [version] can also be supplied.
+         * This function parses the job, delegating to the specific subtype parser registered in the [XContentParser.getXContentRegistry]
+         * at runtime.  Each concrete job subclass is expected to register a parser in this registry.
+         * The Job's json representation is expected to be of the form:
+         *     { "<job_type>" : { <job fields> } }
+         *
+         * If the job comes from an Elasticsearch index it's [id] and [version] can also be supplied.
          */
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id : String = NO_ID, version : Long = NO_VERSION) : ScheduledJob {
@@ -87,12 +86,6 @@ interface ScheduledJob : ToXContentObject {
 
     /** The schedule for running the job  */
     val schedule: Schedule
-
-    /** The inputs to the job */
-    val inputs: List<Input>
-
-    /** The triggering conditions that the inputs must match.  The triggers will contain the actions to take. */
-    val conditions: List<Condition>
 
     /** Copy constructor for persisted jobs */
     fun fromDocument(id: String, version: Long) : ScheduledJob
