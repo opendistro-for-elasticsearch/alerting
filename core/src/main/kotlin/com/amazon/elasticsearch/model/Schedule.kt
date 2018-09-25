@@ -1,11 +1,17 @@
 package com.amazon.elasticsearch.model
 
+import com.cronutils.model.CronType
+import com.cronutils.model.definition.CronDefinitionBuilder
+import com.cronutils.model.time.ExecutionTime
+import com.cronutils.parser.CronParser
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
+import java.time.Duration
+import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
 sealed class Schedule: ToXContentObject {
@@ -17,6 +23,8 @@ sealed class Schedule: ToXContentObject {
         const val PERIOD_FIELD = "period"
         const val INTERVAL_FIELD = "interval"
         const val UNIT_FIELD = "unit"
+
+        val cronParser = CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX))
 
         @JvmStatic @Throws(IOException::class)
         fun parse(xcp: XContentParser) : Schedule {
@@ -71,9 +79,21 @@ sealed class Schedule: ToXContentObject {
             return requireNotNull(schedule) { "Schedule is null." }
         }
     }
+
+    abstract fun nextTimeToExecute() : Duration?
 }
 
 data class CronSchedule(val expression: String, val timezone: String) : Schedule() {
+
+    @Transient
+    val executionTime = ExecutionTime.forCron(cronParser.parse(expression))
+
+    override fun nextTimeToExecute(): Duration? {
+        // TODO support timezone. https://issues-pdx.amazon.com/issues/AESAlerting-92
+        val now = ZonedDateTime.now()
+        val timeToNextExecution = executionTime.timeToNextExecution(now)
+        return timeToNextExecution.orElse(null)
+    }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -87,6 +107,13 @@ data class CronSchedule(val expression: String, val timezone: String) : Schedule
 }
 
 data class IntervalSchedule(val interval: Int, val unit: ChronoUnit) : Schedule() {
+    override fun nextTimeToExecute(): Duration? {
+        // TODO this should really be nextExecutionTime = lastExecutionTime + interval
+        // https://issues-pdx.amazon.com/issues/AESAlerting-93
+        val intervalDuration = Duration.of(interval.toLong(), unit)
+        return intervalDuration
+    }
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
                 .startObject(PERIOD_FIELD)
