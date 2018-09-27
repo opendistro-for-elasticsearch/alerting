@@ -2,12 +2,16 @@
  * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
-import com.amazon.elasticsearch.model.*
+import com.amazon.elasticsearch.model.Action
+import com.amazon.elasticsearch.model.Condition
+import com.amazon.elasticsearch.model.Input
+import com.amazon.elasticsearch.model.SNSAction
+import com.amazon.elasticsearch.model.SearchInput
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script

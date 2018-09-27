@@ -1,10 +1,9 @@
 package com.amazon.elasticsearch.monitor
 
 import com.amazon.elasticsearch.model.Condition
+import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
-import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.model.Input
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -20,8 +19,9 @@ import java.io.IOException
  * results.
  */
 data class Monitor(override val id: String = NO_ID, override val version: Long = NO_VERSION,
-                   override val name: String, override val enabled: Boolean, override val schedule: Schedule,
-                   val inputs: List<Input>, val triggers: List<Condition>) : ScheduledJob {
+                   override val name: String, override val enabled: Boolean,
+                   override val schedule: Schedule, val inputs: List<Input>,
+                   val conditions: List<Condition>, val uiMetadata: Map<String, Any>) : ScheduledJob {
 
     override val type: String = "monitor"
 
@@ -36,16 +36,15 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                 .field(ENABLED_FIELD, enabled)
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
-                .field(TRIGGERS_FIELD, triggers.toTypedArray())
+                .field(TRIGGERS_FIELD, conditions.toTypedArray())
+        if (uiMetadata.isNotEmpty()) builder.field(UI_METADATA_FIELD, uiMetadata)
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
     }
 
     override fun fromDocument(id: String, version: Long) : Monitor = copy(id = id, version = version)
 
-
     companion object {
-
         const val NAME_FIELD = "name"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
@@ -53,6 +52,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         const val NO_ID = ""
         const val NO_VERSION = 1L
         const val INPUTS_FIELD = "inputs"
+        const val UI_METADATA_FIELD = "ui_metadata"
+
 
         // This is defined here instead of in ScheduledJob to avoid having the ScheduledJob class know about all
         // the different subclasses and creating circular dependencies
@@ -65,9 +66,10 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
             lateinit var name : String
             lateinit var schedule: Schedule
+            var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
-            val triggers: MutableList<Condition> = mutableListOf()
-            val inputs: MutableList<Input> = mutableListOf()
+            var triggers: MutableList<Condition> = mutableListOf()
+            var inputs: MutableList<Input> = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -90,6 +92,9 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                             triggers.add(Condition.parse(xcp))
                         }
                     }
+                    UI_METADATA_FIELD -> {
+                        uiMetadata = xcp.map()
+                    }
                     else -> {
                         xcp.skipChildren()
                     }
@@ -104,9 +109,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     inputs,
-                    triggers.toList())
-
-
+                    triggers.toList(),
+                    uiMetadata)
         }
     }
 }

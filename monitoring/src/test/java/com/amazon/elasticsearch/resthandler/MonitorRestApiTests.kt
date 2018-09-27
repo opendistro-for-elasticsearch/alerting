@@ -5,14 +5,16 @@ package com.amazon.elasticsearch.resthandler
 
 import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.model.CronSchedule
+import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
-import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitor.Monitor
 import org.apache.http.HttpEntity
+import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
+import org.apache.http.message.BasicHeader
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
@@ -33,6 +35,7 @@ import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.Before
+import java.time.temporal.ChronoUnit
 
 @TestLogging("level:DEBUG")
 class MonitorRestApiTests : ESRestTestCase() {
@@ -126,9 +129,9 @@ class MonitorRestApiTests : ESRestTestCase() {
     fun `test updating conditions for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedTrigger = Condition("foo", 1, Script("return true"), emptyList())
+        val updatedTriggers = listOf(Condition("foo", 1, Script("return true"), emptyList()))
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
-                emptyMap(), monitor.copy(triggers = listOf(updatedTrigger)).toHttpEntity())
+                emptyMap(), monitor.copy(conditions = updatedTriggers).toHttpEntity())
 
         assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -136,14 +139,14 @@ class MonitorRestApiTests : ESRestTestCase() {
         assertEquals("Version not incremented", (monitor.version + 1).toInt(), responseBody["_version"] as Int)
 
         val updatedMonitor = getMonitor(monitor.id)
-        assertEquals("Monitor trigger not updated", updatedTrigger, updatedMonitor.triggers[0])
+        assertEquals("Monitor trigger not updated", updatedTriggers, updatedMonitor.conditions)
     }
 
     @Throws(Exception::class)
     fun `test updating schedule for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedSchedule = CronSchedule("0 9 * * *")
+        val updatedSchedule = CronSchedule(expression = "0 9 * * *", timezone = "UTC")
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
                 emptyMap(), monitor.copy(schedule = updatedSchedule).toHttpEntity())
 
@@ -210,10 +213,27 @@ class MonitorRestApiTests : ESRestTestCase() {
         }
     }
 
+    fun `test getting UI metadata monitor not from Kibana`() {
+        var monitor = createRandomMonitor()
+        var getMonitor = getMonitor(monitorId = monitor.id)
+        assertEquals("UI Metadata returned but request did not come from Kibana.", getMonitor.uiMetadata, mapOf<String, Any>())
+    }
+
+    fun `test getting UI metadata monitor from Kibana`() {
+        var monitor = createRandomMonitor()
+        var header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana")
+        var getMonitor = getMonitor(monitorId = monitor.id, header = header)
+        assertEquals("", monitor.uiMetadata, getMonitor.uiMetadata)
+    }
+
     // Helper functions
 
     private fun createRandomMonitor() : Monitor {
         val monitor = randomMonitor()
+        return createMonitor(monitor)
+    }
+
+    private fun createMonitor(monitor: Monitor): Monitor {
         val response = client().performRequest("POST", "_awses/monitors", emptyMap(), monitor.toHttpEntity())
         assertEquals("Unable to create a new monitor", RestStatus.CREATED, response.restStatus())
 
@@ -223,8 +243,8 @@ class MonitorRestApiTests : ESRestTestCase() {
         return monitor.copy(id = monitorJson["_id"] as String, version = (monitorJson["_version"] as Int).toLong())
     }
 
-    private fun getMonitor(monitorId: String): Monitor {
-        val response = client().performRequest("GET", "_awses/monitors/$monitorId")
+    private fun getMonitor(monitorId: String, header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")): Monitor {
+        val response = client().performRequest("GET", "_awses/monitors/$monitorId", header)
         assertEquals("Unable to get monitor $monitorId", RestStatus.OK, response.restStatus())
 
 
@@ -270,8 +290,9 @@ class MonitorRestApiTests : ESRestTestCase() {
         return Monitor(name = randomAlphaOfLength(10),
                 enabled = ESTestCase.randomBoolean(),
                 inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
-                schedule = CronSchedule("* * 0/2 * * ?"),
-                triggers = listOf())
+                schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
+                conditions = listOf(),
+                uiMetadata = mapOf())
     }
 
     private fun randomSearch(): String {

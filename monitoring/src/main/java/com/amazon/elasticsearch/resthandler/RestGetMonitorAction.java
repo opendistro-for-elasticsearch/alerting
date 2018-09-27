@@ -3,16 +3,16 @@
  */
 package com.amazon.elasticsearch.resthandler;
 
-import com.amazon.elasticsearch.model.Input;
+import com.amazon.elasticsearch.MonitoringPlugin;
 import com.amazon.elasticsearch.model.ScheduledJob;
 import com.amazon.elasticsearch.monitor.Monitor;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.node.NodeClient;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentParserUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
@@ -56,7 +56,8 @@ public class RestGetMonitorAction extends BaseRestHandler {
         }
         GetRequest getRequest =
                 new GetRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
-                .version(RestActions.parseVersion(request));
+                        .version(RestActions.parseVersion(request))
+                        .fetchSourceContext(context(request));
         if (request.method() == HEAD) {
             getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE);
         }
@@ -85,5 +86,20 @@ public class RestGetMonitorAction extends BaseRestHandler {
                 return new BytesRestResponse(RestStatus.OK, builder);
             }
         };
+    }
+
+    /**
+     * Checks to see if the request came from Kibana, if so we want to return the UI Metadata from the document.
+     * If the request came from the client then we exclude the UI Metadata from the search result.
+     *
+     * @param request
+     * @return FetchSourceContext
+     */
+    private FetchSourceContext context(final RestRequest request) {
+        String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));
+        if (!userAgent.contains(MonitoringPlugin.KIBANA_USER_AGENT)) {
+            return new FetchSourceContext(true, Strings.EMPTY_ARRAY, MonitoringPlugin.UI_METADATA_EXCLUDE);
+        }
+        return null;
     }
 }

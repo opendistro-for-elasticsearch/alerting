@@ -47,4 +47,8 @@ class MonitoringPlugin : ActionPlugin, Plugin() {
                 SearchInput.XCONTENT_REGISTRY,
                 SNSAction.XCONTENT_REGISTRY)
     }
+    companion object {
+        @JvmField val KIBANA_USER_AGENT = "Kibana"
+        @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
+    }
 }
