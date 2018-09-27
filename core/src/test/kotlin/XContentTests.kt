@@ -7,6 +7,7 @@ import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.model.XContentTestBase
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -20,7 +21,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class XContentTests {
+class XContentTests : XContentTestBase {
 
     @Test
     fun `test action parsing`() {
@@ -50,22 +51,6 @@ class XContentTests {
         val parsedInput = Input.parse(parser(inputString))
 
         assertEquals(input, parsedInput, "Round tripping input doesn't work")
-    }
-
-    private fun builder(): XContentBuilder {
-        return XContentBuilder.builder(XContentType.JSON.xContent())
-    }
-
-    private fun parser(xc : String) : XContentParser {
-        val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), xc)
-        parser.nextToken()
-        return parser
-    }
-
-    private fun xContentRegistry() : NamedXContentRegistry {
-        return NamedXContentRegistry(listOf(SNSAction.XCONTENT_REGISTRY,
-                SearchInput.XCONTENT_REGISTRY) +
-                SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 
     private fun randomInput(): Input {

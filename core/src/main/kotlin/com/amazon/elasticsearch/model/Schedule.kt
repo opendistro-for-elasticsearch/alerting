@@ -10,9 +10,13 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
+import java.time.DateTimeException
 import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
+import java.time.zone.ZoneRulesException
 
 sealed class Schedule: ToXContentObject {
     enum class TYPE  { CRON, INTERVAL }
@@ -29,7 +33,7 @@ sealed class Schedule: ToXContentObject {
         @JvmStatic @Throws(IOException::class)
         fun parse(xcp: XContentParser) : Schedule {
             var expression: String? = null
-            var timezone = "UTC"
+            var timezone: ZoneId? = null
             var interval: Int? = null
             var unit: ChronoUnit? = null
             var schedule: Schedule? = null
@@ -50,7 +54,7 @@ sealed class Schedule: ToXContentObject {
                             xcp.nextToken()
                             when (cronFieldName) {
                                 EXPRESSION_FIELD -> expression = xcp.textOrNull()
-                                TIMEZONE_FIELD -> timezone = xcp.text()
+                                TIMEZONE_FIELD -> timezone = getTimeZone(xcp.text())
                             }
                         }
                     }
@@ -78,20 +82,36 @@ sealed class Schedule: ToXContentObject {
             }
             return requireNotNull(schedule) { "Schedule is null." }
         }
+
+        @JvmStatic @Throws(IllegalArgumentException::class)
+        private fun getTimeZone(timeZone: String) : ZoneId {
+            try {
+                return ZoneId.of(timeZone)
+            } catch(zre: ZoneRulesException) {
+                throw IllegalArgumentException("Timezone $timeZone is not supported")
+            } catch(dte : DateTimeException) {
+                throw IllegalArgumentException("Timezone $timeZone is not supported")
+            }
+        }
     }
 
     abstract fun nextTimeToExecute() : Duration?
 }
 
-data class CronSchedule(val expression: String, val timezone: String) : Schedule() {
+/**
+ * @param testInstant Normally this not be set and it should only be used in unit test to control time.
+ */
+data class CronSchedule(val expression: String,
+                        val timezone: ZoneId,
+                        // visible for testing
+                        @Transient val testInstant : Instant? = null) : Schedule() {
 
     @Transient
     val executionTime = ExecutionTime.forCron(cronParser.parse(expression))
 
     override fun nextTimeToExecute(): Duration? {
-        // TODO support timezone. https://issues-pdx.amazon.com/issues/AESAlerting-92
-        val now = ZonedDateTime.now()
-        val timeToNextExecution = executionTime.timeToNextExecution(now)
+        val zonedDateTime = ZonedDateTime.ofInstant(testInstant ?: Instant.now(), timezone)
+        val timeToNextExecution = executionTime.timeToNextExecution(zonedDateTime)
         return timeToNextExecution.orElse(null)
     }
 

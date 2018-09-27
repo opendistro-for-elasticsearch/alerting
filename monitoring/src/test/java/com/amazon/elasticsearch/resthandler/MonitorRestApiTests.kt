@@ -36,6 +36,7 @@ import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.Before
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 @TestLogging("level:DEBUG")
@@ -147,7 +148,7 @@ class MonitorRestApiTests : ESRestTestCase() {
     fun `test updating schedule for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedSchedule = CronSchedule(expression = "0 9 * * *", timezone = "UTC")
+        val updatedSchedule = CronSchedule(expression = "0 9 * * *", timezone = ZoneId.of("UTC"))
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
                 emptyMap(), monitor.copy(schedule = updatedSchedule).toHttpEntity())
 

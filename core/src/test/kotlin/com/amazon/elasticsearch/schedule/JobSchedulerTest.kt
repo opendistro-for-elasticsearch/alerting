@@ -3,8 +3,11 @@ package com.amazon.elasticsearch.schedule
 import com.amazon.elasticsearch.model.CronSchedule
 import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.MockScheduledJob
+import com.amazon.elasticsearch.model.Schedule
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.threadpool.ThreadPool
+import java.time.Instant
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,11 +31,11 @@ class JobSchedulerTest {
 
     @Test
     fun `schedule cron past year`() {
-        // This is to run cron in year 2016 which we should never run.
+        // This is to run cron in Feb 30 which we should never run.
         val cronExpression = "0/5 * 30 2 *"
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, "UTC"))
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")))
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
         assertEquals(setOf("mockScheduledJob-id"), jobScheduler.scheduledJobs(), "List of ScheduledJobs are not the same.")
@@ -44,11 +47,10 @@ class JobSchedulerTest {
 
     @Test
     fun `schedule disabled`() {
-        // This is to run cron in year 2016 which we should never run.
         val cronExpression = "0/5 * * * *"
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", false, CronSchedule(cronExpression, "UTC"))
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", false, CronSchedule(cronExpression, ZoneId.of("UTC")))
 
         assertFalse(jobScheduler.schedule(mockScheduledJob), "We should return false if we try to schedule disabled schedule.")
         assertEquals(setOf(), jobScheduler.scheduledJobs(), "List of ScheduledJobs are not the same.")
@@ -56,11 +58,10 @@ class JobSchedulerTest {
 
     @Test
     fun `deschedule none existing schedule`() {
-        // This is to run cron in year 2016 which we should never run.
         val cronExpression = "0/5 * * * *"
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, "UTC"))
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")))
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
         assertEquals(setOf("mockScheduledJob-id"), jobScheduler.scheduledJobs(), "List of ScheduledJobs are not the same.")
