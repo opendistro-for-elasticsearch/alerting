@@ -9,6 +9,7 @@ import com.amazon.elasticsearch.monitor.Monitor
 import com.amazon.elasticsearch.resthandler.RestDeleteMonitorAction
 import com.amazon.elasticsearch.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.resthandler.RestIndexMonitorAction
+import com.amazon.elasticsearch.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.schedule.JobSweeper
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
@@ -42,6 +43,7 @@ class MonitoringPlugin : ActionPlugin, Plugin() {
     companion object {
         @JvmField val KIBANA_USER_AGENT = "Kibana"
         @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
+        @JvmField val MONITOR_BASE_URI = "/_awses/monitors/"
     }
 
     override fun getRestHandlers(settings: Settings,
@@ -53,7 +55,8 @@ class MonitoringPlugin : ActionPlugin, Plugin() {
                                  nodesInCluster: Supplier<DiscoveryNodes>): List<RestHandler> {
         return listOf(RestGetMonitorAction(settings, restController),
                 RestDeleteMonitorAction(settings, restController),
-                RestIndexMonitorAction(settings, restController))
+                RestIndexMonitorAction(settings, restController),
+                RestSearchMonitorAction(settings, restController))
     }
 
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {

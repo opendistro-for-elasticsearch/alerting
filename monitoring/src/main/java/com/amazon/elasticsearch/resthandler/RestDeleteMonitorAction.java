@@ -3,7 +3,7 @@
  */
 package com.amazon.elasticsearch.resthandler;
 
-import com.amazon.elasticsearch.model.ScheduledJob;
+import com.amazon.elasticsearch.MonitoringPlugin;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.client.node.NodeClient;
@@ -18,6 +18,8 @@ import org.elasticsearch.rest.action.RestResponseListener;
 
 import java.io.IOException;
 
+import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOBS_INDEX;
+import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOB_TYPE;
 import static org.elasticsearch.rest.RestRequest.Method.DELETE;
 
 /**
@@ -28,12 +30,12 @@ public class RestDeleteMonitorAction extends BaseRestHandler {
 
     public RestDeleteMonitorAction(final Settings settings, final RestController controller) {
         super(settings);
-        controller.registerHandler(DELETE, "/_awses/monitors/{monitorID}", this); // Delete a monitor
+        controller.registerHandler(DELETE, MonitoringPlugin.MONITOR_BASE_URI + "{monitorID}", this); // Delete a monitor
     }
 
     @Override
     public String getName() {
-        return "Delete a monitor.";
+        return "delete_monitor_action";
     }
 
     @Override
@@ -42,8 +44,8 @@ public class RestDeleteMonitorAction extends BaseRestHandler {
         if (monitorId == null || monitorId.isEmpty()) {
             throw new IllegalArgumentException("missing monitor id to delete");
         }
-        DeleteRequest deleteRequest = new DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX,
-                ScheduledJob.SCHEDULED_JOB_TYPE, monitorId);
+        DeleteRequest deleteRequest = new DeleteRequest(SCHEDULED_JOBS_INDEX,
+                SCHEDULED_JOB_TYPE, monitorId);
 
         return channel -> client.delete(deleteRequest, deleteMonitorResponse(channel));
     }
@@ -51,8 +53,8 @@ public class RestDeleteMonitorAction extends BaseRestHandler {
     private static RestResponseListener<DeleteResponse> deleteMonitorResponse(RestChannel channel) {
         return new RestResponseListener<DeleteResponse>(channel) {
             @Override
-            public RestResponse buildResponse(DeleteResponse deleteResponse) throws Exception {
-                return new BytesRestResponse(deleteResponse.status(), channel.newBuilder());
+            public RestResponse buildResponse(DeleteResponse response) throws Exception {
+                return new BytesRestResponse(response.status(), channel.newBuilder());
             }
         };
     }

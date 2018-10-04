@@ -3,7 +3,9 @@
  */
 package com.amazon.elasticsearch.resthandler;
 
+import com.amazon.elasticsearch.MonitoringPlugin;
 import com.amazon.elasticsearch.monitor.Monitor;
+import com.amazon.elasticsearch.util.RestHandlerUtilsKt;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.node.NodeClient;
@@ -35,15 +37,17 @@ import static org.elasticsearch.rest.RestRequest.Method.PUT;
  */
 public class RestIndexMonitorAction extends BaseRestHandler {
 
+    private static final String REFRESH = "refresh";
+
     public RestIndexMonitorAction(final Settings settings, final RestController controller) {
         super(settings);
-        controller.registerHandler(POST, "/_awses/monitors", this); // Create a new monitor
-        controller.registerHandler(PUT, "/_awses/monitors/{monitorID}", this);
+        controller.registerHandler(POST, MonitoringPlugin.MONITOR_BASE_URI, this); // Create a new monitor
+        controller.registerHandler(PUT, MonitoringPlugin.MONITOR_BASE_URI + "{monitorID}", this);
     }
 
     @Override
     public String getName() {
-        return "Create a monitor.";
+        return "index_monitor_action";
     }
 
     @Override
@@ -63,26 +67,29 @@ public class RestIndexMonitorAction extends BaseRestHandler {
         if (request.method() == PUT) {
             indexRequest.id(id).version(RestActions.parseVersion(request));
         }
+        if (request.hasParam(REFRESH)) {
+            indexRequest.setRefreshPolicy(request.param(REFRESH));
+        }
         return channel -> client.index(indexRequest, indexMonitorResponse(channel));
     }
 
     private static RestResponseListener<IndexResponse> indexMonitorResponse(RestChannel channel) {
         return new RestResponseListener<IndexResponse>(channel) {
             @Override
-            public RestResponse buildResponse(IndexResponse indexResponse) throws Exception {
-                if (indexResponse.getShardInfo().getSuccessful() < 1) {
+            public RestResponse buildResponse(IndexResponse response) throws Exception {
+                if (response.getShardInfo().getSuccessful() < 1) {
                     // TODO: Handle failed indexing
                 }
 
                 XContentBuilder builder = channel.newBuilder()
                         .startObject()
-                        .field("_id", indexResponse.getId())
-                        .field("_version", indexResponse.getVersion())
+                        .field(RestHandlerUtilsKt._ID, response.getId())
+                        .field(RestHandlerUtilsKt._VERSION, response.getVersion())
                         .endObject();
 
-                RestResponse restResponse = new BytesRestResponse(indexResponse.status(), builder);
-                if (indexResponse.status() == RestStatus.CREATED) {
-                    String location = "/_awses/monitors/" + indexResponse.getId();
+                RestResponse restResponse = new BytesRestResponse(response.status(), builder);
+                if (response.status() == RestStatus.CREATED) {
+                    String location = MonitoringPlugin.MONITOR_BASE_URI + response.getId();
                     restResponse.addHeader("Location", location);
                 }
                 return restResponse;

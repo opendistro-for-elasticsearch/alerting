@@ -15,6 +15,7 @@ import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
+import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
@@ -214,27 +215,88 @@ class MonitorRestApiTests : ESRestTestCase() {
     }
 
     fun `test getting UI metadata monitor not from Kibana`() {
-        var monitor = createRandomMonitor()
+        var monitor = createRandomMonitor(withMetadata = true)
         var getMonitor = getMonitor(monitorId = monitor.id)
         assertEquals("UI Metadata returned but request did not come from Kibana.", getMonitor.uiMetadata, mapOf<String, Any>())
     }
 
     fun `test getting UI metadata monitor from Kibana`() {
-        var monitor = createRandomMonitor()
+        var monitor = createRandomMonitor(refresh = true, withMetadata = true)
         var header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana")
         var getMonitor = getMonitor(monitorId = monitor.id, header = header)
         assertEquals("", monitor.uiMetadata, getMonitor.uiMetadata)
     }
 
-    // Helper functions
+    fun `test query a monitor that exists`() {
+        val monitor = createRandomMonitor(true)
 
-    private fun createRandomMonitor() : Monitor {
-        val monitor = randomMonitor()
-        return createMonitor(monitor)
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", monitor.id)).toString()
+        val searchResponse = client().performRequest("GET", "/_awses/monitors/_search",
+                emptyMap(),
+                NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Any>
+        val numberDocsFound = hits["total"]
+        assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
-    private fun createMonitor(monitor: Monitor): Monitor {
-        val response = client().performRequest("POST", "_awses/monitors", emptyMap(), monitor.toHttpEntity())
+    fun `test query a monitor that doesn't exist`() {
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery(ESTestCase.randomAlphaOfLength(5),
+                ESTestCase.randomAlphaOfLength(5))).toString()
+
+        val searchResponse = client().performRequest("GET", "/_awses/monitors/_search", emptyMap(), NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Any>
+        val numberDocsFound = hits["total"]
+        assertEquals("Monitor found during search when no document present.", 0, numberDocsFound)
+    }
+
+    fun `test query a monitor with UI metadata from Kibana`() {
+        val monitor = createRandomMonitor(refresh = true, withMetadata = true)
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", monitor.id)).toString()
+        val header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana")
+        val searchResponse = client().performRequest("GET", "/_awses/monitors/_search", emptyMap(), NStringEntity(search, ContentType.APPLICATION_JSON), header)
+        assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
+
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"] as Map<String, Any>
+        val numberDocsFound = hits["total"]
+        assertEquals("Monitor not found during search", 1, numberDocsFound)
+
+        val searchHits = hits["hits"] as List<Any>
+        val hit = searchHits[0] as Map<String, Any>
+        val monitorHit = hit["_source"] as Map<String, Any>
+        assertNotNull("UI Metadata returned from search but request did not come from Kibana", monitorHit[Monitor.UI_METADATA_FIELD])
+    }
+
+    fun `test query a monitor with UI metadata as user`() {
+        val monitor = createRandomMonitor(refresh = true, withMetadata = true)
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", monitor.id)).toString()
+        val searchResponse = client().performRequest("GET", "/_awses/monitors/_search", emptyMap(), NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
+
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"] as Map<String, Any>
+        val numberDocsFound = hits["total"]
+        assertEquals("Monitor not found during search", 1, numberDocsFound)
+
+        val searchHits = hits["hits"] as List<Any>
+        val hit = searchHits[0] as Map<String, Any>
+        val monitorHit = hit["_source"] as Map<String, Any>
+        assertNull("UI Metadata returned from search but request did not come from Kibana", monitorHit[Monitor.UI_METADATA_FIELD])
+    }
+
+    // Helper functions
+
+    private fun createRandomMonitor(refresh: Boolean = false, withMetadata: Boolean = false) : Monitor {
+        val monitor = randomMonitor(withMetadata)
+        return createMonitor(monitor, refresh)
+    }
+
+    private fun createMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
+        val response = client().performRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(), monitor.toHttpEntity())
         assertEquals("Unable to create a new monitor", RestStatus.CREATED, response.restStatus())
 
         val monitorJson = XContentType.JSON.xContent()
@@ -286,13 +348,13 @@ class MonitorRestApiTests : ESRestTestCase() {
 
     private fun Monitor.relativeUrl() = "_awses/monitors/$id"
 
-    private fun randomMonitor(): Monitor {
+    private fun randomMonitor(withMetadata: Boolean = false): Monitor {
         return Monitor(name = randomAlphaOfLength(10),
                 enabled = ESTestCase.randomBoolean(),
                 inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
                 schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
                 conditions = listOf(),
-                uiMetadata = mapOf())
+                uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
     }
 
     private fun randomSearch(): String {

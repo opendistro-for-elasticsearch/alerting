@@ -23,7 +23,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                    override val schedule: Schedule, val inputs: List<Input>,
                    val conditions: List<Condition>, val uiMetadata: Map<String, Any>) : ScheduledJob {
 
-    override val type: String = "monitor"
+    override val type = MONITOR_TYPE
 
     fun toXContent(builder: XContentBuilder) : XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -32,7 +32,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean("with_type", false)) builder.startObject(type)
-        builder.field(NAME_FIELD, name)
+        builder.field(TYPE_FIELD, type)
+                .field(NAME_FIELD, name)
                 .field(ENABLED_FIELD, enabled)
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
@@ -45,6 +46,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
     override fun fromDocument(id: String, version: Long) : Monitor = copy(id = id, version = version)
 
     companion object {
+        const val MONITOR_TYPE = "monitor"
+        const val TYPE_FIELD = "type"
         const val NAME_FIELD = "name"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
@@ -54,11 +57,10 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         const val INPUTS_FIELD = "inputs"
         const val UI_METADATA_FIELD = "ui_metadata"
 
-
         // This is defined here instead of in ScheduledJob to avoid having the ScheduledJob class know about all
         // the different subclasses and creating circular dependencies
         val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(ScheduledJob::class.java,
-                ParseField("monitor"),
+                ParseField(MONITOR_TYPE),
                 CheckedFunction { Monitor.parse(it) })
 
         @JvmStatic @JvmOverloads
