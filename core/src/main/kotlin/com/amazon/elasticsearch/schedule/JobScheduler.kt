@@ -86,9 +86,11 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
      *
      * @return List of job ids failed to deschedule.
      */
-    fun deschedule(vararg ids: String): List<String> {
+    fun deschedule(ids: Collection<String>): List<String> {
         return ids.filter {
             !this.deschedule(it)
+        }.also {
+            if (it.isNotEmpty()) { logger.error("Unable to deschedule jobs $it") }
         }
     }
 
@@ -108,7 +110,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
     fun deschedule(id: String): Boolean {
         val scheduledJobInfo = scheduledJobIdToInfo[id]
         if (scheduledJobInfo == null) {
-            logger.info("JobId $id does does not exist.")
+            logger.info("JobId $id does not exist.")
             return true
         } else {
             logger.info("Descheduling jobId : $id")

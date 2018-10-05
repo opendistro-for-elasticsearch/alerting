@@ -3,14 +3,18 @@
  */
 package com.amazon.elasticsearch.monitoring
 
+import com.amazon.elasticsearch.JobRunner
 import com.amazon.elasticsearch.model.SNSAction
+import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
-import com.amazon.elasticsearch.schedule.JobSweeper
+import com.amazon.elasticsearch.JobSweeper
+import com.amazon.elasticsearch.schedule.JobScheduler
+import com.amazon.elasticsearch.schedule.StubJobRunner
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
@@ -23,6 +27,7 @@ import org.elasticsearch.common.settings.SettingsFilter
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
+import org.elasticsearch.index.IndexModule
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
 import org.elasticsearch.rest.RestController
@@ -46,6 +51,10 @@ class MonitoringPlugin : ActionPlugin, Plugin() {
         @JvmField val MONITOR_BASE_URI = "/_awses/monitors/"
     }
 
+    lateinit var runner: JobRunner<ScheduledJob>
+    lateinit var scheduler: JobScheduler
+    lateinit var sweeper: JobSweeper
+
     override fun getRestHandlers(settings: Settings,
                                  restController: RestController,
                                  clusterSettings: ClusterSettings,
@@ -65,11 +74,20 @@ class MonitoringPlugin : ActionPlugin, Plugin() {
                 SNSAction.XCONTENT_REGISTRY)
     }
 
-    override fun createComponents(client: Client, clusterService: ClusterService,
-                                  threadPool: ThreadPool, resourceWatcherService: ResourceWatcherService,
-                                  scriptService: ScriptService, xContentRegistry: NamedXContentRegistry,
-                                  environment: Environment, nodeEnvironment: NodeEnvironment,
-                                  namedWriteableRegistry: NamedWriteableRegistry): List<Any> {
-        return listOf(JobSweeper(client, threadPool, "MonitorJobSweeper", xContentRegistry))
+    override fun createComponents(client: Client, clusterService: ClusterService, threadPool: ThreadPool,
+                                  resourceWatcherService: ResourceWatcherService, scriptService: ScriptService,
+                                  xContentRegistry: NamedXContentRegistry, environment: Environment,
+                                  nodeEnvironment: NodeEnvironment,
+                                  namedWriteableRegistry: NamedWriteableRegistry): Collection<Any> {
+        runner = StubJobRunner()
+        scheduler = JobScheduler(threadPool, runner)
+        sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
+        return listOf(sweeper, scheduler, runner)
+    }
+
+    override fun onIndexModule(indexModule: IndexModule) {
+        if (indexModule.index.name == ScheduledJob.SCHEDULED_JOBS_INDEX) {
+            indexModule.addIndexOperationListener(sweeper)
+        }
     }
 }
