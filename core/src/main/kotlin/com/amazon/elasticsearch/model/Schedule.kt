@@ -18,8 +18,8 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import java.time.zone.ZoneRulesException
 
-sealed class Schedule: ToXContentObject {
-    enum class TYPE  { CRON, INTERVAL }
+sealed class Schedule : ToXContentObject {
+    enum class TYPE { CRON, INTERVAL }
     companion object {
         const val CRON_FIELD = "cron"
         const val EXPRESSION_FIELD = "expression"
@@ -31,7 +31,7 @@ sealed class Schedule: ToXContentObject {
         val cronParser = CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX))
 
         @JvmStatic @Throws(IOException::class)
-        fun parse(xcp: XContentParser) : Schedule {
+        fun parse(xcp: XContentParser): Schedule {
             var expression: String? = null
             var timezone: ZoneId? = null
             var interval: Int? = null
@@ -68,7 +68,8 @@ sealed class Schedule: ToXContentObject {
                                 UNIT_FIELD -> unit = ChronoUnit.valueOf(xcp.text())
                             }
                         }
-                    } else -> {
+                    }
+                    else -> {
                         throw IllegalArgumentException("Invalid field: [$fieldname] found in schedule.")
                     }
                 }
@@ -84,12 +85,12 @@ sealed class Schedule: ToXContentObject {
         }
 
         @JvmStatic @Throws(IllegalArgumentException::class)
-        private fun getTimeZone(timeZone: String) : ZoneId {
+        private fun getTimeZone(timeZone: String): ZoneId {
             try {
                 return ZoneId.of(timeZone)
-            } catch(zre: ZoneRulesException) {
+            } catch (zre: ZoneRulesException) {
                 throw IllegalArgumentException("Timezone $timeZone is not supported")
-            } catch(dte : DateTimeException) {
+            } catch (dte: DateTimeException) {
                 throw IllegalArgumentException("Timezone $timeZone is not supported")
             }
         }
@@ -102,6 +103,8 @@ sealed class Schedule: ToXContentObject {
      * If this is a schedule that runs only once this function will return [Instant.now] for both start and end time.
      */
     abstract fun getPeriodStartEnd(previousEndTime: Instant?) : Pair<Instant, Instant>
+
+    abstract fun runningOnTime(lastExecutionTime: Instant?): Boolean
 }
 
 /**
@@ -110,8 +113,7 @@ sealed class Schedule: ToXContentObject {
 data class CronSchedule(val expression: String,
                         val timezone: ZoneId,
                         // visible for testing
-                        @Transient val testInstant : Instant? = null) : Schedule() {
-
+                        @Transient val testInstant: Instant? = null) : Schedule() {
     @Transient
     val executionTime = ExecutionTime.forCron(cronParser.parse(expression))
 
@@ -139,6 +141,24 @@ data class CronSchedule(val expression: String,
         return Pair(previousEndTime, newEndTime?.toInstant() ?: Instant.now())
     }
 
+    override fun runningOnTime(lastExecutionTime: Instant?): Boolean {
+        if (lastExecutionTime == null) {
+            return true
+        }
+
+        val zonedDateTime = ZonedDateTime.ofInstant(testInstant ?: Instant.now(), timezone)
+        val expectedExecutionTime = executionTime.lastExecution(zonedDateTime)
+
+        if (!expectedExecutionTime.isPresent) {
+            // At this point we know lastExecutionTime is not null, this should never happen.
+            // If expected execution time is null, we shouldn't have executed the ScheduledJob.
+            return false
+        }
+        val actualExecutionTime = ZonedDateTime.ofInstant(lastExecutionTime, timezone)
+
+        return ChronoUnit.SECONDS.between(expectedExecutionTime.get(), actualExecutionTime) == 0L
+    }
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
                 .startObject(CRON_FIELD)
@@ -150,7 +170,14 @@ data class CronSchedule(val expression: String,
     }
 }
 
-data class IntervalSchedule(val interval: Int, val unit: ChronoUnit) : Schedule() {
+data class IntervalSchedule(val interval: Int,
+                            val unit: ChronoUnit,
+                            // visible for testing
+                            @Transient val testInstant: Instant? = null) : Schedule() {
+
+    @Transient
+    private val intervalInMills = Duration.of(interval.toLong(), unit).toMillis()
+
     override fun nextTimeToExecute(): Duration? {
         // TODO this should really be nextExecutionTime = lastExecutionTime + interval
         // https://issues-pdx.amazon.com/issues/AESAlerting-93
@@ -159,10 +186,19 @@ data class IntervalSchedule(val interval: Int, val unit: ChronoUnit) : Schedule(
     }
 
     override fun getPeriodStartEnd(_previousEndTime: Instant?): Pair<Instant, Instant> {
-        val intervalInMills = Duration.of(interval.toLong(), unit).toMillis()
         val previousEndTime = _previousEndTime ?: Instant.now().minusMillis(intervalInMills)
         val newEndTime = previousEndTime.plusMillis(intervalInMills)
         return Pair(previousEndTime, newEndTime)
+    }
+
+    override fun runningOnTime(lastExecutionTime: Instant?): Boolean {
+        if (lastExecutionTime == null) {
+            return true
+        }
+
+        // Make sure the lastExecutionTime is less than interval time.
+        val delta = ChronoUnit.MILLIS.between(lastExecutionTime, testInstant ?: Instant.now())
+        return 0 < delta && delta < intervalInMills
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

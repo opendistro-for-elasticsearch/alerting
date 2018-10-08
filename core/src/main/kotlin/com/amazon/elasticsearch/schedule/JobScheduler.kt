@@ -9,6 +9,7 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.stream.Collectors
 
 /**
  * JobScheduler is a class for scheduling and descheduling ScheduleJobs. This class keeps list of ScheduledJob Ids that are currently scheduled.
@@ -55,25 +56,19 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
      *         <code>false</code> otherwise.
      */
     fun schedule(scheduledJob: ScheduledJob): Boolean {
-        logger.info("Scheduling jobId : ${scheduledJob.id}")
+        logger.info("Scheduling jobId : ${scheduledJob.id}, name: ${scheduledJob.name}")
 
         if (!scheduledJob.enabled) {
             // ensure that the ScheduledJob is not enabled. The caller should be also checking this before calling this function.
             return false
         }
 
-        val scheduledJobInfo : ScheduledJobInfo
-        // Check if the schedule id already exists.
-        if (scheduledJobIdToInfo.containsKey(scheduledJob.id)) {
-            scheduledJobInfo = scheduledJobIdToInfo[scheduledJob.id]!!
-            if (scheduledJobInfo.scheduledFuture != null) {
-                // This means that the given ScheduledJob already has schedule running. We should not schedule any more.
-                return true
-            }
-        } else {
-            // Create scheduledJob Info.
-            scheduledJobInfo = ScheduledJobInfo(scheduledJob.id)
-            scheduledJobIdToInfo[scheduledJob.id] = scheduledJobInfo
+        val scheduledJobInfo = scheduledJobIdToInfo.getOrPut(scheduledJob.id) {
+            ScheduledJobInfo(scheduledJob.id, scheduledJob)
+        }
+        if (scheduledJobInfo.scheduledFuture != null) {
+            // This means that the given ScheduledJob already has schedule running. We should not schedule any more.
+            return true
         }
 
         // Start the first schedule.
@@ -92,7 +87,9 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
         return ids.filter {
             !this.deschedule(it)
         }.also {
-            if (it.isNotEmpty()) { logger.error("Unable to deschedule jobs $it") }
+            if (it.isNotEmpty()) {
+                logger.error("Unable to deschedule jobs $it")
+            }
         }
     }
 
@@ -120,6 +117,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
             scheduledJobInfo.previousExecutionTime = null
             var result = true
             val scheduledFuture = scheduledJobInfo.scheduledFuture
+
             if (scheduledFuture != null && !scheduledFuture.isDone) {
                 result = scheduledFuture.cancel(false)
             }
@@ -135,11 +133,11 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
     /**
      * @return list of jobIds that are scheduled.
      */
-    fun scheduledJobs() : Set<String> {
+    fun scheduledJobs(): Set<String> {
         return scheduledJobIdToInfo.keys
     }
 
-    private fun reschedule(scheduleJob: ScheduledJob, scheduledJobInfo : ScheduledJobInfo): Boolean {
+    private fun reschedule(scheduleJob: ScheduledJob, scheduledJobInfo: ScheduledJobInfo): Boolean {
         val duration = scheduleJob.schedule.nextTimeToExecute()
         // Validate if there is next execution that needs to happen.
         // e.g cron job that is expected to run in 30th of Feb (which doesn't exist). "0/5 * 30 2 *"
@@ -155,6 +153,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
             if (scheduledJobInfo.descheduled) {
                 return@Runnable // skip running job if job is marked descheduled.
             }
+            scheduledJobInfo.previousExecutionTime = Instant.now()
             val (startTime, endTime) = scheduleJob.schedule.getPeriodStartEnd(scheduledJobInfo.previousExecutionTime)
             jobRunner.runJob(scheduleJob, startTime, endTime)
         }
@@ -165,10 +164,18 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
             // Do not reschedule if schedule has been marked descheduled.
             return false
         }
+
         // Finally schedule the job in the ThreadPool with next time to execute.
         val scheduledFuture = threadPool.schedule(TimeValue(duration.toNanos(), TimeUnit.NANOSECONDS), threadPoolName, runnable)
         scheduledJobInfo.scheduledFuture = scheduledFuture
+
         return true
+    }
+
+    fun getJobSchedulerMetric() : List<JobSchedulerMetrics> {
+        return scheduledJobIdToInfo.entries.stream()
+                .map { entry -> JobSchedulerMetrics(entry.value.scheduledJobId, entry.value.previousExecutionTime?.toEpochMilli(), entry.value.scheduledJob.schedule.runningOnTime(entry.value.previousExecutionTime)) }
+                .collect(Collectors.toList())
     }
 
     /**
@@ -178,6 +185,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
      * 2. Tracking of number of failed runs (helps to control error handling.)
      */
     private data class ScheduledJobInfo (val scheduledJobId : String,
+                                         val scheduledJob : ScheduledJob,
                                          var descheduled : Boolean = false,
                                          var previousExecutionTime: Instant? = null,
                                          var scheduledFuture : ScheduledFuture<*>? = null)

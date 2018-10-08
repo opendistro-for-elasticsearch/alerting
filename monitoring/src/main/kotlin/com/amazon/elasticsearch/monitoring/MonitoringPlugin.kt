@@ -5,19 +5,24 @@ package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.ScheduledJobIndices
 import com.amazon.elasticsearch.JobSweeper
+import com.amazon.elasticsearch.action.node.ScheduledJobsStatsTransportAction
+import com.amazon.elasticsearch.action.node.ScheduledJobsStatsAction
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
-import com.amazon.elasticsearch.monitoring.resthandler.RestExecuteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
 import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestExecuteMonitorAction
 import com.amazon.elasticsearch.schedule.JobScheduler
+import com.amazon.elasticsearch.resthandler.RestScheduledJobStatsHandler
+import org.elasticsearch.action.ActionRequest
+import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
@@ -85,7 +90,12 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
                 RestIndexMonitorAction(settings, restController, scheduledJobIndices),
                 RestSearchMonitorAction(settings, restController),
                 RestExecuteMonitorAction(settings, restController, runner),
-                RestAcknowledgeAlertAction(settings, restController))
+                RestAcknowledgeAlertAction(settings, restController),
+                RestScheduledJobStatsHandler(settings, restController, "_monitors"))
+    }
+
+    override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
+        return listOf(ActionPlugin.ActionHandler(ScheduledJobsStatsAction.INSTANCE, ScheduledJobsStatsTransportAction::class.java))
     }
 
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {

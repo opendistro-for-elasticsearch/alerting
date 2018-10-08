@@ -3,10 +3,8 @@ package com.amazon.elasticsearch.schedule
 import com.amazon.elasticsearch.model.CronSchedule
 import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.MockScheduledJob
-import com.amazon.elasticsearch.model.Schedule
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.threadpool.ThreadPool
-import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.test.Test

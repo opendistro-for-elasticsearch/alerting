@@ -91,7 +91,7 @@ class JobSweeper(private val settings: Settings,
         val scheduledSweep = Runnable {
             val elapsedTime = TimeValue.timeValueMillis(threadPool.relativeTimeInMillis() - lastFullSweepTimeMillis)
             // Rate limit to at most one full sweep per sweep period
-            if (elapsedTime > sweepPeriod) {
+            if (elapsedTime >= sweepPeriod) {
                 fullSweepExecutor.submit {
                     logger.debug("Performing background sweep of scheduled jobs.")
                     sweepAllShards()
@@ -186,7 +186,7 @@ class JobSweeper(private val settings: Settings,
                 // group by shardId
                 .groupBy { it.shardId() }
                 // assigned to local node
-                .filter { (_, shards) -> shards.any { it.currentNodeId() == localNodeId }}
+                .filter { (_, shards) -> shards.any { it.currentNodeId() == localNodeId } }
 
         // Remove all jobs on shards that are no longer assigned to this node.
         val removedShards = sweptJobs.keys - localShards.keys
@@ -272,7 +272,7 @@ class JobSweeper(private val settings: Settings,
                                 scheduler.schedule(job)
                             }
                             return@compute newVersion
-                        } catch (e : Exception) {
+                        } catch (e: Exception) {
                             logger.warn("Unable to parse ScheduledJob source: {}",
                                     Strings.cleanTruncate(jobSource.utf8ToString(), 1000))
                             return@compute currentVersion
@@ -281,6 +281,13 @@ class JobSweeper(private val settings: Settings,
                         return@compute null
                     }
                 }
+    }
+
+    fun getJobSweeperMetrics(): JobSweeperMetrics {
+        val bufferMillis = 5 * 1000
+        val lastFullSweepTimeMillis = threadPool.relativeTimeInMillis() - lastFullSweepTimeMillis
+        return JobSweeperMetrics(lastFullSweepTimeMillis,
+                lastFullSweepTimeMillis <= (sweepPeriod.millis + bufferMillis))
     }
 }
 
@@ -308,7 +315,7 @@ private class ShardNodes(val localNodeId: String, activeShardNodeIds: Collection
         }
     }
 
-    fun isOwningNode(id: JobId) : Boolean {
+    fun isOwningNode(id: JobId): Boolean {
         if (circle.isEmpty()) {
             return false
         }
