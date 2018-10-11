@@ -1,6 +1,10 @@
-package com.amazon.elasticsearch.util
+/*
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ */
 
-import com.amazon.elasticsearch.MonitoringPlugin
+package com.amazon.elasticsearch.monitoring.util
+
+import com.amazon.elasticsearch.monitoring.MonitoringPlugin
 import org.elasticsearch.common.Strings
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext

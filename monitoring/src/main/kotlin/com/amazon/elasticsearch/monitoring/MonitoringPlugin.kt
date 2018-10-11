@@ -1,15 +1,15 @@
 /*
  * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-package com.amazon.elasticsearch
+package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.monitor.Monitor
-import com.amazon.elasticsearch.resthandler.RestDeleteMonitorAction
-import com.amazon.elasticsearch.resthandler.RestGetMonitorAction
-import com.amazon.elasticsearch.resthandler.RestIndexMonitorAction
-import com.amazon.elasticsearch.resthandler.RestSearchMonitorAction
+import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.schedule.JobSweeper
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver

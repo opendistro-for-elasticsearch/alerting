@@ -1,4 +1,8 @@
-package com.amazon.elasticsearch.monitor
+/*
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ */
+
+package com.amazon.elasticsearch.monitoring.model
 
 import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.model.Input
@@ -61,7 +65,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         // the different subclasses and creating circular dependencies
         val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(ScheduledJob::class.java,
                 ParseField(MONITOR_TYPE),
-                CheckedFunction { Monitor.parse(it) })
+                CheckedFunction { parse(it) })
 
         @JvmStatic @JvmOverloads
         @Throws(IOException::class)
@@ -79,8 +83,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                 xcp.nextToken()
 
                 when (fieldName) {
-                    NAME_FIELD     -> name = xcp.text()
-                    ENABLED_FIELD  -> enabled = xcp.booleanValue()
+                    NAME_FIELD -> name = xcp.text()
+                    ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
                     INPUTS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)

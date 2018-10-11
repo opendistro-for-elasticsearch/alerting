@@ -1,9 +1,13 @@
-package com.amazon.elasticsearch.resthandler;
+/*
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ */
 
-import com.amazon.elasticsearch.MonitoringPlugin;
+package com.amazon.elasticsearch.monitoring.resthandler;
+
+import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import com.amazon.elasticsearch.model.ScheduledJob;
-import com.amazon.elasticsearch.monitor.Monitor;
-import com.amazon.elasticsearch.util.RestHandlerUtilsKt;
+import com.amazon.elasticsearch.monitoring.model.Monitor;
+import com.amazon.elasticsearch.monitoring.util.RestHandlerUtilsKt;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.node.NodeClient;

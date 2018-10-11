@@ -1,9 +1,9 @@
 /*
- * Copyright 2013-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-package com.amazon.elasticsearch.resthandler;
+package com.amazon.elasticsearch.monitoring.resthandler;
 
-import com.amazon.elasticsearch.MonitoringPlugin;
+import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.client.node.NodeClient;

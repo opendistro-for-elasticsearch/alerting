@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-package com.amazon.elasticsearch.resthandler;
+package com.amazon.elasticsearch.monitoring.resthandler;
 
-import com.amazon.elasticsearch.MonitoringPlugin;
-import com.amazon.elasticsearch.monitor.Monitor;
-import com.amazon.elasticsearch.util.RestHandlerUtilsKt;
+import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
+import com.amazon.elasticsearch.monitoring.model.Monitor;
+import com.amazon.elasticsearch.monitoring.util.RestHandlerUtilsKt;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.node.NodeClient;

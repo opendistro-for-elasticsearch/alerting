@@ -1,7 +1,7 @@
 /*
- * Copyright 2013-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-package com.amazon.elasticsearch.resthandler
+package resthandler
 
 import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.model.CronSchedule
@@ -9,7 +9,7 @@ import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.monitor.Monitor
+import com.amazon.elasticsearch.monitoring.model.Monitor
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType

@@ -16,7 +16,7 @@ ext {
 esplugin {
     name 'aes-monitoring'
     description 'Amazon Elasticsearch service monitoring plugin'
-    classname 'com.amazon.elasticsearch.MonitoringPlugin'
+    classname 'com.amazon.elasticsearch.monitoring.MonitoringPlugin'
     extendedPlugins = ['lang-painless']
 }
 
@@ -41,10 +41,6 @@ integTestRunner {
 }
 
 integTestCluster {
-    // extraConfigFile doesn't allow directories, only files, so we need to add each individually
-    fileTree(dir: 'src/main/config').each { File file ->
-        extraConfigFile 'elasticsearch-carrot2/' + file.name, file
-    }
     distribution = (es_version < "6.3.0") ? 'zip' : 'oss-zip' // Use oss-zip distribution starting from 6.3.0
 }
 
