@@ -23,8 +23,7 @@ import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOB_TYPE;
 import static org.elasticsearch.rest.RestRequest.Method.DELETE;
 
 /**
- * This class consists of the REST handler to delete polices.
- * It handles marking policies as deleted. The actual deletion will be done by the MonitorManager
+ * This class consists of the REST handler to delete polices
  */
 public class RestDeleteMonitorAction extends BaseRestHandler {
 
