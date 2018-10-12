@@ -1,5 +1,10 @@
-package com.amazon.elasticsearch.model
+/*
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ */
 
+package com.amazon.elasticsearch.monitoring.model
+
+import com.amazon.elasticsearch.model.Action
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -8,7 +13,7 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.script.Script
 import java.io.IOException
 
-data class Condition(val name: String, val severity: Int, val condition: Script, val actions: List<Action>) : ToXContent {
+data class Trigger(val name: String, val severity: Int, val condition: Script, val actions: List<Action>) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -30,7 +35,7 @@ data class Condition(val name: String, val severity: Int, val condition: Script,
         const val SCRIPT_FIELD = "script"
 
         @JvmStatic @Throws(IOException::class)
-        fun parse(xcp: XContentParser) : Condition {
+        fun parse(xcp: XContentParser) : Trigger {
             lateinit var name: String
             var severity = 0
             lateinit var condition: Script
@@ -59,10 +64,10 @@ data class Condition(val name: String, val severity: Int, val condition: Script,
                 }
             }
 
-            return Condition(requireNotNull(name) { "Condition name is null" },
-                    requireNotNull(severity) { "Condition severity is null" },
-                    requireNotNull(condition) { "Condition is null" },
-                    requireNotNull(actions) { "Condition actions are null" })
+            return Trigger(requireNotNull(name) { "Trigger name is null" },
+                    requireNotNull(severity) { "Trigger severity is null" },
+                    requireNotNull(condition) { "Trigger is null" },
+                    requireNotNull(actions) { "Trigger actions are null" })
         }
     }
 }

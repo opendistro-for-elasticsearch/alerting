@@ -4,7 +4,6 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
-import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
@@ -25,7 +24,7 @@ import java.io.IOException
 data class Monitor(override val id: String = NO_ID, override val version: Long = NO_VERSION,
                    override val name: String, override val enabled: Boolean,
                    override val schedule: Schedule, val inputs: List<Input>,
-                   val conditions: List<Condition>, val uiMetadata: Map<String, Any>) : ScheduledJob {
+                   val triggers: List<Trigger>, val uiMetadata: Map<String, Any>) : ScheduledJob {
 
     override val type = MONITOR_TYPE
 
@@ -41,7 +40,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                 .field(ENABLED_FIELD, enabled)
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
-                .field(TRIGGERS_FIELD, conditions.toTypedArray())
+                .field(TRIGGERS_FIELD, triggers.toTypedArray())
         if (uiMetadata.isNotEmpty()) builder.field(UI_METADATA_FIELD, uiMetadata)
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
@@ -74,7 +73,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
             lateinit var schedule: Schedule
             var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
-            var triggers: MutableList<Condition> = mutableListOf()
+            var triggers: MutableList<Trigger> = mutableListOf()
             var inputs: MutableList<Input> = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -95,7 +94,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                     TRIGGERS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            triggers.add(Condition.parse(xcp))
+                            triggers.add(Trigger.parse(xcp))
                         }
                     }
                     UI_METADATA_FIELD -> {

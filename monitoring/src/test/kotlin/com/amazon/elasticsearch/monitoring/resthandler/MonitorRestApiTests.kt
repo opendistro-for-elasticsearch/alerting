@@ -1,14 +1,14 @@
 /*
  * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-package resthandler
+package com.amazon.elasticsearch.monitoring.resthandler
 
-import com.amazon.elasticsearch.model.Condition
 import com.amazon.elasticsearch.model.CronSchedule
 import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
@@ -131,9 +131,9 @@ class MonitorRestApiTests : ESRestTestCase() {
     fun `test updating conditions for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedTriggers = listOf(Condition("foo", 1, Script("return true"), emptyList()))
+        val updatedTriggers = listOf(Trigger("foo", 1, Script("return true"), emptyList()))
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
-                emptyMap(), monitor.copy(conditions = updatedTriggers).toHttpEntity())
+                emptyMap(), monitor.copy(triggers = updatedTriggers).toHttpEntity())
 
         assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -141,7 +141,7 @@ class MonitorRestApiTests : ESRestTestCase() {
         assertEquals("Version not incremented", (monitor.version + 1).toInt(), responseBody["_version"] as Int)
 
         val updatedMonitor = getMonitor(monitor.id)
-        assertEquals("Monitor trigger not updated", updatedTriggers, updatedMonitor.conditions)
+        assertEquals("Monitor trigger not updated", updatedTriggers, updatedMonitor.triggers)
     }
 
     @Throws(Exception::class)
@@ -354,7 +354,7 @@ class MonitorRestApiTests : ESRestTestCase() {
                 enabled = ESTestCase.randomBoolean(),
                 inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
                 schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
-                conditions = listOf(),
+                triggers = listOf(),
                 uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
     }
 
