@@ -74,10 +74,11 @@ public class RestSearchMonitorAction extends BaseRestHandler {
                     return new BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString());
                 }
                 for (SearchHit hit : response.getHits()) {
-                    XContentParser hitsParser =  XContentType.JSON.xContent()
-                            .createParser(channel.request().getXContentRegistry(), hit.getSourceAsString());
-                    ScheduledJob monitor = ScheduledJob.Companion.parse(hitsParser, hit.getId(), hit.getVersion());
-                    hit.sourceRef(monitor.toXContent(jsonBuilder(), EMPTY_PARAMS).bytes());
+                    try (XContentParser hitsParser =  XContentType.JSON.xContent()
+                            .createParser(channel.request().getXContentRegistry(), hit.getSourceAsString())) {
+                        ScheduledJob monitor = ScheduledJob.Companion.parse(hitsParser, hit.getId(), hit.getVersion());
+                        hit.sourceRef(monitor.toXContent(jsonBuilder(), EMPTY_PARAMS).bytes());
+                    }
                 }
                 return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));
             }

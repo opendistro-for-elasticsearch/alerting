@@ -76,10 +76,11 @@ public class RestGetMonitorAction extends BaseRestHandler {
                         .field(RestHandlerUtilsKt._ID, response.getId())
                         .field(RestHandlerUtilsKt._VERSION, response.getVersion());
                 if (!response.isSourceEmpty()) {
-                    XContentParser xcp = XContentType.JSON.xContent()
-                            .createParser(channel.request().getXContentRegistry(), response.getSourceAsBytesRef());
-                    ScheduledJob monitor = ScheduledJob.Companion.parse(xcp, response.getId(), response.getVersion());
-                    builder.field("monitor", monitor);
+                    try (XContentParser xcp = XContentType.JSON.xContent()
+                            .createParser(channel.request().getXContentRegistry(), response.getSourceAsBytesRef())) {
+                        ScheduledJob monitor = ScheduledJob.Companion.parse(xcp, response.getId(), response.getVersion());
+                        builder.field("monitor", monitor);
+                    }
                 }
                 builder.endObject();
                 return new BytesRestResponse(RestStatus.OK, builder);
