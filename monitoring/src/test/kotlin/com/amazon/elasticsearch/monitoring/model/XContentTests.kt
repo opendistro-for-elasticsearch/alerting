@@ -10,6 +10,7 @@ package com.amazon.elasticsearch.monitoring.model
 
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.randomAlert
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -30,6 +31,15 @@ class XContentTests :ESTestCase() {
         val parsedTrigger = Trigger.parse(parser(triggerString))
 
         assertEquals("Round tripping Trigger doesn't work", trigger, parsedTrigger)
+    }
+
+    fun `test alert parsing`() {
+        val alert = randomAlert()
+
+        val alertString = alert.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedAlert = Alert.parse(parser(alertString))
+
+        assertEquals("Round tripping alert doesn't work", alert, parsedAlert)
     }
 
     fun `test creating a monitor with duplicate trigger ids fails`() {

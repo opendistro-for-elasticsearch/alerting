@@ -7,6 +7,7 @@ import com.amazon.elasticsearch.model.Action
 import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import org.elasticsearch.common.UUIDs
@@ -16,6 +17,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.temporal.ChronoUnit
+import java.util.Date
 
 fun randomMonitor(withMetadata: Boolean = false): Monitor {
     return Monitor(name = ESRestTestCase.randomAlphaOfLength(10),
@@ -44,5 +46,11 @@ fun randomAction() : Action {
             topicARN = "arn:bar:baz",
             messageTemplate = "quick brown fox",
             subjectTemplate = "you know the rest")
+}
+
+fun randomAlert() : Alert {
+    val monitor = randomMonitor()
+    val trigger = randomTrigger()
+    return Alert(monitor, trigger, Date(System.currentTimeMillis()))
 }
 
