@@ -28,6 +28,14 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
 
     override val type = MONITOR_TYPE
 
+    init {
+        // Ensure that trigger ids are unique within a monitor
+        val triggerIds = mutableSetOf<String>()
+        triggers.forEach { trigger ->
+            require (triggerIds.add(trigger.id)) { "Duplicate trigger id: ${trigger.id}. Trigger ids must be unique." }
+        }
+    }
+
     fun toXContent(builder: XContentBuilder) : XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
     }
@@ -73,8 +81,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
             lateinit var schedule: Schedule
             var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
-            var triggers: MutableList<Trigger> = mutableListOf()
-            var inputs: MutableList<Input> = mutableListOf()
+            val triggers: MutableList<Trigger> = mutableListOf()
+            val inputs: MutableList<Input> = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -113,7 +121,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                     requireNotNull(name) { "Monitor name is null" },
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
-                    inputs,
+                    inputs.toList(),
                     triggers.toList(),
                     uiMetadata)
         }

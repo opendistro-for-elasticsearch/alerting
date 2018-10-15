@@ -4,12 +4,11 @@
 package com.amazon.elasticsearch.monitoring.resthandler
 
 import com.amazon.elasticsearch.model.CronSchedule
-import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.monitoring.model.Trigger
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
@@ -36,8 +35,8 @@ import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.Before
+import com.amazon.elasticsearch.monitoring.randomMonitor
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 @TestLogging("level:DEBUG")
 class MonitorRestApiTests : ESRestTestCase() {
@@ -348,18 +347,4 @@ class MonitorRestApiTests : ESRestTestCase() {
     }
 
     private fun Monitor.relativeUrl() = "_awses/monitors/$id"
-
-    private fun randomMonitor(withMetadata: Boolean = false): Monitor {
-        return Monitor(name = randomAlphaOfLength(10),
-                enabled = ESTestCase.randomBoolean(),
-                inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
-                schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
-                triggers = listOf(),
-                uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
-    }
-
-    private fun randomSearch(): String {
-        return randomAlphaOfLength(20)
-        // TODO("Return an actual source string")
-    }
 }

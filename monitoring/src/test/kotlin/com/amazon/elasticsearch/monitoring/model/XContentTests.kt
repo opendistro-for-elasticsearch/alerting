@@ -8,23 +8,21 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
-import com.amazon.elasticsearch.model.Action
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
-import junit.framework.Assert.assertEquals
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.script.Script
 import org.elasticsearch.search.SearchModule
-import org.junit.Test
+import org.elasticsearch.test.ESTestCase
+import com.amazon.elasticsearch.monitoring.randomMonitor
+import com.amazon.elasticsearch.monitoring.randomTrigger
 
-class XContentTests {
+class XContentTests :ESTestCase() {
 
-    @Test
     fun `test trigger parsing`() {
         val trigger = randomTrigger()
 
@@ -32,6 +30,15 @@ class XContentTests {
         val parsedTrigger = Trigger.parse(parser(triggerString))
 
         assertEquals("Round tripping Trigger doesn't work", trigger, parsedTrigger)
+    }
+
+    fun `test creating a monitor with duplicate trigger ids fails`() {
+        try {
+            val repeatedTrigger = randomTrigger()
+            randomMonitor().copy(triggers = listOf(repeatedTrigger, repeatedTrigger))
+            fail("Creating a monitor with duplicate triggers did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
     }
 
     fun builder(): XContentBuilder {
@@ -44,29 +51,9 @@ class XContentTests {
         return parser
     }
 
-    fun xContentRegistry() : NamedXContentRegistry {
+    override fun xContentRegistry() : NamedXContentRegistry {
         return NamedXContentRegistry(listOf(SNSAction.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY) +
                 SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
-    }
-
-
-    private fun randomTrigger(): Trigger {
-        return Trigger(name = "foo",
-                severity = 1,
-                condition = randomScript(),
-                actions = listOf(randomAction())
-        )
-    }
-
-    private fun randomScript() : Script {
-        return Script("return true")
-    }
-
-    private fun randomAction() : Action {
-        return SNSAction(name = "foo",
-                topicARN = "arn:bar:baz",
-                messageTemplate = "quick brown fox",
-                subjectTemplate = "you know the rest")
     }
 }
