@@ -13,6 +13,7 @@ import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.JobSweeper
+import com.amazon.elasticsearch.monitoring.model.TriggerScript
 import com.amazon.elasticsearch.schedule.JobScheduler
 import com.amazon.elasticsearch.schedule.StubJobRunner
 import org.elasticsearch.client.Client
@@ -30,8 +31,10 @@ import org.elasticsearch.env.NodeEnvironment
 import org.elasticsearch.index.IndexModule
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
+import org.elasticsearch.plugins.ScriptPlugin
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
+import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
@@ -43,7 +46,7 @@ import java.util.function.Supplier
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [SNSAction.XCONTENT_REGISTRY] to the
  * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
-class MonitoringPlugin : ActionPlugin, Plugin() {
+class MonitoringPlugin : ActionPlugin, ScriptPlugin, Plugin() {
 
     companion object {
         @JvmField val KIBANA_USER_AGENT = "Kibana"
@@ -89,5 +92,9 @@ class MonitoringPlugin : ActionPlugin, Plugin() {
         if (indexModule.index.name == ScheduledJob.SCHEDULED_JOBS_INDEX) {
             indexModule.addIndexOperationListener(sweeper)
         }
+    }
+
+    override fun getContexts(): List<ScriptContext<*>> {
+        return listOf(TriggerScript.CONTEXT)
     }
 }
