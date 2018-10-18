@@ -26,6 +26,10 @@ data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder
                 .endObject()
     }
 
+    override fun name(): String {
+        return SEARCH_FIELD
+    }
+
     companion object {
         const val INDICES_FIELD = "indices"
         const val QUERY_FIELD = "query"

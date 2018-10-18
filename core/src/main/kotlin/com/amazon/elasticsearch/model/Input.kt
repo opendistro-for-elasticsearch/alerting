@@ -23,4 +23,6 @@ interface Input : ToXContentObject {
             return input
         }
     }
+
+    fun name() : String
 }
