@@ -1,0 +1,52 @@
+{
+  "_doc": {
+    "dynamic" : "strict",
+    "properties" : {
+      "monitor_id" : {
+        "type" : "keyword"
+      },
+      "monitor_version" : {
+        "type" : "long"
+      },
+      "monitor_name" : {
+        "type" : "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "trigger_id" : {
+        "type" : "keyword"
+      },
+      "trigger_name" : {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "state" : {
+        "type": "keyword"
+      },
+      "start_time" : {
+        "type" : "date"
+      },
+      "last_notification_time" : {
+        "type" : "date"
+      },
+      "acknowledged_time" : {
+        "type" : "date"
+      },
+      "end_time" : {
+        "type" : "date"
+      },
+      "error_message" : {
+        "type" : "text"
+      }
+    }
+  }
+}

@@ -10,10 +10,13 @@ package com.amazon.elasticsearch.monitoring.model
 
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContent
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.common.xcontent.XContentType
 import java.io.IOException
 import java.util.Date
 
@@ -47,22 +50,6 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
 
         private const val NO_ID = ""
         private const val NO_VERSION = Versions.NOT_FOUND
-
-        /**
-         * The in progress alert history index.
-         */
-        const val INDEX = ".aes-alerts"
-
-        /**
-         * The alias of the index in which to write alert history
-         */
-        const val HISTORY_WRITE_INDEX = ".aes-alert-history-write"
-
-        /**
-         * The index name pattern to query all the alert history indices
-         */
-        const val HISTORY_INDEX_PATTERN = ".aes-alert-history*"
-
 
         @JvmStatic @JvmOverloads
         @Throws(IOException::class)
