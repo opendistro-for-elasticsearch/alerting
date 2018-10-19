@@ -6,7 +6,8 @@ package com.amazon.elasticsearch
 
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.schedule.JobScheduler
-import org.apache.logging.log4j.Logger
+import com.amazon.elasticsearch.util.firstFailureOrNull
+import com.amazon.elasticsearch.util.retry
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.Client
@@ -29,6 +30,7 @@ import org.elasticsearch.index.engine.Engine
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.index.shard.IndexingOperationListener
 import org.elasticsearch.index.shard.ShardId
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.FieldSortBuilder
 import org.elasticsearch.threadpool.Scheduler
@@ -232,8 +234,12 @@ class JobSweeper(private val settings: Settings,
                             .query(QueryBuilders.matchAllQuery()))
 
 
-            val response = SWEEP_SEARCH_BACKOFF.retry("ScheduledJob sweep", logger) {
+            val response = SWEEP_SEARCH_BACKOFF.retry {
                 client.search(jobSearchRequest).actionGet(SWEEP_SEARCH_TIMEOUT)
+            }
+            if (response.status() != RestStatus.OK) {
+                logger.error("Error sweeping shard $shardId.", response.firstFailureOrNull())
+                return
             }
             for (hit in response.hits) {
                 if (shardNodes.isOwningNode(hit.id)) {
@@ -276,19 +282,6 @@ class JobSweeper(private val settings: Settings,
                     }
                 }
     }
-}
-
-@Throws(Exception::class)
-private fun <T> BackoffPolicy.retry(blockName: String, logger: Logger, block : () -> T) : T {
-    for (delay in this) {
-        try {
-            return block()
-        } catch (e: Exception) {
-            logger.warn("$blockName failed. Retrying in $delay.", e)
-        }
-        Thread.sleep(delay.millis())
-    }
-    return block()
 }
 
 /**
