@@ -11,6 +11,8 @@ import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.model.XContentTestBase
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -46,7 +48,7 @@ class XContentTests : XContentTestBase {
     fun randomAction() : Action {
         return SNSAction(name = "foo",
                 topicARN = "arn:bar:baz",
-                messageTemplate = "quick brown fox",
-                subjectTemplate = "you know the rest")
+                messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "quick brown fox", emptyMap()),
+                subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "blah blah", emptyMap()))
     }
 }

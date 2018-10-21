@@ -13,6 +13,7 @@ import com.amazon.elasticsearch.monitoring.model.Trigger
 import org.elasticsearch.common.UUIDs
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -44,8 +45,8 @@ fun randomScript() : Script {
 fun randomAction() : Action {
     return SNSAction(name = "foo",
             topicARN = "arn:bar:baz",
-            messageTemplate = "quick brown fox",
-            subjectTemplate = "you know the rest")
+            messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Goodbye world!", emptyMap()),
+            subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Hello world", emptyMap()))
 }
 
 fun randomAlert() : Alert {

@@ -12,14 +12,20 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.script.Script
 import java.io.IOException
 
 data class SNSAction(override val name: String,
                      val topicARN: String,
-                     val subjectTemplate: String,
-                     val messageTemplate: String,
+                     val subjectTemplate: Script,
+                     val messageTemplate: Script,
                      override val type: String = SNS_TYPE
                      ) : Action {
+
+    init {
+        require(subjectTemplate.lang == "mustache") { "subject_template must be a mustache script" }
+        require(messageTemplate.lang == "mustache") { "message_template must be a mustache script" }
+    }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
@@ -47,8 +53,8 @@ data class SNSAction(override val name: String,
         private fun parseInner(xcp: XContentParser): SNSAction {
             lateinit var name: String
             lateinit var topicARN: String
-            lateinit var subjectTemplate: String
-            lateinit var messageTemplate: String
+            lateinit var subjectTemplate: Script
+            lateinit var messageTemplate: Script
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while(xcp.nextToken() != Token.END_OBJECT) {
@@ -57,8 +63,8 @@ data class SNSAction(override val name: String,
                 when (fieldName) {
                     NAME_FIELD -> name = xcp.textOrNull()
                     TOPIC_ARN_FIELD -> topicARN = xcp.textOrNull()
-                    SUBJECT_TEMPLATE_FIELD -> subjectTemplate = xcp.textOrNull()
-                    MESSAGE_TEMPLATE_FIELD -> messageTemplate = xcp.textOrNull()
+                    SUBJECT_TEMPLATE_FIELD -> subjectTemplate = Script.parse(xcp, Script.DEFAULT_TEMPLATE_LANG)
+                    MESSAGE_TEMPLATE_FIELD -> messageTemplate = Script.parse(xcp, Script.DEFAULT_TEMPLATE_LANG)
                 }
             }
 
