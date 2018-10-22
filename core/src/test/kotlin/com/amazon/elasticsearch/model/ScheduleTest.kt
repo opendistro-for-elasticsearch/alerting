@@ -1,9 +1,9 @@
 package com.amazon.elasticsearch.model
 
-import com.cronutils.model.Cron
 import org.elasticsearch.common.xcontent.ToXContent
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,5 +77,32 @@ class ScheduleTest : XContentTestBase {
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException") {
             Schedule.parse(parser(scheduleString))
         }
+    }
+
+    @Test
+    fun `test interval period`() {
+        val intervalSchedule = IntervalSchedule(1, ChronoUnit.MINUTES)
+
+        val (startTime, endTime) = intervalSchedule.getPeriodStartEnd(null)
+
+        assertEquals(startTime, endTime.minus(1, ChronoUnit.MINUTES), "Period didn't match interval")
+
+        // Kotlin has destructuring declarations but no destructuring assignments? Gee, thanks...
+        val (startTime2, endTime2) =  intervalSchedule.getPeriodStartEnd(endTime)
+        assertEquals(startTime2, endTime, "Periods don't overlap")
+        assertEquals(startTime, endTime.minus(1, ChronoUnit.MINUTES), "Period didn't match interval")
+    }
+
+    @Test
+    fun `test cron period`() {
+        val cronSchedule = CronSchedule("0 * * * *", ZoneId.of("Asia/Tokyo"))
+
+        val (startTime, endTime) = cronSchedule.getPeriodStartEnd(null)
+
+        assertTrue(cronSchedule.executionTime.isMatch(ZonedDateTime.ofInstant(endTime, ZoneId.of("Asia/Tokyo"))))
+        assertNotNull(startTime, "Start time is null for cron")
+
+        val (startTime2, endTime2) =  cronSchedule.getPeriodStartEnd(endTime)
+        assertEquals(startTime2, endTime, "Periods don't overlap")
     }
 }

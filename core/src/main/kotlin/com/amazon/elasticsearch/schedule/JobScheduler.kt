@@ -5,6 +5,7 @@ import com.amazon.elasticsearch.model.ScheduledJob
 import org.elasticsearch.common.logging.Loggers
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.threadpool.ThreadPool
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -115,6 +116,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
         } else {
             logger.info("Descheduling jobId : $id")
             scheduledJobInfo.descheduled = true
+            scheduledJobInfo.previousExecutionTime = null
             var result = true
             val scheduledFuture = scheduledJobInfo.scheduledFuture
             if (scheduledFuture != null && !scheduledFuture.isDone) {
@@ -138,7 +140,6 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
 
     private fun reschedule(scheduleJob: ScheduledJob, scheduledJobInfo : ScheduledJobInfo): Boolean {
         val duration = scheduleJob.schedule.nextTimeToExecute()
-
         // Validate if there is next execution that needs to happen.
         // e.g cron job that is expected to run in 30th of Feb (which doesn't exist). "0/5 * 30 2 *"
         if (duration == null) {
@@ -153,7 +154,8 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
             if (scheduledJobInfo.descheduled) {
                 return@Runnable // skip running job if job is marked descheduled.
             }
-            jobRunner.runJob(scheduleJob)
+            val (startTime, endTime) = scheduleJob.schedule.getPeriodStartEnd(scheduledJobInfo.previousExecutionTime)
+            jobRunner.runJob(scheduleJob, startTime, endTime)
         }
 
         // Check descheduled flag as close as possible before we actually schedule a job.
@@ -176,5 +178,6 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
      */
     private data class ScheduledJobInfo (val scheduledJobId : String,
                                          var descheduled : Boolean = false,
+                                         var previousExecutionTime: Instant? = null,
                                          var scheduledFuture : ScheduledFuture<*>? = null)
 }

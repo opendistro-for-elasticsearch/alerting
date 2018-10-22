@@ -67,7 +67,8 @@ dependencies {
     // ES doesn't provide a full painless scripting engine maven artifact that we can compile against. Use a third party
     // artifact as a replacement for compilation and testing. See https://github.com/elastic/elasticsearch/issues/24528
     compileOnly "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
-
+    compileOnly "org.codelibs.elasticsearch.module:lang-mustache:${es_version}"
+    
     // Elasticsearch Nanny state
     compile "org.jetbrains.kotlin:kotlin-stdlib"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common"

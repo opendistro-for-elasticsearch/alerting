@@ -96,6 +96,12 @@ sealed class Schedule: ToXContentObject {
     }
 
     abstract fun nextTimeToExecute() : Duration?
+
+    /**
+     * Returns the start and end time for the next run of the this schedule based on the last endTime of the cron.
+     * If this is a schedule that runs only once this function will return [Instant.now] for both start and end time.
+     */
+    abstract fun getPeriodStartEnd(previousEndTime: Instant?) : Pair<Instant, Instant>
 }
 
 /**
@@ -115,6 +121,24 @@ data class CronSchedule(val expression: String,
         return timeToNextExecution.orElse(null)
     }
 
+    override fun getPeriodStartEnd(_previousEndTime: Instant?): Pair<Instant, Instant> {
+        val previousEndTime = if (_previousEndTime != null) {
+            _previousEndTime
+        } else {
+            // Probably the first time we're running. Try to figure out the last execution time
+            val lastExecutionTime = executionTime.lastExecution(ZonedDateTime.now())
+            // This shouldn't happen unless the cron is configured to run only once (which we currently don't support).
+            if (!lastExecutionTime.isPresent) {
+                val currentTime = Instant.now()
+                return Pair(currentTime, currentTime)
+            }
+            lastExecutionTime.get().toInstant()
+        }
+        val zonedDateTime = ZonedDateTime.ofInstant(previousEndTime, timezone)
+        val newEndTime = executionTime.nextExecution(zonedDateTime).orElse(null)
+        return Pair(previousEndTime, newEndTime?.toInstant() ?: Instant.now())
+    }
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
                 .startObject(CRON_FIELD)
@@ -132,6 +156,13 @@ data class IntervalSchedule(val interval: Int, val unit: ChronoUnit) : Schedule(
         // https://issues-pdx.amazon.com/issues/AESAlerting-93
         val intervalDuration = Duration.of(interval.toLong(), unit)
         return intervalDuration
+    }
+
+    override fun getPeriodStartEnd(_previousEndTime: Instant?): Pair<Instant, Instant> {
+        val intervalInMills = Duration.of(interval.toLong(), unit).toMillis()
+        val previousEndTime = _previousEndTime ?: Instant.now().minusMillis(intervalInMills)
+        val newEndTime = previousEndTime.plusMillis(intervalInMills)
+        return Pair(previousEndTime, newEndTime)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
