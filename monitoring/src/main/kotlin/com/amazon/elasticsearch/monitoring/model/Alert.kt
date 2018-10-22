@@ -124,6 +124,13 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                 .optionalDateField(ACKNOWLEDGED_TIME_FIELD, acknowledgedTime)
                 .endObject()
     }
+
+    fun asTemplateArg(): Map<String, Any?> {
+        return mapOf("state" to state.toString(),
+                "errorMessage" to errorMessage,
+                "acknowledgedTime" to acknowledgedTime?.time,
+                "lastNotificationTime" to lastNotificationTime?.time)
+    }
 }
 
 private fun XContentBuilder.optionalDateField(name: String, date: Date?) : XContentBuilder {

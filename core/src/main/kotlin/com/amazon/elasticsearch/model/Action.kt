@@ -10,6 +10,8 @@ interface Action : ToXContentObject {
     val name: String
     val type: String
 
+    fun asTemplateArg() : Map<String, Any>
+
     companion object {
 
         @Throws(IOException::class)

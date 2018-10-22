@@ -38,8 +38,13 @@ data class SNSAction(override val name: String,
                 .endObject()
     }
 
+    override fun asTemplateArg(): Map<String, Any> {
+        return mapOf(NAME_FIELD to name, TYPE_FIELD to type, TOPIC_ARN_FIELD to topicARN)
+    }
+
     companion object {
         const val NAME_FIELD = "name"
+        const val TYPE_FIELD = "type"
         const val TOPIC_ARN_FIELD = "topic_arn"
         const val SUBJECT_TEMPLATE_FIELD = "subject_template"
         const val MESSAGE_TEMPLATE_FIELD = "message_template"

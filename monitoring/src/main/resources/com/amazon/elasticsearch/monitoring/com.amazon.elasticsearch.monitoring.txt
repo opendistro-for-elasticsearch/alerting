@@ -1,0 +1,48 @@
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+# Painless definition of classes used by monitoring plugin
+
+class com.amazon.elasticsearch.monitoring.script.TriggerScript {
+    Map getParams()
+    boolean execute(TriggerExecutionContext)
+    String[] PARAMETERS
+}
+
+class com.amazon.elasticsearch.monitoring.script.TriggerScript$Factory {
+    TriggerScript newInstance(Map)
+}
+
+class com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext {
+    Monitor getMonitor()
+    Trigger getTrigger()
+    List getResults()
+    java.time.Instant getPeriodStart()
+    java.time.Instant getPeriodEnd()
+    Alert getAlert()
+    Exception getError()
+}
+
+class com.amazon.elasticsearch.monitoring.model.Monitor {
+    String getId()
+    long getVersion()
+    String getName()
+    boolean getEnabled()
+}
+
+class com.amazon.elasticsearch.monitoring.model.Trigger {
+    String getId()
+    String getName()
+    int getSeverity()
+    List getActions()
+}
+
+class com.amazon.elasticsearch.model.Action {
+    String getName()
+    String getType()
+}
+
+class com.amazon.elasticsearch.monitoring.model.Alert {
+    String getId()
+    long getVersion()
+    boolean isAcknowledged()
+}

@@ -7,6 +7,8 @@ package com.amazon.elasticsearch.monitoring.model
 import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
+import com.amazon.elasticsearch.monitoring.util._ID
+import com.amazon.elasticsearch.monitoring.util._VERSION
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -38,6 +40,11 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
 
     fun toXContent(builder: XContentBuilder) : XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
+    }
+
+    /** Returns a representation of the monitor suitable for passing into painless and mustache scripts. */
+    fun asTemplateArg() : Map<String, Any> {
+        return mapOf(_ID to id, _VERSION to version, NAME_FIELD to name, ENABLED_FIELD to enabled)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

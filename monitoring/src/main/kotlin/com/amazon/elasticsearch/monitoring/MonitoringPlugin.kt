@@ -4,6 +4,7 @@
 package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.JobRunner
+import com.amazon.elasticsearch.JobSweeper
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
@@ -12,8 +13,7 @@ import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
-import com.amazon.elasticsearch.JobSweeper
-import com.amazon.elasticsearch.monitoring.model.TriggerScript
+import com.amazon.elasticsearch.monitoring.script.TriggerScript
 import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
 import com.amazon.elasticsearch.schedule.JobScheduler
 import com.amazon.elasticsearch.schedule.StubJobRunner
@@ -30,6 +30,9 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
 import org.elasticsearch.index.IndexModule
+import org.elasticsearch.painless.spi.PainlessExtension
+import org.elasticsearch.painless.spi.Whitelist
+import org.elasticsearch.painless.spi.WhitelistLoader
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
 import org.elasticsearch.plugins.ScriptPlugin
@@ -47,7 +50,12 @@ import java.util.function.Supplier
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [SNSAction.XCONTENT_REGISTRY] to the
  * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
-class MonitoringPlugin : ActionPlugin, ScriptPlugin, Plugin() {
+class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin() {
+
+    override fun getContextWhitelists(): Map<ScriptContext<*>, List<Whitelist>> {
+        val whitelist = WhitelistLoader.loadFromResourceFiles(javaClass, "com.amazon.elasticsearch.monitoring.txt")
+        return mapOf(TriggerScript.CONTEXT to listOf(whitelist))
+    }
 
     companion object {
         @JvmField val KIBANA_USER_AGENT = "Kibana"

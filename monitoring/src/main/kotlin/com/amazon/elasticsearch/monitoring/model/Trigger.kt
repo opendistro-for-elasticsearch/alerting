@@ -30,6 +30,12 @@ data class Trigger( val name: String, val severity: Int, val condition: Script, 
         return builder
     }
 
+    /** Returns a representation of the trigger suitable for passing into painless and mustache scripts. */
+    fun asTemplateArg() : Map<String, Any> {
+        return mapOf(ID_FIELD to id, NAME_FIELD to name, SEVERITY_FILED to severity,
+                ACTIONS_FIELD to actions.map { it.asTemplateArg() })
+    }
+
     companion object {
         const val ID_FIELD = "id"
         const val NAME_FIELD = "name"

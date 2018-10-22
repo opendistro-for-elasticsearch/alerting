@@ -2,7 +2,7 @@
  * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
-package com.amazon.elasticsearch.monitoring.model
+package com.amazon.elasticsearch.monitoring.script
 
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptContext
@@ -26,13 +26,17 @@ abstract class TriggerScript(_scriptParams: Map<String, Any>) {
          * In a sane world this would have been named `ARGUMENTS` to avoid confusing the hell out of everyone who has to
          * work with this code.
          */
-        // TODO: Add other context parameters after adding a custom whitelist to expose our data model.
-        @JvmField val PARAMETERS = arrayOf("_results", "_period_start", "_period_end")
+        @JvmField val PARAMETERS = arrayOf("_ctx")
 
         val CONTEXT = ScriptContext("trigger", Factory::class.java)
     }
 
-    abstract fun execute(_results: List<Any>, _period_start: Long, _period_end: Long) : Boolean
+    /**
+     * Run a trigger script with the given context.
+     *
+     * @param _ctx - the trigger execution context
+     */
+    abstract fun execute(_ctx : TriggerExecutionContext) : Boolean
 
     interface Factory {
         fun newInstance(scriptParams: Map<String, Any>) : TriggerScript
