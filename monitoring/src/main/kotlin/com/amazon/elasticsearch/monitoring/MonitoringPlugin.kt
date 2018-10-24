@@ -14,6 +14,7 @@ import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.JobSweeper
 import com.amazon.elasticsearch.monitoring.model.TriggerScript
+import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
 import com.amazon.elasticsearch.schedule.JobScheduler
 import com.amazon.elasticsearch.schedule.StubJobRunner
 import org.elasticsearch.client.Client
@@ -68,7 +69,8 @@ class MonitoringPlugin : ActionPlugin, ScriptPlugin, Plugin() {
         return listOf(RestGetMonitorAction(settings, restController),
                 RestDeleteMonitorAction(settings, restController),
                 RestIndexMonitorAction(settings, restController),
-                RestSearchMonitorAction(settings, restController))
+                RestSearchMonitorAction(settings, restController),
+                RestAcknowledgeAlertAction(settings, restController));
     }
 
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {

@@ -48,6 +48,11 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
         /** The index name pattern to query all the alert history indices */
         const val HISTORY_INDEX_PATTERN = "<.aes-alert-history-{now/d}-1>"
 
+        /**
+         * The index name pattern to query all alerts, history and current alerts.
+         */
+        const val ALL_INDEX_PATTERN = ".aes-alert*"
+
         private val DEFAULT_TIMEOUT = TimeValue.timeValueSeconds(30)
 
         val HISTORY_INDEX_ROLLOVER_PERIOD_SETTING: Setting<TimeValue> =

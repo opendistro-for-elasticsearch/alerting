@@ -48,8 +48,16 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
         const val ACKNOWLEDGED_TIME_FIELD = "acknowledged_time"
         const val ERROR_MESSAGE_FIELD = "error_message"
 
-        private const val NO_ID = ""
-        private const val NO_VERSION = Versions.NOT_FOUND
+        const val NO_ID = ""
+        const val NO_VERSION = Versions.NOT_FOUND
+
+        /**
+         * The mapping type of [Alert]s in the ES index.
+         *
+         * This should go away starting ES 7. We use "_doc" for future compatibility as described here:
+         * https://www.elastic.co/guide/en/elasticsearch/reference/6.x/removal-of-types.html#_schedule_for_removal_of_mapping_types
+         */
+        const val ALERT_TYPE = "_doc"
 
         @JvmStatic @JvmOverloads
         @Throws(IOException::class)
