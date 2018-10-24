@@ -10,8 +10,14 @@ import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
+import org.apache.http.HttpEntity
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.StringEntity
+import org.elasticsearch.client.Response
 import org.elasticsearch.common.UUIDs
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -31,7 +37,7 @@ fun randomMonitor(withMetadata: Boolean = false): Monitor {
 
 fun randomTrigger(): Trigger {
     return Trigger(id = UUIDs.base64UUID(),
-            name = "foo",
+            name = ESRestTestCase.randomAlphaOfLength(10),
             severity = 1,
             condition = randomScript(),
             actions = listOf(randomAction())
@@ -43,10 +49,10 @@ fun randomScript() : Script {
 }
 
 fun randomAction() : Action {
-    return SNSAction(name = "foo",
+    return SNSAction(name = ESRestTestCase.randomUnicodeOfLength(10),
             topicARN = "arn:bar:baz",
-            messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Goodbye world!", emptyMap()),
-            subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Hello world", emptyMap()))
+            messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Goodbye {{_ctx.monitor.name}}!", emptyMap()),
+            subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Hello {{_ctx.monitor.name}}!", emptyMap()))
 }
 
 fun randomAlert() : Alert {
@@ -54,4 +60,19 @@ fun randomAlert() : Alert {
     val trigger = randomTrigger()
     return Alert(monitor, trigger, Date(System.currentTimeMillis()))
 }
+
+fun Response.restStatus() : RestStatus {
+    return RestStatus.fromCode(this.statusLine.statusCode)
+}
+
+fun Monitor.toHttpEntity() : HttpEntity {
+    return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
+}
+
+fun Monitor.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder).string()
+}
+
+fun Monitor.relativeUrl() = "_awses/monitors/$id"
 

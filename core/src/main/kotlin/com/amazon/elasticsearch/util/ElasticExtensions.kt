@@ -6,11 +6,12 @@ package com.amazon.elasticsearch.util
 
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.bulk.BackoffPolicy
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.StatusToXContentObject
+import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.search.ShardSearchFailure
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
 import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
@@ -52,3 +53,6 @@ fun ElasticsearchException.isRetriable() : Boolean {
     return (status() in listOf(BAD_GATEWAY, SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT))
 }
 
+fun SearchResponse.firstFailureOrNull() : ShardSearchFailure? {
+    return shardFailures?.getOrNull(0)
+}

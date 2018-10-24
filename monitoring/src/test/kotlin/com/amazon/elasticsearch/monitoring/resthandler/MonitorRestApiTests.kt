@@ -4,24 +4,23 @@
 package com.amazon.elasticsearch.monitoring.resthandler
 
 import com.amazon.elasticsearch.model.CronSchedule
-import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.MonitoringRestTestCase
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
-import org.apache.http.HttpEntity
+import com.amazon.elasticsearch.monitoring.randomMonitor
+import com.amazon.elasticsearch.monitoring.relativeUrl
+import com.amazon.elasticsearch.monitoring.restStatus
+import com.amazon.elasticsearch.monitoring.toHttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.apache.http.nio.entity.NStringEntity
-import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser.Token.END_OBJECT
 import org.elasticsearch.common.xcontent.XContentParser.Token.START_OBJECT
 import org.elasticsearch.common.xcontent.XContentParserUtils
@@ -29,26 +28,16 @@ import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
-import org.elasticsearch.search.SearchModule
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
-import org.junit.Before
-import com.amazon.elasticsearch.monitoring.randomMonitor
 import java.time.ZoneId
 
 @TestLogging("level:DEBUG")
-class MonitorRestApiTests : ESRestTestCase() {
+class MonitorRestApiTests : MonitoringRestTestCase() {
 
     val USE_TYPED_KEYS = ToXContent.MapParams(mapOf("with_type" to "true"))
-
-    @Before
-    fun `recreate scheduled jobs index`() {
-        // ESRestTestCase wipes all indexes after every test.
-        // TODO: This really needs to be part of the plugin to watch for index deletion and recreate as needed.
-        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, Settings.EMPTY)
-    }
 
     @Throws(Exception::class)
     fun `test plugin is loaded`() {
@@ -63,13 +52,6 @@ class MonitorRestApiTests : ESRestTestCase() {
             }
         }
         fail("Plugin not installed")
-    }
-
-    override fun xContentRegistry(): NamedXContentRegistry {
-        return NamedXContentRegistry(mutableListOf(Monitor.XCONTENT_REGISTRY,
-                SearchInput.XCONTENT_REGISTRY,
-                SNSAction.XCONTENT_REGISTRY) +
-                SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 
     fun `test parsing monitor as a scheduled job`() {
@@ -328,23 +310,4 @@ class MonitorRestApiTests : ESRestTestCase() {
         }
         return monitor!!.copy(id  = id, version = version)
     }
-
-    private fun Response.restStatus() : RestStatus {
-        return RestStatus.fromCode(this.statusLine.statusCode)
-    }
-
-    private fun Response.asMap() : Map<String, Any> {
-        return entityAsMap(this)
-    }
-
-    private fun Monitor.toHttpEntity() : HttpEntity {
-        return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
-    }
-
-    private fun Monitor.toJsonString(): String {
-        val builder = XContentFactory.jsonBuilder()
-        return this.toXContent(builder).string()
-    }
-
-    private fun Monitor.relativeUrl() = "_awses/monitors/$id"
 }
