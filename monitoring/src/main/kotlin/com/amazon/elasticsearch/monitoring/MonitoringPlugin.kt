@@ -3,20 +3,20 @@
  */
 package com.amazon.elasticsearch.monitoring
 
-import com.amazon.elasticsearch.JobRunner
 import com.amazon.elasticsearch.JobSweeper
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestExecuteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
 import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
 import com.amazon.elasticsearch.schedule.JobScheduler
-import com.amazon.elasticsearch.schedule.StubJobRunner
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
@@ -63,7 +63,7 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
         @JvmField val MONITOR_BASE_URI = "/_awses/monitors/"
     }
 
-    lateinit var runner: JobRunner<ScheduledJob>
+    lateinit var runner: MonitorRunner
     lateinit var scheduler: JobScheduler
     lateinit var sweeper: JobSweeper
 
@@ -78,7 +78,8 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
                 RestDeleteMonitorAction(settings, restController),
                 RestIndexMonitorAction(settings, restController),
                 RestSearchMonitorAction(settings, restController),
-                RestAcknowledgeAlertAction(settings, restController));
+                RestExecuteMonitorAction(settings, restController, runner),
+                RestAcknowledgeAlertAction(settings, restController))
     }
 
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {
@@ -92,7 +93,10 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
                                   xContentRegistry: NamedXContentRegistry, environment: Environment,
                                   nodeEnvironment: NodeEnvironment,
                                   namedWriteableRegistry: NamedWriteableRegistry): Collection<Any> {
-        runner = StubJobRunner()
+        // Need to figure out how to use the Elasticsearch DI classes rather than handwiring things here.
+        val settings = environment.settings()
+        val alertIndices = AlertIndices(settings, client.admin().indices(), threadPool)
+        runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices)
         scheduler = JobScheduler(threadPool, runner)
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
         return listOf(sweeper, scheduler, runner)

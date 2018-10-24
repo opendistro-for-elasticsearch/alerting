@@ -24,8 +24,8 @@ import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
+import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
 
 fun randomMonitor(withMetadata: Boolean = false): Monitor {
     return Monitor(name = ESRestTestCase.randomAlphaOfLength(10),
@@ -58,7 +58,7 @@ fun randomAction() : Action {
 
 fun randomAlert(monitor: Monitor = randomMonitor()) : Alert {
     val trigger = randomTrigger()
-    return Alert(monitor, trigger, Date(System.currentTimeMillis()))
+    return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null)
 }
 
 // Temporary function until we have mappings in resource folder.

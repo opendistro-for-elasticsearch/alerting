@@ -4,7 +4,7 @@ import com.amazon.elasticsearch.JobRunner
 import com.amazon.elasticsearch.model.ScheduledJob
 import java.time.Instant
 
-class MockJobRunner : JobRunner<ScheduledJob> {
+class MockJobRunner : JobRunner {
     var numberOfRun : Int = 0
         private set
 

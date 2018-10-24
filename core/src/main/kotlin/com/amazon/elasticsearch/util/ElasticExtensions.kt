@@ -9,21 +9,28 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.search.ShardSearchFailure
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
 import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
+import org.elasticsearch.script.ScriptException
+import java.io.PrintWriter
+import java.io.StringWriter
 
+/** Constructs an error message from an exception suitable for human consumption. */
+fun Throwable.stackTraceString() : String {
+    return if (this is ScriptException) {
+        this.scriptStack.joinToString(separator = "\n", limit = 100)
+    } else {
+        StringWriter().also { printStackTrace(PrintWriter(it)) }.toString()
+    }
+}
 
-/**
- * Stupidly memory intensive way to convert a class to Map and Lists representation
- */
-fun ToXContent.asMap(xContentRegistry: NamedXContentRegistry) : Map<String, Any> {
-    val builder = XContentFactory.jsonBuilder()
-    this.toXContent(builder, ToXContent.EMPTY_PARAMS)
-    return XContentType.JSON.xContent().createParser(xContentRegistry, builder.bytes()).map()
+/** Convert an object to maps and lists representation */
+fun ToXContent.convertToMap() : Map<String, Any> {
+    val bytesReference = XContentHelper.toXContent(this, XContentType.JSON, false)
+    return XContentHelper.convertToMap(bytesReference, false, XContentType.JSON).v2()
 }
 
 /**

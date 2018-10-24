@@ -29,6 +29,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
+import java.time.Instant
 import java.util.Date
 
 /**
@@ -89,7 +90,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
                     val alert = Alert.parse(xcp, hit.id, hit.version)
                     if (alert.state == Alert.State.ACTIVE) {
-                        val acknowledgedAlert = alert.copy(state = Alert.State.ACKNOWLEDGED, acknowledgedTime = Date(0))
+                        val acknowledgedAlert = alert.copy(state = Alert.State.ACKNOWLEDGED, acknowledgedTime = Instant.now())
                         val indexRequest = IndexRequest(AlertIndices.ALERT_INDEX, Alert.ALERT_TYPE, hit.id)
                                 .source(acknowledgedAlert.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
                         val indexResponse = client.index(indexRequest).actionGet(TimeValue.timeValueSeconds(10))

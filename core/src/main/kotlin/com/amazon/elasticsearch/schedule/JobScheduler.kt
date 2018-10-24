@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit
  *
  * JobScheduler is unaware of the ScheduledJob version and it is up to callers to ensure that the older version of ScheduledJob to be descheduled and schedule the new version.
  */
-class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : JobRunner<ScheduledJob>) {
+class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : JobRunner) {
     private val logger = Loggers.getLogger(JobScheduler::class.java)
 
     /**

@@ -10,29 +10,36 @@ package com.amazon.elasticsearch.monitoring.model
 
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContent
 import org.elasticsearch.common.xcontent.XContentBuilder
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
-import org.elasticsearch.common.xcontent.XContentType
 import java.io.IOException
-import java.util.Date
+import java.time.Instant
 
 data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val monitorId: String, val monitorName: String,
                  val monitorVersion: Long, val triggerId: String, val triggerName: String,
-                 val state: State, val startTime: Date, val endTime: Date? = null,
-                 val lastNotificationTime: Date? = null, val acknowledgedTime: Date? = null,
+                 val state: State, val startTime: Instant, val endTime: Instant? = null,
+                 val lastNotificationTime: Instant? = null, val acknowledgedTime: Instant? = null,
                  val errorMessage: String? = null) : ToXContent {
 
-    constructor(monitor: Monitor, trigger: Trigger, startTime: Date) : this(monitorId = monitor.id,
-            monitorName = monitor.name, monitorVersion = monitor.version, triggerId = trigger.id,
-            triggerName = trigger.name, state = State.ACTIVE, startTime = startTime)
+    init {
+        if (errorMessage != null) {
+            require(state == State.ERROR) { "Attempt to create an alert with an error in state: $state" }
+        }
+    }
+
+    constructor(monitor: Monitor, trigger: Trigger, startTime: Instant, lastNotificationTime: Instant?,
+                state: State = State.ACTIVE, errorMessage: String? = null)
+            : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
+            triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
+            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage)
 
     enum class State {
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR
     }
+
+    fun isAcknowledged() : Boolean = (state == State.ACKNOWLEDGED)
 
     companion object {
 
@@ -69,10 +76,10 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
             lateinit var triggerId: String
             lateinit var triggerName: String
             lateinit var state: State
-            lateinit var startTime: Date
-            var endTime: Date? = null
-            var lastNotificationTime: Date? = null
-            var acknowledgedTime: Date? = null
+            lateinit var startTime: Instant
+            var endTime: Instant? = null
+            var lastNotificationTime: Instant? = null
+            var acknowledgedTime: Instant? = null
             var errorMessage: String? = null
 
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -87,10 +94,10 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                     TRIGGER_ID_FIELD -> triggerId = xcp.text()
                     STATE_FIELD -> state = State.valueOf(xcp.text())
                     TRIGGER_NAME_FIELD -> triggerName = xcp.text()
-                    START_TIME_FIELD -> startTime = requireNotNull(xcp.date())
-                    END_TIME_FIELD -> endTime = xcp.date()
-                    LAST_NOTIFICATION_TIME_FIELD -> lastNotificationTime = xcp.date()
-                    ACKNOWLEDGED_TIME_FIELD -> acknowledgedTime = xcp.date()
+                    START_TIME_FIELD -> startTime = requireNotNull(xcp.instant())
+                    END_TIME_FIELD -> endTime = xcp.instant()
+                    LAST_NOTIFICATION_TIME_FIELD -> lastNotificationTime = xcp.instant()
+                    ACKNOWLEDGED_TIME_FIELD -> acknowledgedTime = xcp.instant()
                     ERROR_MESSAGE_FIELD -> errorMessage = xcp.textOrNull()
                 }
             }
@@ -105,10 +112,6 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
 
     }
 
-    fun isAcknowledged() : Boolean {
-        return acknowledgedTime != null
-    }
-
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
                 .field(MONITOR_ID_FIELD, monitorId)
@@ -118,7 +121,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                 .field(TRIGGER_NAME_FIELD, triggerName)
                 .field(STATE_FIELD, state)
                 .field(ERROR_MESSAGE_FIELD, errorMessage)
-                .dateField(START_TIME_FIELD, START_TIME_FIELD, startTime.time)
+                .dateField(START_TIME_FIELD, START_TIME_FIELD, startTime.toEpochMilli())
                 .optionalDateField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
                 .optionalDateField(END_TIME_FIELD, endTime)
                 .optionalDateField(ACKNOWLEDGED_TIME_FIELD, acknowledgedTime)
@@ -128,22 +131,22 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
     fun asTemplateArg(): Map<String, Any?> {
         return mapOf("state" to state.toString(),
                 "errorMessage" to errorMessage,
-                "acknowledgedTime" to acknowledgedTime?.time,
-                "lastNotificationTime" to lastNotificationTime?.time)
+                "acknowledgedTime" to acknowledgedTime?.toEpochMilli(),
+                "lastNotificationTime" to lastNotificationTime?.toEpochMilli())
     }
 }
 
-private fun XContentBuilder.optionalDateField(name: String, date: Date?) : XContentBuilder {
-    if (date == null) {
+private fun XContentBuilder.optionalDateField(name: String, instant: Instant?) : XContentBuilder {
+    if (instant == null) {
         return nullField(name)
     }
-    return dateField(name, name, date.time)
+    return dateField(name, name, instant.toEpochMilli())
 }
 
-private fun XContentParser.date() : Date? {
+private fun XContentParser.instant() : Instant? {
     return when {
         currentToken() == XContentParser.Token.VALUE_NULL -> null
-        currentToken().isValue -> Date(longValue())
+        currentToken().isValue -> Instant.ofEpochMilli(longValue())
         else -> {
             XContentParserUtils.throwUnknownToken(currentToken(), tokenLocation)
             null // unreachable

@@ -7,7 +7,6 @@ package com.amazon.elasticsearch
 import com.amazon.elasticsearch.model.ScheduledJob
 import java.time.Instant
 
-interface JobRunner<T : ScheduledJob> {
-// threadPool.generic().submit(Runnable { runner.runJob(); }
-    fun runJob(job: T, periodStart : Instant, periodEnd: Instant)
+interface JobRunner {
+    fun runJob(job: ScheduledJob, periodStart : Instant, periodEnd: Instant)
 }
