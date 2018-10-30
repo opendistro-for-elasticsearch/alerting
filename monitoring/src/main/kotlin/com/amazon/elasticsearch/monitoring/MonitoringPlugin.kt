@@ -3,6 +3,7 @@
  */
 package com.amazon.elasticsearch.monitoring
 
+import com.amazon.elasticsearch.ScheduledJobIndices
 import com.amazon.elasticsearch.JobSweeper
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
@@ -66,6 +67,7 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
     lateinit var runner: MonitorRunner
     lateinit var scheduler: JobScheduler
     lateinit var sweeper: JobSweeper
+    lateinit var scheduledJobIndices: ScheduledJobIndices
 
     override fun getRestHandlers(settings: Settings,
                                  restController: RestController,
@@ -76,7 +78,7 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
                                  nodesInCluster: Supplier<DiscoveryNodes>): List<RestHandler> {
         return listOf(RestGetMonitorAction(settings, restController),
                 RestDeleteMonitorAction(settings, restController),
-                RestIndexMonitorAction(settings, restController),
+                RestIndexMonitorAction(settings, restController, scheduledJobIndices),
                 RestSearchMonitorAction(settings, restController),
                 RestExecuteMonitorAction(settings, restController, runner),
                 RestAcknowledgeAlertAction(settings, restController))
@@ -99,6 +101,7 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
         runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices)
         scheduler = JobScheduler(threadPool, runner)
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
+        scheduledJobIndices = ScheduledJobIndices(client.admin(), settings, clusterService)
         return listOf(sweeper, scheduler, runner)
     }
 

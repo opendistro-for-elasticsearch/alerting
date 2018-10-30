@@ -230,6 +230,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
     }
 
     fun `test query a monitor that doesn't exist`() {
+        createRandomMonitor(refresh = true) // Create a random monitor to create the ScheduledJob index. Otherwise we test will fail with 404 index not found.
         val search = SearchSourceBuilder().query(QueryBuilders.termQuery(ESTestCase.randomAlphaOfLength(5),
                 ESTestCase.randomAlphaOfLength(5))).toString()
 
@@ -301,6 +302,18 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         assertTrue("Alert in state ${completedAlert.state} not found in failed list", failedResponseList.contains(errorAlert.id))
         assertTrue("Alert in state ${errorAlert.state} not found in failed list", failedResponseList.contains(completedAlert.id))
         assertFalse("Alert in state ${activeAlert.state} found in failed list", failedResponseList.contains(activeAlert.id))
+    }
+
+    fun `test mappings after monitor creation`() {
+        createRandomMonitor(refresh = true)
+
+        val response = client().performRequest("GET", "/${ScheduledJob.SCHEDULED_JOBS_INDEX}/_mapping/_doc")
+        var parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
+        var mappingsMap = parserMap[ScheduledJob.SCHEDULED_JOBS_INDEX]!!["mappings"] as Map<String, Any>
+        var expected = createParser(XContentType.JSON.xContent(), javaClass.classLoader.getResource("mappings/scheduled-jobs.json").readText())
+        var expectedMap = expected.map()
+
+        assertEquals("Mappings are different", expectedMap, mappingsMap)
     }
 
     // Helper functions

@@ -17,13 +17,6 @@ import org.junit.Before
 
 abstract class MonitoringRestTestCase : ESRestTestCase() {
 
-    @Before
-    fun `recreate scheduled jobs index`() {
-        // ESRestTestCase wipes all indexes after every test.
-        // TODO: This really needs to be part of the plugin to watch for index deletion and recreate as needed.
-        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, Settings.EMPTY)
-    }
-
     override fun xContentRegistry(): NamedXContentRegistry {
         return NamedXContentRegistry(mutableListOf(Monitor.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY,

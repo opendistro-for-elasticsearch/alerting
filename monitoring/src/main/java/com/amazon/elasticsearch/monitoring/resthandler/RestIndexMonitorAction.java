@@ -3,13 +3,17 @@
  */
 package com.amazon.elasticsearch.monitoring.resthandler;
 
+import com.amazon.elasticsearch.ScheduledJobIndices;
 import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import com.amazon.elasticsearch.monitoring.model.Monitor;
 import com.amazon.elasticsearch.monitoring.util.RestHandlerUtilsKt;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.node.NodeClient;
+import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -23,8 +27,10 @@ import org.elasticsearch.rest.RestResponse;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.action.RestActions;
 import org.elasticsearch.rest.action.RestResponseListener;
+import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOBS_INDEX;
 import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOB_TYPE;
@@ -38,11 +44,16 @@ import static org.elasticsearch.rest.RestRequest.Method.PUT;
 public class RestIndexMonitorAction extends BaseRestHandler {
 
     private static final String REFRESH = "refresh";
+    private static ScheduledJobIndices scheduledJobIndices;
+    private TimeValue TIMEOUT;
 
-    public RestIndexMonitorAction(final Settings settings, final RestController controller) {
+    public RestIndexMonitorAction(final Settings settings, final RestController controller, final ScheduledJobIndices jobIndices) {
         super(settings);
         controller.registerHandler(POST, MonitoringPlugin.MONITOR_BASE_URI, this); // Create a new monitor
         controller.registerHandler(PUT, MonitoringPlugin.MONITOR_BASE_URI + "{monitorID}", this);
+        TIMEOUT = Setting.positiveTimeSetting("aes.monitoring.request_timeout",
+                TimeValue.timeValueSeconds(10), Setting.Property.Dynamic).get(settings);
+        scheduledJobIndices = jobIndices;
     }
 
     @Override
@@ -70,7 +81,17 @@ public class RestIndexMonitorAction extends BaseRestHandler {
         if (request.hasParam(REFRESH)) {
             indexRequest.setRefreshPolicy(request.param(REFRESH));
         }
-        return channel -> client.index(indexRequest, indexMonitorResponse(channel));
+        return channel -> {
+            try {
+                client.threadPool().executor(ThreadPool.Names.MANAGEMENT).submit(
+                        () -> scheduledJobIndices.initScheduledJobIndex(TIMEOUT)).get(TIMEOUT.getSeconds(), TimeUnit.SECONDS);
+                client.index(indexRequest, indexMonitorResponse(channel));
+            } catch (Exception e) {
+                RestStatus status = e instanceof ElasticsearchException?
+                        ((ElasticsearchException) e).status(): RestStatus.INTERNAL_SERVER_ERROR;
+                channel.sendResponse(new BytesRestResponse(status, e.getMessage()));
+            }
+        };
     }
 
     private static RestResponseListener<IndexResponse> indexMonitorResponse(RestChannel channel) {

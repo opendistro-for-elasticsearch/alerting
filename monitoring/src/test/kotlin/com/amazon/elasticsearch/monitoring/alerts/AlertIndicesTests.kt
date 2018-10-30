@@ -4,23 +4,17 @@
 
 package com.amazon.elasticsearch.monitoring.alerts
 
-import com.amazon.elasticsearch.model.SNSAction
-import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.randomAlert
 import org.elasticsearch.Version
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.settings.Settings.EMPTY
 import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.node.Node
-import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESIntegTestCase
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
