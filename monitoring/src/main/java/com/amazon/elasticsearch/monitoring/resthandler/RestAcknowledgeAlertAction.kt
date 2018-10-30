@@ -5,6 +5,7 @@ import com.amazon.elasticsearch.monitoring.model.Alert
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Setting
@@ -30,7 +31,6 @@ import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 import java.time.Instant
-import java.util.Date
 
 /**
  * This class consists of the REST handler to acknowledge alerts.
@@ -93,11 +93,13 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                         val acknowledgedAlert = alert.copy(state = Alert.State.ACKNOWLEDGED, acknowledgedTime = Instant.now())
                         val indexRequest = IndexRequest(AlertIndices.ALERT_INDEX, Alert.ALERT_TYPE, hit.id)
                                 .source(acknowledgedAlert.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
-                        val indexResponse = client.index(indexRequest).actionGet(TimeValue.timeValueSeconds(10))
-                        if (indexResponse.status() == RestStatus.CREATED) {
-                            acknowledgedAlerts.add(alert)
+                                .routing(acknowledgedAlert.monitorId)
+                                .setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL)
+                        val indexResponse = client.index(indexRequest).actionGet(REQUEST_TIMEOUT.get(settings))
+                        if (indexResponse.status() != RestStatus.OK) {
+                            failedAlerts.add(alert)
                         } else {
-                            failedAlerts.add(acknowledgedAlert)
+                            acknowledgedAlerts.add(alert)
                         }
                     } else {
                         failedAlerts.add(alert)

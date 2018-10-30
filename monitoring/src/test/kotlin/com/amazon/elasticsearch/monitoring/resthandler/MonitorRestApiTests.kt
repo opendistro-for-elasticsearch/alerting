@@ -294,7 +294,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
 
         assertNotNull("Unsuccessful acknowledgement", responseMap["success"] as List<String>)
         assertTrue("Alert not in acknowledged response", responseMap["success"].toString().contains(activeAlert.id))
-        assertEquals("Alert not acknowledged.", Alert.State.ACKNOWLEDGED, getAlert(activeAlert.id).state)
+        assertEquals("Alert not acknowledged.", Alert.State.ACKNOWLEDGED, getAlert(alertId = activeAlert.id, monitorId = monitor.id).state)
 
         val failedResponseList = responseMap.get("failed").toString()
         assertTrue("Alert in state ${acknowledgedAlert.state} not found in failed list", failedResponseList.contains(acknowledgedAlert.id))
@@ -353,8 +353,8 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         return monitor!!.copy(id  = id, version = version)
     }
 
-    private fun getAlert(alertId: String): Alert {
-        val response = client().performRequest("GET", "/.aes-alerts/_doc/$alertId")
+    private fun getAlert(alertId: String, monitorId: String): Alert {
+        val response = client().performRequest("GET", "/.aes-alerts/_doc/$alertId?routing=$monitorId")
         assertEquals("Unable to get alert $alertId", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
