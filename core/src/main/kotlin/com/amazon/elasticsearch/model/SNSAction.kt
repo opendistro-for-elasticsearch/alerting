@@ -32,8 +32,8 @@ data class SNSAction(override val name: String,
                 .startObject(type)
                 .field(NAME_FIELD, name)
                 .field(TOPIC_ARN_FIELD, topicARN)
-                .field(SUBJECT_TEMPLATE_FIELD, subjectTemplate)
-                .field(MESSAGE_TEMPLATE_FIELD, messageTemplate)
+                .field(SUBJECT_TEMPLATE_FIELD, subjectTemplate.idOrCode)
+                .field(MESSAGE_TEMPLATE_FIELD, messageTemplate.idOrCode)
                 .endObject()
                 .endObject()
     }
