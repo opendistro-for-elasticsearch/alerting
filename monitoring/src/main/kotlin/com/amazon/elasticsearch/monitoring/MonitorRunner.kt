@@ -41,6 +41,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -219,7 +220,9 @@ class MonitorRunner(private val settings: Settings,
     }
 
     private fun contentParser(bytesReference: BytesReference) : XContentParser {
-        return XContentType.JSON.xContent().createParser(xContentRegistry, bytesReference)
+        var xcp = XContentType.JSON.xContent().createParser(xContentRegistry, bytesReference)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        return xcp
     }
 
     private fun alertQuery(monitor: Monitor) : SearchSourceBuilder {
