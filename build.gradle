@@ -70,13 +70,13 @@ task release(type: Sync, group: 'build') {
     from(zipTree(findProject(':monitoring').tasks.bundlePlugin.outputs.files.getSingleFile()))
     into 'build/plugins/aes-monitoring/'
     includeEmptyDirs = false
-    // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip
+    // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip which we need to remove
     eachFile { it.path = it.path - "elasticsearch/" }
-    // Don't depend on the 'build' task until we can figure out how to get the ES cluster to start up in Brazil
     dependsOn project(':monitoring').tasks.build 
     // Codebuild can't run ES as root so we can't run tests there. In that case depend on assemble
 //    dependsOn project(':monitoring').tasks.assemble
 }
+
 task cleanUpBrazilOutputs {
     doLast {
         buildDir.eachFile { file ->
@@ -87,4 +87,4 @@ task cleanUpBrazilOutputs {
     }
 }
 
-if (isBrazilBuild) cleanUpBrazilOutputs.mustRunAfter(release)
+if (isBrazilBuild) release.finalizedBy cleanUpBrazilOutputs
