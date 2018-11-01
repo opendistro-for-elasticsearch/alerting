@@ -4,7 +4,7 @@ import io.pry.gradle.offline_dependencies.UpdateOfflineRepositoryTask
 buildscript {
     ext.es_version = '6.2.3'
     ext.kotlin_version = '1.2.60'
-    ext.isBrazilBuild = true // System.getenv('BRAZIL_PACKAGE_VERSION') != null
+    ext.isBrazilBuild = System.getenv('BRAZIL_PACKAGE_VERSION') != null
     ext.offlineRepositoryRoot = rootProject.file("${rootDir.parentFile}/offline-repo").absolutePath
 
     repositories {
@@ -60,6 +60,12 @@ allprojects {
 
 evaluationDependsOnChildren()
 
+subprojects {
+    dependencies {
+        compile "com.google.code.findbugs:jsr305:3.0.2"
+    }
+}
+
 task release(type: Sync, group: 'build') {
     from(zipTree(findProject(':monitoring').tasks.bundlePlugin.outputs.files.getSingleFile()))
     into 'build/plugins/aes-monitoring/'
@@ -71,9 +77,14 @@ task release(type: Sync, group: 'build') {
     // Codebuild can't run ES as root so we can't run tests there. In that case depend on assemble
 //    dependsOn project(':monitoring').tasks.assemble
 }
-
-subprojects {
-    dependencies {
-        compile "com.google.code.findbugs:jsr305:3.0.2"
+task cleanUpBrazilOutputs {
+    doLast {
+        buildDir.eachFile { file ->
+            if (file.name != 'plugins') {
+                delete(file)
+            }
+        }
     }
 }
+
+if (isBrazilBuild) cleanUpBrazilOutputs.mustRunAfter(release)
