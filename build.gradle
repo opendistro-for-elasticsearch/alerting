@@ -1,37 +1,76 @@
+import io.pry.gradle.offline_dependencies.UpdateOfflineRepositoryTask
+
 // ES Gradle plugin isn't available on gradle plugins portal
 buildscript {
-    ext.es_version = '6.2.4'
+    ext.es_version = '6.2.3'
+    ext.kotlin_version = '1.2.60'
+    ext.isBrazilBuild = true // System.getenv('BRAZIL_PACKAGE_VERSION') != null
+    ext.offlineRepositoryRoot = rootProject.file("${rootDir.parentFile}/offline-repo").absolutePath
+
     repositories {
-        mavenCentral()
+        if (isBrazilBuild) {
+            maven { url offlineRepositoryRoot }
+        } else {
+            mavenCentral()
+            maven { url "https://plugins.gradle.org/m2/" }
+        }
     }
     dependencies {
         classpath "org.elasticsearch.gradle:build-tools:${es_version}"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
     }
 }
 
 plugins {
     id 'base'
-    id 'org.jetbrains.kotlin.jvm' version '1.2.60' apply false
+}
+
+task prepareOfflineRepo(type: Zip, group: 'build') {
+    archiveName = "offline-repo.zip"
+    destinationDir = project.rootDir
+    from file('offline-repo')
+    into 'offline-repo'
 }
 
 allprojects {
     group = 'com.amazon.elasticsearch'
-    version = '1.0'
+    version = es_version
 
     repositories {
-        mavenCentral()
+        if (isBrazilBuild) {
+            maven { url offlineRepositoryRoot }
+        } else {
+            mavenCentral()
+        }
+    }
+
+    apply plugin: 'io.pry.gradle.offline_dependencies'
+    offlineDependencies {
+        repositories {
+            mavenCentral()
+            maven { url "https://plugins.gradle.org/m2/" }
+        }
+        includeSources = includeJavadocs = false
+    }
+    // Zip up the repo after all projects have added their dependencies
+    tasks.withType(UpdateOfflineRepositoryTask) { task ->
+        rootProject.prepareOfflineRepo.dependsOn task
     }
 }
 
 evaluationDependsOnChildren()
-task 'build-all-plugins'(type: Sync, group: 'build') {
-    from project(':monitoring').tasks.bundlePlugin
-    into 'build/distributions'
-    // Don't depend on the 'build' task until we can figure out how to not run as root in CodeBuild. ES doesn't like root. 
-//    dependsOn project(':monitoring').tasks.build
-    dependsOn project(':monitoring').tasks.assemble
+
+task release(type: Sync, group: 'build') {
+    from(zipTree(findProject(':monitoring').tasks.bundlePlugin.outputs.files.getSingleFile()))
+    into 'build/plugins/aes-monitoring/'
+    includeEmptyDirs = false
+    // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip
+    eachFile { it.path = it.path - "elasticsearch/" }
+    // Don't depend on the 'build' task until we can figure out how to get the ES cluster to start up in Brazil
+    dependsOn project(':monitoring').tasks.build 
+    // Codebuild can't run ES as root so we can't run tests there. In that case depend on assemble
+//    dependsOn project(':monitoring').tasks.assemble
 }
-assemble.dependsOn('build-all-plugins')
 
 subprojects {
     dependencies {

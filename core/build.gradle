@@ -3,13 +3,15 @@ apply plugin: 'org.jetbrains.kotlin.jvm'
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compile "org.jetbrains.kotlin:kotlin-stdlib"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "com.cronutils:cron-utils:7.0.5"
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
-    testImplementation "org.jetbrains.kotlin:kotlin-test"
-    testImplementation "org.jetbrains.kotlin:kotlin-test-junit"
+    testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
 }
+
+sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
 
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"

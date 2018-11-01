@@ -1,4 +1,6 @@
+buildSrc/libs
 .gradle/
 .idea/
-build
+build/
 .DS_Store
+offline-repo.zip

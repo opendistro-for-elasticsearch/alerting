@@ -3,10 +3,6 @@ apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 
-repositories {
-    mavenCentral()
-}
-
 ext {
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.txt')
@@ -19,6 +15,8 @@ esplugin {
     classname 'com.amazon.elasticsearch.monitoring.MonitoringPlugin'
     extendedPlugins = ['lang-painless']
 }
+
+sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
 
 // We don't have unit tests, only integration tests.
 test {
@@ -63,6 +61,8 @@ licenseHeaders.enabled = false
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
 
+configurations.all*.exclude group: 'org.apache.logging.log4j', module: 'log4j-api-java9'
+
 dependencies {
     // ES doesn't provide a full painless scripting engine maven artifact that we can compile against. Use a third party
     // artifact as a replacement for compilation and testing. See https://github.com/elastic/elasticsearch/issues/24528
@@ -70,9 +70,16 @@ dependencies {
     compileOnly "org.codelibs.elasticsearch.module:lang-mustache:${es_version}"
     
     // Elasticsearch Nanny state
-    compile "org.jetbrains.kotlin:kotlin-stdlib"
-    compile "org.jetbrains.kotlin:kotlin-stdlib-common"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile "org.jetbrains:annotations:13.0"
 
     compile project(":core")
+
+    // This needs to be declared manually as the offline dependencies task does not pick this up automatically for some reason
+    checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
+}
+
+afterEvaluate { 
+    repositories.remove(repositories.findByName("MavenRepo"))
 }

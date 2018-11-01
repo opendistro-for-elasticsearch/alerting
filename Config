@@ -1,0 +1,24 @@
+package.AWSSearchServices-ElasticPlugins = {
+    interfaces = (1.0);
+
+    build-system = custom-build;
+    build-environment = {
+        chroot = basic;
+        network-access = blocked;
+    };
+
+    build-tools = {
+        1.0 = {
+            Gradle = 4.x;
+            JDK10 = 1.0;
+            S3BinarySafeDownloader = 1.0;
+            BrazilPath = 1.1;
+        };
+    };
+
+    dependencies = {
+        1.0 = {
+        };
+    };
+
+};

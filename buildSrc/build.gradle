@@ -1,0 +1,66 @@
+// Copied from Gradle offline dependency plugin and fixed to work on Gradle 4.10
+apply plugin: 'groovy'
+
+ext.isBrazilBuild = System.getenv('BRAZIL_PACKAGE_VERSION') != null
+
+repositories {
+	if (!isBrazilBuild) {
+		mavenCentral()
+		maven { url 'https://repo.gradle.org/gradle/libs-releases' }
+	}
+}
+
+ext {
+  mavenVersion = '3.3.9'
+  jarjarVersion = '1.2.1'
+
+  thirdpartyLibsDir = "$project.projectDir/libs/"
+}
+
+configurations {
+  thirdparty
+  jarjar
+}
+
+dependencies {
+	compile gradleApi()
+	compile localGroovy()
+
+	compile fileTree(thirdpartyLibsDir)
+
+	// thirdparty dependencies and repackaging
+	jarjar "org.gradle.jarjar:jarjar:$jarjarVersion"
+	thirdparty "org.apache.maven:maven-model-builder:$mavenVersion"
+}
+
+task repackageDependencies(type: Jar) {
+	baseName = 'offline-dependencies-plugin-thirdparty-repackaged-all'
+	version = project.version
+	destinationDir = new File(thirdpartyLibsDir)
+
+	doLast {
+		project.ant {
+			taskdef name: "jarjar", classname: "com.tonicsystems.jarjar.JarJarTask", classpath: configurations.jarjar.asPath
+			jarjar(destfile: archivePath) {
+				configurations.thirdparty.each { originalJar ->
+					zipfileset(src: originalJar)
+				}
+				rule(pattern: 'org.**', result: 'io.pry.gradle.offline_dependencies.repackaged.org.@1')
+				rule(pattern: 'com.**', result: 'io.pry.gradle.offline_dependencies.repackaged.com.@1')
+				rule(pattern: 'licenses.**', result: 'io.pry.gradle.offline_dependencies.repackaged.licenses.@1')
+			}
+		}
+	}
+}
+
+if (!isBrazilBuild) {
+	compileJava.dependsOn 'repackageDependencies'
+}
+
+task extractOfflineRepo(type: Copy) {
+	onlyIf { file('offline-repo.zip').exists() }
+	from zipTree(file('offline-repo.zip'))
+	into rootDir.parentFile.parentFile
+}
+
+compileJava.dependsOn extractOfflineRepo

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+
+s3-safe-download-all
+
+jdk_mv="$(brazil-path tooldirect.jdk.namemajorversion)"
+jdk_path="$(brazil-path tooldirect.jdk.relativepath)"
+jdk_envroot="$("$BRAZIL_BUILD_HOME/bin/brazil-bootstrap" --package ${jdk_mv})"
+export JAVA_HOME="${jdk_envroot}/${jdk_path}"
+export GRADLE_USER_HOME="build/private/gradle_user_home"
+export ES_TMPDIR="build/private/es_tmp"
+export TERM=${TERM:-dumb}
+
+GRADLE=$(which gradle)
+exec $GRADLE "$@"
