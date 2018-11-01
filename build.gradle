@@ -80,7 +80,7 @@ task release(type: Sync, group: 'build') {
 task cleanUpBrazilOutputs {
     doLast {
         buildDir.eachFile { file ->
-            if (file.name != 'plugins') {
+            if (file.name != 'plugins' && file.name != 'private') {
                 delete(file)
             }
         }
