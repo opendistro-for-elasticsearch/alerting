@@ -33,7 +33,8 @@ fun randomMonitor(withMetadata: Boolean = false): Monitor {
             inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
             schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
             triggers = (1..ESTestCase.randomInt(10)).map { randomTrigger() },
-            uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+            uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf(),
+            enabledTime = null)
 }
 
 fun randomTrigger(): Trigger {

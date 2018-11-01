@@ -9,6 +9,8 @@ import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.monitoring.util._ID
 import com.amazon.elasticsearch.monitoring.util._VERSION
+import com.amazon.elasticsearch.util.instant
+import com.amazon.elasticsearch.util.optionalDateField
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -18,6 +20,7 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
+import java.time.Instant
 
 /**
  * A value object that represents a Monitor. Monitors are used to periodically execute a source query and check the
@@ -26,7 +29,8 @@ import java.io.IOException
 data class Monitor(override val id: String = NO_ID, override val version: Long = NO_VERSION,
                    override val name: String, override val enabled: Boolean,
                    override val schedule: Schedule, val inputs: List<Input>,
-                   val triggers: List<Trigger>, val uiMetadata: Map<String, Any>) : ScheduledJob {
+                   val triggers: List<Trigger>, val uiMetadata: Map<String, Any>,
+                   var enabledTime: Instant?) : ScheduledJob {
 
     override val type = MONITOR_TYPE
 
@@ -53,6 +57,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         builder.field(TYPE_FIELD, type)
                 .field(NAME_FIELD, name)
                 .field(ENABLED_FIELD, enabled)
+                .optionalDateField(ENABLED_TIME_FIELD, enabledTime)
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
                 .field(TRIGGERS_FIELD, triggers.toTypedArray())
@@ -74,6 +79,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         const val NO_VERSION = 1L
         const val INPUTS_FIELD = "inputs"
         const val UI_METADATA_FIELD = "ui_metadata"
+        const val ENABLED_TIME_FIELD = "enabled_time"
 
         // This is defined here instead of in ScheduledJob to avoid having the ScheduledJob class know about all
         // the different subclasses and creating circular dependencies
@@ -86,6 +92,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
             lateinit var name : String
             lateinit var schedule: Schedule
+            var enabledTime: Instant? = null
             var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
             val triggers: MutableList<Trigger> = mutableListOf()
@@ -112,9 +119,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                             triggers.add(Trigger.parse(xcp))
                         }
                     }
-                    UI_METADATA_FIELD -> {
-                        uiMetadata = xcp.map()
-                    }
+                    UI_METADATA_FIELD -> uiMetadata = xcp.map()
+                    ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
                     else -> {
                         xcp.skipChildren()
                     }
@@ -130,7 +136,8 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     inputs.toList(),
                     triggers.toList(),
-                    uiMetadata)
+                    uiMetadata,
+                    enabledTime)
         }
     }
 }

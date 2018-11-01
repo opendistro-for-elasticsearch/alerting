@@ -9,7 +9,10 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.search.ShardSearchFailure
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
@@ -17,6 +20,7 @@ import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
 import org.elasticsearch.script.ScriptException
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.time.Instant
 
 /** Constructs an error message from an exception suitable for human consumption. */
 fun Throwable.stackTraceString() : String {
@@ -62,4 +66,22 @@ fun ElasticsearchException.isRetriable() : Boolean {
 
 fun SearchResponse.firstFailureOrNull() : ShardSearchFailure? {
     return shardFailures?.getOrNull(0)
+}
+
+fun XContentParser.instant() : Instant? {
+    return when {
+        currentToken() == XContentParser.Token.VALUE_NULL -> null
+        currentToken().isValue -> Instant.ofEpochMilli(longValue())
+        else -> {
+            XContentParserUtils.throwUnknownToken(currentToken(), tokenLocation)
+            null // unreachable
+        }
+    }
+}
+
+fun XContentBuilder.optionalDateField(name: String, instant: Instant?) : XContentBuilder {
+    if (instant == null) {
+        return nullField(name)
+    }
+    return dateField(name, name, instant.toEpochMilli())
 }

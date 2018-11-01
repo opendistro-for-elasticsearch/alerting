@@ -8,11 +8,12 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
+import com.amazon.elasticsearch.util.instant
+import com.amazon.elasticsearch.util.optionalDateField
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.time.Instant
@@ -133,23 +134,5 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                 "errorMessage" to errorMessage,
                 "acknowledgedTime" to acknowledgedTime?.toEpochMilli(),
                 "lastNotificationTime" to lastNotificationTime?.toEpochMilli())
-    }
-}
-
-private fun XContentBuilder.optionalDateField(name: String, instant: Instant?) : XContentBuilder {
-    if (instant == null) {
-        return nullField(name)
-    }
-    return dateField(name, name, instant.toEpochMilli())
-}
-
-private fun XContentParser.instant() : Instant? {
-    return when {
-        currentToken() == XContentParser.Token.VALUE_NULL -> null
-        currentToken().isValue -> Instant.ofEpochMilli(longValue())
-        else -> {
-            XContentParserUtils.throwUnknownToken(currentToken(), tokenLocation)
-            null // unreachable
-        }
     }
 }

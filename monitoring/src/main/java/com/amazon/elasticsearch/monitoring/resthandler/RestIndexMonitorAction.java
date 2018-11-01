@@ -30,6 +30,7 @@ import org.elasticsearch.rest.action.RestResponseListener;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOBS_INDEX;
@@ -73,14 +74,20 @@ public class RestIndexMonitorAction extends BaseRestHandler {
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation);
         Monitor monitor = Monitor.parse(xcp, id);
         XContentBuilder builder = XContentFactory.contentBuilder(request.getXContentType());
-        final IndexRequest indexRequest = new IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
-                .source(monitor.toXContentWithType(builder));
+        final IndexRequest indexRequest = new IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE);
         if (request.method() == PUT) {
             indexRequest.id(id).version(RestActions.parseVersion(request));
+
         }
         if (request.hasParam(REFRESH)) {
             indexRequest.setRefreshPolicy(request.param(REFRESH));
         }
+        if (monitor.getEnabled() && monitor.getEnabledTime() == null) {
+            monitor.setEnabledTime(Instant.now());
+        } else {
+            monitor.setEnabledTime(null);
+        }
+        indexRequest.source(monitor.toXContentWithType(builder));
         return channel -> {
             try {
                 client.threadPool().executor(ThreadPool.Names.MANAGEMENT).submit(

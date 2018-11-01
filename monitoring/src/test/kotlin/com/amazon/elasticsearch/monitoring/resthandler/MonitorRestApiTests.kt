@@ -38,6 +38,7 @@ import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.Before
+import java.time.Instant
 import java.time.ZoneId
 
 @TestLogging("level:DEBUG")
@@ -304,6 +305,18 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         assertFalse("Alert in state ${activeAlert.state} found in failed list", failedResponseList.contains(activeAlert.id))
     }
 
+    fun `test enabled time disabling monitor`() {
+        val monitor = createMonitor(randomMonitor().copy(enabled = true, enabledTime = Instant.now()), refresh = true)
+        val updatedMonitor = updateMonitor(monitor.copy(enabled = false), refresh = true)
+        assertNull("Enabled time is not null", updatedMonitor.enabledTime)
+    }
+
+    fun `test enabled time enabling monitor`() {
+        val monitor = createMonitor(randomMonitor().copy(enabled = false, enabledTime = null))
+        val updatedMonitor = updateMonitor(monitor.copy(enabled = true))
+        assertNotNull("Enabled time is null", updatedMonitor.enabledTime)
+    }
+
     fun `test mappings after monitor creation`() {
         createRandomMonitor(refresh = true)
 
@@ -320,7 +333,11 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
 
     private fun createRandomMonitor(refresh: Boolean = false, withMetadata: Boolean = false) : Monitor {
         val monitor = randomMonitor(withMetadata)
-        return createMonitor(monitor, refresh)
+        val monitorId = createMonitor(monitor, refresh).id
+        if (withMetadata) {
+            return getMonitor(monitorId = monitorId, header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+        }
+        return getMonitor(monitorId = monitorId)
     }
 
     private fun createMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
@@ -331,6 +348,13 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
                 .createParser(NamedXContentRegistry.EMPTY, response.entity.content)
                 .map()
         return monitor.copy(id = monitorJson["_id"] as String, version = (monitorJson["_version"] as Int).toLong())
+    }
+
+    private fun updateMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
+        val response = client().performRequest("PUT", "${monitor.relativeUrl()}?refresh=$refresh",
+                emptyMap(), monitor.toHttpEntity())
+        assertEquals("Unable to update a monitor", RestStatus.OK, response.restStatus())
+        return getMonitor(monitorId = monitor.id)
     }
 
     private fun createAlert(alert: Alert): Alert {
