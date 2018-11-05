@@ -65,7 +65,7 @@ sealed class Schedule : ToXContentObject {
                             xcp.nextToken()
                             when (cronFieldName) {
                                 INTERVAL_FIELD -> interval = xcp.intValue()
-                                UNIT_FIELD -> unit = ChronoUnit.valueOf(xcp.text())
+                                UNIT_FIELD -> unit = ChronoUnit.valueOf(xcp.text().toUpperCase())
                             }
                         }
                     }
@@ -203,6 +203,17 @@ data class IntervalSchedule(val interval: Int,
                             val unit: ChronoUnit,
                             // visible for testing
                             @Transient val testInstant: Instant? = null) : Schedule() {
+    companion object {
+        @Transient
+        private val SUPPORTED_UNIT = listOf(ChronoUnit.MINUTES, ChronoUnit.HOURS, ChronoUnit.DAYS)
+    }
+
+    init {
+        if (!SUPPORTED_UNIT.contains(unit)) {
+            val errormessage = "Timezone $unit is not supported expected $SUPPORTED_UNIT"
+            throw IllegalArgumentException("Timezone $unit is not supported expected $SUPPORTED_UNIT")
+        }
+    }
 
     @Transient
     private val intervalInMills = Duration.of(interval.toLong(), unit).toMillis()

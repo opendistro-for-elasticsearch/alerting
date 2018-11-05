@@ -198,4 +198,15 @@ class ScheduleTest : XContentTestBase {
 
         assertTrue(intervalSchedule.runningOnTime(null))
     }
+
+    @Test
+    fun `test invalid interval units`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException") {
+            IntervalSchedule(1, ChronoUnit.SECONDS)
+        }
+
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException") {
+            IntervalSchedule(1, ChronoUnit.MONTHS)
+        }
+    }
 }
