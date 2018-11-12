@@ -14,7 +14,6 @@ import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
 import org.apache.http.HttpEntity
 import com.amazon.elasticsearch.monitoring.MonitoringRestTestCase
-import com.amazon.elasticsearch.monitoring.restStatus
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
@@ -37,7 +36,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
-import org.junit.Before
 import java.time.Instant
 import java.time.ZoneId
 
@@ -327,6 +325,17 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         var expectedMap = expected.map()
 
         assertEquals("Mappings are different", expectedMap, mappingsMap)
+    }
+
+    fun `test update monitor with wrong version`() {
+        var monitor = createRandomMonitor(refresh = true)
+        try {
+            client().performRequest("PUT", "${monitor.relativeUrl()}?refresh=true&version=1234",
+                    emptyMap(), monitor.toHttpEntity())
+            fail("expected 409 ResponseException")
+        } catch (e: ResponseException) {
+            assertEquals(RestStatus.CONFLICT, e.response.restStatus())
+        }
     }
 
     // Helper functions
