@@ -4,6 +4,7 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
+import com.amazon.elasticsearch.util.optionalTimeField
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import java.time.Instant
@@ -14,8 +15,8 @@ class MonitorRunResult(val monitorName: String, val periodStart: Instant, val pe
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
                 .field("monitor_name", monitorName)
-                .dateField("period_start_in_millis", "period_start", periodStart.toEpochMilli())
-                .dateField("period_end_in_mills", "period_end", periodEnd.toEpochMilli())
+                .optionalTimeField("period_start", periodStart)
+                .optionalTimeField("period_end", periodEnd)
                 .field("trigger_results", triggerResults as Map<String, TriggerRunResult>)
                 .endObject()
     }

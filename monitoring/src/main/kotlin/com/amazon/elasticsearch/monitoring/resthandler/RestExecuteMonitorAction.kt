@@ -7,12 +7,12 @@ package com.amazon.elasticsearch.monitoring.resthandler
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.monitoring.MonitorRunner
 import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser.Token.START_OBJECT
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.rest.BaseRestHandler
@@ -82,7 +82,7 @@ class RestExecuteMonitorAction(val settings: Settings, val restController: RestC
                     this.channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, ret))
                 }
 
-                val xcp = XContentHelper.createParser(this.channel.request().xContentRegistry,
+                val xcp = ElasticAPI.INSTANCE.createParser(this.channel.request().xContentRegistry,
                         response.sourceAsBytesRef, this.channel.request().xContentType)
                 val monitor = xcp.use {
                     ScheduledJob.parse(xcp, response.id, response.version) as Monitor

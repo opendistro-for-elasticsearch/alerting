@@ -1,11 +1,21 @@
 import io.pry.gradle.offline_dependencies.UpdateOfflineRepositoryTask
 
-// ES Gradle plugin isn't available on gradle plugins portal
 buildscript {
-    ext.es_version = '6.2.3'
-    ext.kotlin_version = '1.2.60'
-    ext.isBrazilBuild = System.getenv('BRAZIL_PACKAGE_VERSION') != null
-    ext.offlineRepositoryRoot = rootProject.file("${rootDir.parentFile}/offline-repo").absolutePath
+    // Common build properties and dependency versions
+    ext {
+        kotlin_version = '1.2.60'
+        aes_62_version = '6.2.3'
+        aes_63_version = '6.3.1'
+        // Allow builds to target a specific ES version via the -P command line switch and default to 6.3 (latest)
+        es_mv = findProperty('aes.mv') ?: '6.3'
+        es_version = ['6.3' : aes_63_version, '6.2': aes_62_version][es_mv]
+        assert es_version != null : "Can't determine AES version for MV: $es_mv"
+        // Elasticsearch distribution in mavenCentral that is used when running integ tests and clusters 
+        es_distribution = (es_version < "6.3.0") ? 'zip' : 'oss-zip'
+
+        isBrazilBuild = System.getenv('BRAZIL_PACKAGE_VERSION') != null
+        offlineRepositoryRoot = rootProject.file("${rootDir.parentFile}/offline-repo").absolutePath
+    }
 
     repositories {
         if (isBrazilBuild) {
@@ -25,10 +35,17 @@ plugins {
     id 'base'
 }
 
+logger.lifecycle("Targeting ES version: ${es_version}")
+
+/**
+ * Creates a local repo of all the dependencies required to build this plugin. This repo can be used when building in
+ * environments with no network access like brazil.  This task should be run whenever a new dependency is added and the output
+ * file should be uploaded to Brazil S3 using S3BinarySafeDownloader: https://code.amazon.com/packages/S3BinarySafeDownloader/trees/mainline
+ */
 task prepareOfflineRepo(type: Zip, group: 'build') {
     archiveName = "offline-repo.zip"
-    destinationDir = project.rootDir
-    from file('offline-repo')
+    destinationDir = project.file('buildSrc')
+    from offlineRepositoryRoot
     into 'offline-repo'
 }
 
@@ -44,6 +61,14 @@ allprojects {
         }
     }
 
+    plugins.withId('java') {
+        sourceCompatibility = targetCompatibility = "1.8"
+    }
+    plugins.withId('org.jetbrains.kotlin.jvm') {
+        compileKotlin.kotlinOptions.jvmTarget = compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
+    }
+
+    // Setup the tasks to prepare offline dependencies for all projects
     apply plugin: 'io.pry.gradle.offline_dependencies'
     offlineDependencies {
         repositories {
@@ -66,13 +91,21 @@ subprojects {
     }
 }
 
-task release(type: Sync, group: 'build') {
+task cleanSymlinkBuildDir {
+    doLast {
+        project.delete project.file('build').listFiles() ?: []
+        project.delete project.file('build')
+    }
+    project.tasks.findByPath('clean')?.dependsOn it
+}
+
+task release(type: Copy, group: 'build') {
     from(zipTree(findProject(':monitoring').tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into 'build/plugins/aes-monitoring/'
+    into "build/plugins/${es_mv}/aes-monitoring"
     includeEmptyDirs = false
     // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip which we need to remove
     eachFile { it.path = it.path - "elasticsearch/" }
-    dependsOn project(':monitoring').tasks.build 
+    dependsOn findProject(':monitoring').tasks.build
     // Codebuild can't run ES as root so we can't run tests there. In that case depend on assemble
 //    dependsOn project(':monitoring').tasks.assemble
 }
@@ -80,11 +113,19 @@ task release(type: Sync, group: 'build') {
 task cleanUpBrazilOutputs {
     doLast {
         buildDir.eachFile { file ->
-            if (file.name != 'plugins' && file.name != 'private') {
+            if (file.name != 'plugins') {
                 delete(file)
             }
+        }
+        // Brazil caches the contents of the entire package root which includes large files inside the subproject build dir.
+        // To avoid this we delete this directory at the end of the build. 
+        subprojects { Project sp ->
+            if (sp.file('Config').exists()) return // Avoid other brazil pkgs; can't hurt to be safe
+            sp.delete(sp.buildDir)
         }
     }
 }
 
-if (isBrazilBuild) release.finalizedBy cleanUpBrazilOutputs
+if (isBrazilBuild) {
+    release.finalizedBy cleanUpBrazilOutputs
+}

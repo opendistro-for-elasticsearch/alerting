@@ -61,6 +61,7 @@ task extractOfflineRepo(type: Copy) {
 	onlyIf { file('offline-repo.zip').exists() }
 	from zipTree(file('offline-repo.zip'))
 	into rootDir.parentFile.parentFile
+	doLast { delete file('offline-repo.zip') }
 }
 
 compileJava.dependsOn extractOfflineRepo

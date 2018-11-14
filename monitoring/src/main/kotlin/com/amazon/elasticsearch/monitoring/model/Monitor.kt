@@ -10,7 +10,7 @@ import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.monitoring.util._ID
 import com.amazon.elasticsearch.monitoring.util._VERSION
 import com.amazon.elasticsearch.util.instant
-import com.amazon.elasticsearch.util.optionalDateField
+import com.amazon.elasticsearch.util.optionalTimeField
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -57,7 +57,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         builder.field(TYPE_FIELD, type)
                 .field(NAME_FIELD, name)
                 .field(ENABLED_FIELD, enabled)
-                .optionalDateField(ENABLED_TIME_FIELD, enabledTime)
+                .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
                 .field(TRIGGERS_FIELD, triggers.toTypedArray())

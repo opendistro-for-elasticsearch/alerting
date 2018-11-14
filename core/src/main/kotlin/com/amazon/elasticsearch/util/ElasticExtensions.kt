@@ -18,6 +18,7 @@ import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
 import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
 import org.elasticsearch.script.ScriptException
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.Instant
@@ -79,9 +80,16 @@ fun XContentParser.instant() : Instant? {
     }
 }
 
-fun XContentBuilder.optionalDateField(name: String, instant: Instant?) : XContentBuilder {
+fun XContentBuilder.optionalTimeField(name: String, instant: Instant?) : XContentBuilder {
     if (instant == null) {
         return nullField(name)
     }
-    return dateField(name, name, instant.toEpochMilli())
+    return ElasticAPI.INSTANCE.timeField(this, name, instant)
 }
+
+/**
+ * Extension function for ES 6.3 that duplicates the ES 6.2 XContentBuilder.string() method.  On 6.2 this method shadows
+ * the existing [XContentBuilder.string] method and so is not invoked.
+ */
+@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
+fun XContentBuilder.string() : String = ElasticAPI.INSTANCE.builderToBytesRef(this).utf8ToString()

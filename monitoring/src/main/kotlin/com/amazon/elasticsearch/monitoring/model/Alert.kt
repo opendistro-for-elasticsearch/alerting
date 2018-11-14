@@ -9,7 +9,7 @@
 package com.amazon.elasticsearch.monitoring.model
 
 import com.amazon.elasticsearch.util.instant
-import com.amazon.elasticsearch.util.optionalDateField
+import com.amazon.elasticsearch.util.optionalTimeField
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -109,7 +109,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
             return Alert(id = id, version = version, monitorId = requireNotNull(monitorId),
                     monitorName = requireNotNull(monitorName), monitorVersion = monitorVersion,
                     triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
-                    state = requireNotNull(state), startTime = startTime, endTime = endTime,
+                    state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
                     lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
                     errorMessage = errorMessage, severity = severity)
         }
@@ -125,11 +125,11 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                 .field(TRIGGER_NAME_FIELD, triggerName)
                 .field(STATE_FIELD, state)
                 .field(ERROR_MESSAGE_FIELD, errorMessage)
-                .field(Trigger.SEVERITY_FIELD, severity)
-                .dateField(START_TIME_FIELD, START_TIME_FIELD, startTime.toEpochMilli())
-                .optionalDateField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
-                .optionalDateField(END_TIME_FIELD, endTime)
-                .optionalDateField(ACKNOWLEDGED_TIME_FIELD, acknowledgedTime)
+                .field(SEVERITY_FIELD, severity)
+                .optionalTimeField(START_TIME_FIELD, startTime)
+                .optionalTimeField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
+                .optionalTimeField(END_TIME_FIELD, endTime)
+                .optionalTimeField(ACKNOWLEDGED_TIME_FIELD, acknowledgedTime)
                 .endObject()
     }
 

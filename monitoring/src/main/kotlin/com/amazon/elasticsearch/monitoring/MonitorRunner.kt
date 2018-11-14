@@ -18,6 +18,7 @@ import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.model.TriggerRunResult
 import com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
+import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.util.convertToMap
 import com.amazon.elasticsearch.util.firstFailureOrNull
@@ -33,17 +34,13 @@ import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.logging.ServerLoggers
-import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
@@ -61,7 +58,7 @@ class MonitorRunner(private val settings: Settings,
                     private val xContentRegistry: NamedXContentRegistry,
                     private val alertIndices: AlertIndices) : JobRunner {
 
-    private val logger = ServerLoggers.getLogger(MonitorRunner::class.java, settings)
+    private val logger = ElasticAPI.INSTANCE.getLogger(MonitorRunner::class.java, settings)
 
     private val searchTimeout = MonitoringSettings.INPUT_TIMEOUT.get(settings)
     private val indexTimeout = MonitoringSettings.INDEX_TIMEOUT.get(settings)
@@ -177,7 +174,7 @@ class MonitorRunner(private val settings: Settings,
                             .execute()
 
                     val searchRequest = SearchRequest().indices(*input.indices.toTypedArray())
-                    XContentType.JSON.xContent().createParser(xContentRegistry, searchSource).use {
+                    ElasticAPI.INSTANCE.jsonParser(xContentRegistry, searchSource).use {
                         searchRequest.source(SearchSourceBuilder.fromXContent(it))
                     }
                     results += client.search(searchRequest).actionGet(searchTimeout).convertToMap()
@@ -213,7 +210,7 @@ class MonitorRunner(private val settings: Settings,
     }
 
     private fun contentParser(bytesReference: BytesReference) : XContentParser {
-        var xcp = XContentType.JSON.xContent().createParser(xContentRegistry, bytesReference)
+        val xcp = ElasticAPI.INSTANCE.jsonParser(xContentRegistry, bytesReference)
         ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         return xcp
     }

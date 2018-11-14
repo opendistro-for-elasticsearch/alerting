@@ -8,12 +8,14 @@ import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import com.amazon.elasticsearch.model.ScheduledJob;
 import com.amazon.elasticsearch.monitoring.model.Monitor;
 import com.amazon.elasticsearch.monitoring.util.RestHandlerUtilsKt;
+import com.amazon.elasticsearch.util.ElasticAPI;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.node.NodeClient;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
@@ -76,10 +78,11 @@ public class RestSearchMonitorAction extends BaseRestHandler {
                     return new BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString());
                 }
                 for (SearchHit hit : response.getHits()) {
-                    try (XContentParser hitsParser =  XContentType.JSON.xContent()
-                            .createParser(channel.request().getXContentRegistry(), hit.getSourceAsString())) {
+                    try (XContentParser hitsParser = ElasticAPI.getINSTANCE()
+                            .jsonParser(channel.request().getXContentRegistry(), hit.getSourceAsString())) {
                         ScheduledJob monitor = ScheduledJob.Companion.parse(hitsParser, hit.getId(), hit.getVersion());
-                        hit.sourceRef(monitor.toXContent(jsonBuilder(), EMPTY_PARAMS).bytes());
+                        XContentBuilder xcb = monitor.toXContent(jsonBuilder(), EMPTY_PARAMS);
+                        hit.sourceRef(ElasticAPI.getINSTANCE().builderToBytesRef(xcb));
                     }
                 }
                 return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));

@@ -10,12 +10,3 @@ dependencies {
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
 }
-
-sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
-
-compileKotlin {
-    kotlinOptions.jvmTarget = "1.8"
-}
-compileTestKotlin {
-    kotlinOptions.jvmTarget = "1.8"
-}

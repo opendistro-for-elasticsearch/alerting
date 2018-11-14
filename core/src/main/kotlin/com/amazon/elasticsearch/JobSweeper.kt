@@ -11,6 +11,7 @@ import com.amazon.elasticsearch.Settings.SWEEP_PAGE_SIZE
 import com.amazon.elasticsearch.Settings.SWEEP_PERIOD
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.schedule.JobScheduler
+import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.firstFailureOrNull
 import com.amazon.elasticsearch.util.retry
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -24,13 +25,11 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.LifecycleListener
-import org.elasticsearch.common.logging.ServerLoggers
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.EsExecutors
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.engine.Engine
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.index.shard.IndexingOperationListener
@@ -68,7 +67,7 @@ class JobSweeper(private val settings: Settings,
                  private val xContentRegistry: NamedXContentRegistry,
                  private val scheduler: JobScheduler) : ClusterStateListener, IndexingOperationListener, LifecycleListener() {
 
-    private val logger = ServerLoggers.getLogger(javaClass, settings)
+    private val logger = ElasticAPI.INSTANCE.getLogger(javaClass, settings)
 
     private val fullSweepExecutor = Executors.newSingleThreadExecutor(EsExecutors.daemonThreadFactory("scheduled-job-sweeper"))
 
@@ -140,7 +139,7 @@ class JobSweeper(private val settings: Settings,
      * of jobs are not scheduled.
      */
     override fun postIndex(shardId: ShardId, index: Engine.Index, result: Engine.IndexResult) {
-        if (result.hasFailure()) {
+        if (ElasticAPI.INSTANCE.hasWriteFailed(result)) {
             val shardJobs = sweptJobs[shardId] ?: emptyMap<JobId, JobVersion>()
             val currentVersion = shardJobs[index.id()] ?: Versions.NOT_FOUND
             logger.debug("Indexing failed for ScheduledJob: ${index.id()}. Continuing with current version $currentVersion")
@@ -162,7 +161,7 @@ class JobSweeper(private val settings: Settings,
      * using optimistic concurrency control to ensure that stale versions of jobs are not scheduled.
      */
     override fun postDelete(shardId: ShardId, delete: Engine.Delete, result: Engine.DeleteResult) {
-        if (result.hasFailure()) {
+        if (ElasticAPI.INSTANCE.hasWriteFailed(result)) {
             val shardJobs = sweptJobs[shardId] ?: emptyMap<JobId, JobVersion>()
             val currentVersion = shardJobs[delete.id()] ?: Versions.NOT_FOUND
             logger.debug("Deletion failed for ScheduledJob: ${delete.id()}. Continuing with current version $currentVersion")
@@ -205,7 +204,7 @@ class JobSweeper(private val settings: Settings,
             try {
                 sweepShard(shardId, ShardNodes(localNodeId, shards.map { it.currentNodeId() }))
             } catch (e: Exception) {
-                val shardLogger = ServerLoggers.getLogger(javaClass, settings, shardId)
+                val shardLogger = ElasticAPI.INSTANCE.getLogger(javaClass, settings, shardId)
                 shardLogger.error("Error while sweeping shard $shardId", e)
             }
         }
@@ -213,7 +212,7 @@ class JobSweeper(private val settings: Settings,
     }
 
     private fun sweepShard(shardId: ShardId, shardNodes: ShardNodes, startAfter: String = "") {
-        val logger = ServerLoggers.getLogger(javaClass, settings, shardId)
+        val logger = ElasticAPI.INSTANCE.getLogger(javaClass, settings, shardId)
         logger.debug("Sweeping shard $shardId")
 
         // Remove any jobs that are currently scheduled that are no longer owned by this node
@@ -269,7 +268,7 @@ class JobSweeper(private val settings: Settings,
                         scheduler.deschedule(jobId)
                     }
                     if (jobSource != null) {
-                        val xcp = XContentType.JSON.xContent().createParser(xContentRegistry, jobSource)
+                        val xcp = ElasticAPI.INSTANCE.jsonParser(xContentRegistry, jobSource)
                         val job: ScheduledJob
                         try {
                             job = ScheduledJob.parse(xcp, jobId, newVersion)

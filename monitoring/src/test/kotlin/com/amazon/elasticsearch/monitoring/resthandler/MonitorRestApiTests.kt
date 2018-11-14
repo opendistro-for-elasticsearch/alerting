@@ -6,14 +6,16 @@ package com.amazon.elasticsearch.monitoring.resthandler
 import com.amazon.elasticsearch.model.CronSchedule
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.MonitoringRestTestCase
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.putAlertMappings
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
+import com.amazon.elasticsearch.util.ElasticAPI
+import com.amazon.elasticsearch.util.string
 import org.apache.http.HttpEntity
-import com.amazon.elasticsearch.monitoring.MonitoringRestTestCase
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
@@ -40,6 +42,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 @TestLogging("level:DEBUG")
+@Suppress("UNCHECKED_CAST")
 class MonitorRestApiTests : MonitoringRestTestCase() {
 
     val USE_TYPED_KEYS = ToXContent.MapParams(mapOf("with_type" to "true"))
@@ -64,7 +67,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         createRandomMonitor()
 
         val builder = monitor.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), USE_TYPED_KEYS)
-        val string = builder.string()
+        val string = ElasticAPI.INSTANCE.builderToBytesRef(builder).utf8ToString()
         val xcp = createParser(XContentType.JSON.xContent(), string)
         val scheduledJob = ScheduledJob.parse(xcp)
         assertEquals(monitor, scheduledJob)
@@ -202,15 +205,15 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
     }
 
     fun `test getting UI metadata monitor not from Kibana`() {
-        var monitor = createRandomMonitor(withMetadata = true)
-        var getMonitor = getMonitor(monitorId = monitor.id)
+        val monitor = createRandomMonitor(withMetadata = true)
+        val getMonitor = getMonitor(monitorId = monitor.id)
         assertEquals("UI Metadata returned but request did not come from Kibana.", getMonitor.uiMetadata, mapOf<String, Any>())
     }
 
     fun `test getting UI metadata monitor from Kibana`() {
-        var monitor = createRandomMonitor(refresh = true, withMetadata = true)
-        var header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana")
-        var getMonitor = getMonitor(monitorId = monitor.id, header = header)
+        val monitor = createRandomMonitor(refresh = true, withMetadata = true)
+        val header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana")
+        val getMonitor = getMonitor(monitorId = monitor.id, header = header)
         assertEquals("", monitor.uiMetadata, getMonitor.uiMetadata)
     }
 
@@ -303,8 +306,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
                 emptyMap(),
                 createAcknowledgeObject(listOf(acknowledgedAlert, completedAlert, errorAlert, activeAlert)))
         assertEquals("Acknowledge call failed.", RestStatus.OK, response.restStatus())
-        val responseMap = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
+        val responseMap = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
 
         assertNotNull("Unsuccessful acknowledgement", responseMap["success"] as List<String>)
         assertTrue("Alert not in acknowledged response", responseMap["success"].toString().contains(activeAlert.id))
@@ -367,9 +369,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         val response = client().performRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(), monitor.toHttpEntity())
         assertEquals("Unable to create a new monitor", RestStatus.CREATED, response.restStatus())
 
-        val monitorJson = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, response.entity.content)
-                .map()
+        val monitorJson = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
         return monitor.copy(id = monitorJson["_id"] as String, version = (monitorJson["_version"] as Int).toLong())
     }
 
@@ -384,9 +384,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         val response = client().performRequest("POST", "/.aes-alerts/_doc?refresh=true&routing=${alert.monitorId}", emptyMap(), alert.toHttpEntity())
         assertEquals("Unable to create a new alert", RestStatus.CREATED, response.restStatus())
 
-        val alertJson = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, response.entity.content)
-                .map()
+        val alertJson = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
         return alert.copy(id = alertJson["_id"] as String, version = (alertJson["_version"] as Int).toLong())
     }
 

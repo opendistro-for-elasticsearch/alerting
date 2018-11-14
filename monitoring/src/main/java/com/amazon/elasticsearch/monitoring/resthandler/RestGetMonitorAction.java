@@ -6,13 +6,13 @@ package com.amazon.elasticsearch.monitoring.resthandler;
 import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import com.amazon.elasticsearch.model.ScheduledJob;
 import com.amazon.elasticsearch.monitoring.util.RestHandlerUtilsKt;
+import com.amazon.elasticsearch.util.ElasticAPI;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
@@ -76,8 +76,8 @@ public class RestGetMonitorAction extends BaseRestHandler {
                         .field(RestHandlerUtilsKt._ID, response.getId())
                         .field(RestHandlerUtilsKt._VERSION, response.getVersion());
                 if (!response.isSourceEmpty()) {
-                    try (XContentParser xcp = XContentType.JSON.xContent()
-                            .createParser(channel.request().getXContentRegistry(), response.getSourceAsBytesRef())) {
+                    try (XContentParser xcp = ElasticAPI.getINSTANCE()
+                            .jsonParser(channel.request().getXContentRegistry(), response.getSourceAsBytesRef())) {
                         ScheduledJob monitor = ScheduledJob.Companion.parse(xcp, response.getId(), response.getVersion());
                         builder.field("monitor", monitor);
                     }

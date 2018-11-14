@@ -4,6 +4,7 @@
 
 package com.amazon.elasticsearch.monitoring.alerts
 
+import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import org.elasticsearch.ResourceAlreadyExistsException
@@ -13,7 +14,7 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.LocalNodeMasterListener
-import org.elasticsearch.common.logging.ServerLoggers
+import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentType
@@ -33,7 +34,7 @@ import org.elasticsearch.threadpool.ThreadPool
 class AlertIndices(private val settings : Settings, private val client: IndicesAdminClient,
                    private val threadPool: ThreadPool) : LocalNodeMasterListener {
 
-    private val logger = ServerLoggers.getLogger(AlertIndices::class.java, settings)
+    private val logger = ElasticAPI.INSTANCE.getLogger(AlertIndices::class.java, settings)
 
     companion object {
 
@@ -131,9 +132,8 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
 
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
         val request = RolloverRequest(HISTORY_WRITE_INDEX, null)
-        val createIndexRequest = CreateIndexRequest(HISTORY_INDEX_PATTERN)
+        ElasticAPI.INSTANCE.getCreateIndexRequest(request).index(HISTORY_INDEX_PATTERN)
                 .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
-        request.setCreateIndexRequest(createIndexRequest)
         request.addMaxIndexDocsCondition(HISTORY_INDEX_MAX_DOCS_SETTING)
         request.addMaxIndexAgeCondition(HISTORY_INDEX_MAX_AGE_SETTING)
         val response = client.rolloversIndex(request).actionGet(DEFAULT_TIMEOUT)

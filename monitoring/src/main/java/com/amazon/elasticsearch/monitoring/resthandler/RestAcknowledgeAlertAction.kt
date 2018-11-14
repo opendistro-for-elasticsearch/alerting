@@ -4,6 +4,7 @@ import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
+import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -16,7 +17,6 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
@@ -83,7 +83,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                 var acknowledgedAlerts = mutableListOf<Alert>()
                 var failedAlerts = mutableListOf<Alert>()
                 for (hit in response.hits) {
-                    var xcp = XContentType.JSON.xContent().createParser(channel.request().xContentRegistry, hit.sourceRef)
+                    var xcp = ElasticAPI.INSTANCE.jsonParser(channel.request().xContentRegistry, hit.sourceRef)
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
                     val alert = Alert.parse(xcp, hit.id, hit.version)
                     if (alert.state == Alert.State.ACTIVE) {
@@ -117,7 +117,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
      */
     private fun getAlertIds(registry: NamedXContentRegistry ,contentRef: BytesReference): List<String> {
         var ids = mutableListOf<String>()
-        var xcp = XContentType.JSON.xContent().createParser(registry, contentRef)
+        var xcp = ElasticAPI.INSTANCE.jsonParser(registry, contentRef)
         ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
             val fieldName = xcp.currentName()

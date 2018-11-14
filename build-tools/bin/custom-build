@@ -3,15 +3,25 @@
 set -o errexit
 set -o pipefail
 
-s3-safe-download-all
+if [ -n "$BRAZIL_PACKAGE_VERSION" ]; then
+    s3-safe-download-all
+fi
 
+ws_root="$(brazil-path workspace-root)"
 jdk_mv="$(brazil-path tooldirect.jdk.namemajorversion)"
 jdk_path="$(brazil-path tooldirect.jdk.relativepath)"
 jdk_envroot="$("$BRAZIL_BUILD_HOME/bin/brazil-bootstrap" --package ${jdk_mv})"
 export JAVA_HOME="${jdk_envroot}/${jdk_path}"
-export GRADLE_USER_HOME="build/private/gradle_user_home"
-export ES_TMPDIR="build/private/es_tmp"
+export GRADLE_USER_HOME="$ws_root/env/.gradle_user_home"
 export TERM=${TERM:-dumb}
 
+# ES 6.2 test runner doesn't honor java.io.tmpdir so we need to set ES_TMPDIR here. This is also set in the build.gradle for other ES versions
+build_root="$(brazil-path package-build-root)"
+export ES_TMPDIR="$build_root/private/es_tmp"
+mkdir -p ES_TMPDIR
+
 GRADLE=$(which gradle)
-exec $GRADLE "$@"
+for ES_MAJOR_VERSION in "6.2" "6.3"; do
+    echo "Running '$GRADLE $@' for ES major version $ES_MAJOR_VERSION"
+    $GRADLE -Paes.mv=$ES_MAJOR_VERSION "$@"
+done

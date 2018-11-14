@@ -16,34 +16,38 @@ esplugin {
     extendedPlugins = ['lang-painless']
 }
 
-sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
-
 // We don't have unit tests, only integration tests.
-test {
-    enabled = false
-}
+test.enabled = false
+// turn off javadoc as it barfs on Kotlin code
+javadoc.enabled = false
 
 // Uncomment to attach a debugger to elasticsearch cluster JVM during run or integTest
 //run.debug true
 //integTest.debug true
 
-// We can't just create a single cluster with numNodes = 3 since that creates task dependencies in such a way that killing and 
-// restarting a single node also restarts all the other nodes.  Instead we setup 3 separate single node clusters with the 
+// We can't just create a single cluster with numNodes = 3 since that creates task dependencies in such a way that killing and
+// restarting a single node also restarts all the other nodes.  Instead we setup 3 separate single node clusters with the
 // same cluster name that we can start and kill separately using '../gradlew 'runMultiNodeTest1#start"
 (1..3).each { i ->
     tasks.create(name : "runMultiNode$i", type: org.elasticsearch.gradle.test.RunTask) {
         daemonize = true
         numNodes = 1
-        setting('node.name', "multi-node-$i")
-        setting('http.port', '9200-9300')
-        setting('transport.tcp.port', '9300-9400')
+        setting 'node.name', "multi-node-$i"
+        setting 'http.port', '9200-9300'
+        setting 'transport.tcp.port', '9300-9400'
         clusterName = 'multi-node-run'
-        plugin(project.path)
+        plugin project.path
+        distribution = es_distribution
     }
 }
 
+// Brazil doesn't allow access to /tmp which is the default temp dir.  Switch to a temp dir under the build root
+def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
+es_tmp_dir.mkdirs()
+
 integTestRunner {
     systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
     include '**/*Tests.class'
     // TODO: Figure out how to have the runner execute both java and kotlin test classes which are present in
     // different output dirs.  Right now we only have kotlin tests.
@@ -53,21 +57,20 @@ integTestRunner {
 //    jvmArg '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
 }
 
+// Use oss-zip distribution starting from 6.3.0
 integTestCluster {
-    distribution = (es_version < "6.3.0") ? 'zip' : 'oss-zip' // Use oss-zip distribution starting from 6.3.0
+    distribution = es_distribution
+}
+run {
+    distribution = es_distribution
 }
 
 licenseHeaders.enabled = false
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
 
-configurations.all*.exclude group: 'org.apache.logging.log4j', module: 'log4j-api-java9'
-
 dependencies {
-    // ES doesn't provide a full painless scripting engine maven artifact that we can compile against. Use a third party
-    // artifact as a replacement for compilation and testing. See https://github.com/elastic/elasticsearch/issues/24528
-    compileOnly "org.codelibs.elasticsearch.module:lang-painless:${es_version}"
-    compileOnly "org.codelibs.elasticsearch.module:lang-mustache:${es_version}"
+    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${es_version}"
     
     // Elasticsearch Nanny state
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
@@ -76,10 +79,17 @@ dependencies {
 
     compile project(":core")
 
+    // Elastic API version specific code
+    if (es_mv == "6.3") {
+        compile project(':es63')
+    } else if (es_mv == "6.2") {
+        compile project(':es62')
+    }
+
     // This needs to be declared manually as the offline dependencies task does not pick this up automatically for some reason
     checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
 }
 
-afterEvaluate { 
+afterEvaluate {
     repositories.remove(repositories.findByName("MavenRepo"))
 }

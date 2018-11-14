@@ -11,6 +11,12 @@ package com.amazon.elasticsearch.monitoring.model
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.randomAlert
+import com.amazon.elasticsearch.monitoring.randomMonitor
+import com.amazon.elasticsearch.monitoring.randomTrigger
+import com.amazon.elasticsearch.monitoring.toHttpEntity
+import com.amazon.elasticsearch.monitoring.toJsonString
+import com.amazon.elasticsearch.util.ElasticAPI
+import com.amazon.elasticsearch.util.string
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -19,10 +25,17 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
-import com.amazon.elasticsearch.monitoring.randomMonitor
-import com.amazon.elasticsearch.monitoring.randomTrigger
 
 class XContentTests :ESTestCase() {
+
+    fun `test monitor parsing`() {
+        val monitor = randomMonitor()
+
+        val monitorString = monitor.toJsonString()
+        val parsedMonitor = Monitor.parse(parser(monitorString))
+
+        assertEquals("Round tripping Monitor doesn't work", monitor, parsedMonitor)
+    }
 
     fun `test trigger parsing`() {
         val trigger = randomTrigger()
@@ -51,12 +64,12 @@ class XContentTests :ESTestCase() {
         }
     }
 
-    fun builder(): XContentBuilder {
+    private fun builder(): XContentBuilder {
         return XContentBuilder.builder(XContentType.JSON.xContent())
     }
 
-    fun parser(xc : String) : XContentParser {
-        val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), xc)
+    private fun parser(xc : String) : XContentParser {
+        val parser = ElasticAPI.INSTANCE.jsonParser(xContentRegistry(), xc)
         parser.nextToken()
         return parser
     }

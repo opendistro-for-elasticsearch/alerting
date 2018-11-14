@@ -4,6 +4,7 @@
 
 package com.amazon.elasticsearch.model
 
+import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -54,7 +55,7 @@ data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder
                         }
                     }
                     QUERY_FIELD -> {
-                        searchSourceBuilder = SearchSourceBuilder.fromXContent(xcp)
+                        searchSourceBuilder = ElasticAPI.INSTANCE.parseSearchSource(xcp)
                     }
                 }
             }

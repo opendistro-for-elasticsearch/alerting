@@ -2,12 +2,12 @@ package com.amazon.elasticsearch
 
 import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.model.ScheduledJob
+import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.client.AdminClient
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.logging.ServerLoggers
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 
@@ -21,7 +21,7 @@ class ScheduledJobIndices(private val client: AdminClient,
                           private val settings: Settings,
                           private val clusterService: ClusterService) {
 
-    private val logger = ServerLoggers.getLogger(javaClass, settings)
+    private val logger = ElasticAPI.INSTANCE.getLogger(javaClass, settings)
 
     /**
      *  Initialize the indices required for scheduled jobs.

@@ -123,9 +123,9 @@ data class CronSchedule(val expression: String,
         return timeToNextExecution.orElse(null)
     }
 
-    override fun getPeriodStartEnd(_previousEndTime: Instant?): Pair<Instant, Instant> {
-        val previousEndTime = if (_previousEndTime != null) {
-            _previousEndTime
+    override fun getPeriodStartEnd(previousEndTime: Instant?): Pair<Instant, Instant> {
+        val realPreviousEndTime = if (previousEndTime != null) {
+            previousEndTime
         } else {
             // Probably the first time we're running. Try to figure out the last execution time
             val lastExecutionTime = executionTime.lastExecution(ZonedDateTime.now())
@@ -136,9 +136,9 @@ data class CronSchedule(val expression: String,
             }
             lastExecutionTime.get().toInstant()
         }
-        val zonedDateTime = ZonedDateTime.ofInstant(previousEndTime, timezone)
+        val zonedDateTime = ZonedDateTime.ofInstant(realPreviousEndTime, timezone)
         val newEndTime = executionTime.nextExecution(zonedDateTime).orElse(null)
-        return Pair(previousEndTime, newEndTime?.toInstant() ?: Instant.now())
+        return Pair(realPreviousEndTime, newEndTime?.toInstant() ?: Instant.now())
     }
 
     override fun runningOnTime(lastExecutionTime: Instant?): Boolean {
@@ -163,7 +163,7 @@ data class CronSchedule(val expression: String,
         builder.startObject()
                 .startObject(CRON_FIELD)
                 .field(EXPRESSION_FIELD, expression)
-                .field(TIMEZONE_FIELD, timezone)
+                .field(TIMEZONE_FIELD, timezone.id)
                 .endObject()
                 .endObject()
         return builder
@@ -185,10 +185,10 @@ data class IntervalSchedule(val interval: Int,
         return intervalDuration
     }
 
-    override fun getPeriodStartEnd(_previousEndTime: Instant?): Pair<Instant, Instant> {
-        val previousEndTime = _previousEndTime ?: Instant.now().minusMillis(intervalInMills)
-        val newEndTime = previousEndTime.plusMillis(intervalInMills)
-        return Pair(previousEndTime, newEndTime)
+    override fun getPeriodStartEnd(previousEndTime: Instant?): Pair<Instant, Instant> {
+        val realPreviousEndTime = previousEndTime ?: Instant.now().minusMillis(intervalInMills)
+        val newEndTime = realPreviousEndTime.plusMillis(intervalInMills)
+        return Pair(realPreviousEndTime, newEndTime)
     }
 
     override fun runningOnTime(lastExecutionTime: Instant?): Boolean {

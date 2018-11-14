@@ -10,6 +10,7 @@ import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
+import com.amazon.elasticsearch.util.string
 import org.elasticsearch.client.RestClient
 import org.apache.http.HttpEntity
 import org.apache.http.entity.ContentType
