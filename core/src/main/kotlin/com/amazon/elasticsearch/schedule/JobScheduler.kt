@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit
  *
  * JobScheduler is unaware of the ScheduledJob version and it is up to callers to ensure that the older version of ScheduledJob to be descheduled and schedule the new version.
  */
-class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : JobRunner) {
+class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : JobRunner,
+                   private val threadPoolName: String) {
     private val logger = Loggers.getLogger(JobScheduler::class.java)
 
     /**
@@ -165,7 +166,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
             return false
         }
         // Finally schedule the job in the ThreadPool with next time to execute.
-        val scheduledFuture = threadPool.schedule(TimeValue(duration.toNanos(), TimeUnit.NANOSECONDS), ThreadPool.Names.GENERIC, runnable)
+        val scheduledFuture = threadPool.schedule(TimeValue(duration.toNanos(), TimeUnit.NANOSECONDS), threadPoolName, runnable)
         scheduledJobInfo.scheduledFuture = scheduledFuture
         return true
     }

@@ -19,7 +19,7 @@ class JobSchedulerTest {
     @Test
     fun `schedule and deschedule`() {
         val jobRunner = MockJobRunner()
-        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner)
+        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner, ThreadPool.Names.GENERIC)
         val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, IntervalSchedule(1, ChronoUnit.MINUTES))
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
@@ -34,7 +34,7 @@ class JobSchedulerTest {
         // This is to run cron in Feb 30 which we should never run.
         val cronExpression = "0/5 * 30 2 *"
         val jobRunner = MockJobRunner()
-        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner)
+        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner, ThreadPool.Names.GENERIC)
         val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")))
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
@@ -49,7 +49,7 @@ class JobSchedulerTest {
     fun `schedule disabled`() {
         val cronExpression = "0/5 * * * *"
         val jobRunner = MockJobRunner()
-        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner)
+        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner, ThreadPool.Names.GENERIC)
         val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", false, CronSchedule(cronExpression, ZoneId.of("UTC")))
 
         assertFalse(jobScheduler.schedule(mockScheduledJob), "We should return false if we try to schedule disabled schedule.")
@@ -60,7 +60,7 @@ class JobSchedulerTest {
     fun `deschedule none existing schedule`() {
         val cronExpression = "0/5 * * * *"
         val jobRunner = MockJobRunner()
-        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner)
+        val jobScheduler = JobScheduler(ThreadPool(getTestSettings()), jobRunner, ThreadPool.Names.GENERIC)
         val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")))
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))

@@ -27,6 +27,8 @@ import org.elasticsearch.common.settings.ClusterSettings
 import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
+import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.util.concurrent.EsExecutors
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
@@ -41,6 +43,8 @@ import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
+import org.elasticsearch.threadpool.ExecutorBuilder
+import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
@@ -51,8 +55,7 @@ import java.util.function.Supplier
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [SNSAction.XCONTENT_REGISTRY] to the
  * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
-class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin() {
-
+internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin() {
     override fun getContextWhitelists(): Map<ScriptContext<*>, List<Whitelist>> {
         val whitelist = WhitelistLoader.loadFromResourceFiles(javaClass, "com.amazon.elasticsearch.monitoring.txt")
         return mapOf(TriggerScript.CONTEXT to listOf(whitelist))
@@ -62,6 +65,7 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
         @JvmField val KIBANA_USER_AGENT = "Kibana"
         @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
         @JvmField val MONITOR_BASE_URI = "/_awses/monitors/"
+        @JvmField val MONITORING_THREAD_POOL_NAME = "AESMonitoringScheduledJobs"
     }
 
     lateinit var runner: MonitorRunner
@@ -99,7 +103,7 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
         val settings = environment.settings()
         val alertIndices = AlertIndices(settings, client.admin().indices(), threadPool)
         runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices)
-        scheduler = JobScheduler(threadPool, runner)
+        scheduler = JobScheduler(threadPool, runner, MONITORING_THREAD_POOL_NAME)
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
         scheduledJobIndices = ScheduledJobIndices(client.admin(), settings, clusterService)
         return listOf(sweeper, scheduler, runner)
@@ -113,5 +117,12 @@ class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin()
 
     override fun getContexts(): List<ScriptContext<*>> {
         return listOf(TriggerScript.CONTEXT)
+    }
+
+    override fun getExecutorBuilders(settings: Settings): MutableList<ExecutorBuilder<*>> {
+        val availableProcessors = EsExecutors.numberOfProcessors(settings)
+        // Use the same getting as ES GENERIC Executor builder.
+        val genericThreadPoolMax = Math.min(512, Math.max(128, 4 * availableProcessors))
+        return mutableListOf(ScalingExecutorBuilder(MONITORING_THREAD_POOL_NAME, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30L)))
     }
 }
