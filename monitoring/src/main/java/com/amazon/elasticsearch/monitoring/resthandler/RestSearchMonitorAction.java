@@ -33,6 +33,7 @@ import static com.amazon.elasticsearch.model.ScheduledJob.SCHEDULED_JOB_TYPE;
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.rest.RestRequest.Method.GET;
+import static org.elasticsearch.rest.RestRequest.Method.POST;
 
 /**
  * Rest handlers to search for monitors.
@@ -42,6 +43,7 @@ public class RestSearchMonitorAction extends BaseRestHandler {
     public RestSearchMonitorAction(final Settings settings, final RestController controller) {
         super(settings);
         // Search for monitors
+        controller.registerHandler(POST, MonitoringPlugin.MONITOR_BASE_URI + "_search", this);
         controller.registerHandler(GET, MonitoringPlugin.MONITOR_BASE_URI + "_search", this);
     }
 

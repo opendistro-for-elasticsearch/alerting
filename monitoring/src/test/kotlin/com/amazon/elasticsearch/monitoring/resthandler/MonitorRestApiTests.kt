@@ -228,6 +228,20 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
+    fun `test query a monitor that exists POST`() {
+        val monitor = createRandomMonitor(true)
+
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", monitor.id)).toString()
+        val searchResponse = client().performRequest("POST", "/_awses/monitors/_search",
+                emptyMap(),
+                NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Any>
+        val numberDocsFound = hits["total"]
+        assertEquals("Monitor not found during search", 1, numberDocsFound)
+    }
+
     fun `test query a monitor that doesn't exist`() {
         createRandomMonitor(refresh = true) // Create a random monitor to create the ScheduledJob index. Otherwise we test will fail with 404 index not found.
         val search = SearchSourceBuilder().query(QueryBuilders.termQuery(ESTestCase.randomAlphaOfLength(5),
