@@ -14,14 +14,14 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.script.Script
 import java.io.IOException
 
-data class Trigger( val name: String, val severity: Int, val condition: Script, val actions: List<Action>,
+data class Trigger( val name: String, val severity: String, val condition: Script, val actions: List<Action>,
                     val id: String = UUIDs.base64UUID()) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
                 .field(ID_FIELD, id)
                 .field(NAME_FIELD, name)
-                .field(SEVERITY_FILED, severity)
+                .field(SEVERITY_FIELD, severity)
                 .startObject(CONDITION_FIELD)
                 .field(SCRIPT_FIELD, condition)
                 .endObject()
@@ -32,14 +32,14 @@ data class Trigger( val name: String, val severity: Int, val condition: Script, 
 
     /** Returns a representation of the trigger suitable for passing into painless and mustache scripts. */
     fun asTemplateArg() : Map<String, Any> {
-        return mapOf(ID_FIELD to id, NAME_FIELD to name, SEVERITY_FILED to severity,
+        return mapOf(ID_FIELD to id, NAME_FIELD to name, SEVERITY_FIELD to severity,
                 ACTIONS_FIELD to actions.map { it.asTemplateArg() })
     }
 
     companion object {
         const val ID_FIELD = "id"
         const val NAME_FIELD = "name"
-        const val SEVERITY_FILED = "severity"
+        const val SEVERITY_FIELD = "severity"
         const val CONDITION_FIELD = "condition"
         const val ACTIONS_FIELD = "actions"
         const val SCRIPT_FIELD = "script"
@@ -48,7 +48,7 @@ data class Trigger( val name: String, val severity: Int, val condition: Script, 
         fun parse(xcp: XContentParser) : Trigger {
             var id = UUIDs.base64UUID() // assign a default triggerId if one is not specified
             lateinit var name: String
-            var severity = 0
+            lateinit var severity: String
             lateinit var condition: Script
             val actions: MutableList<Action> = mutableListOf()
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -60,7 +60,7 @@ data class Trigger( val name: String, val severity: Int, val condition: Script, 
                 when (fieldName) {
                     ID_FIELD -> id = xcp.text()
                     NAME_FIELD -> name = xcp.text()
-                    SEVERITY_FILED -> severity = xcp.intValue()
+                    SEVERITY_FIELD -> severity = xcp.text()
                     CONDITION_FIELD -> {
                         xcp.nextToken()
                         condition = Script.parse(xcp)

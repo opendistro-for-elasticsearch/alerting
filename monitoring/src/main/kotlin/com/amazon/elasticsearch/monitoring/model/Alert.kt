@@ -22,7 +22,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                  val monitorVersion: Long, val triggerId: String, val triggerName: String,
                  val state: State, val startTime: Instant, val endTime: Instant? = null,
                  val lastNotificationTime: Instant? = null, val acknowledgedTime: Instant? = null,
-                 val errorMessage: String? = null) : ToXContent {
+                 val errorMessage: String? = null, val severity: String) : ToXContent {
 
     init {
         if (errorMessage != null) {
@@ -34,7 +34,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                 state: State = State.ACTIVE, errorMessage: String? = null)
             : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
             triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
-            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage)
+            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, severity = trigger.severity)
 
     enum class State {
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR
@@ -55,6 +55,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
         const val END_TIME_FIELD = "end_time"
         const val ACKNOWLEDGED_TIME_FIELD = "acknowledged_time"
         const val ERROR_MESSAGE_FIELD = "error_message"
+        const val SEVERITY_FIELD = "severity"
 
         const val NO_ID = ""
         const val NO_VERSION = Versions.NOT_FOUND
@@ -78,6 +79,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
             lateinit var triggerName: String
             lateinit var state: State
             lateinit var startTime: Instant
+            lateinit var severity: String
             var endTime: Instant? = null
             var lastNotificationTime: Instant? = null
             var acknowledgedTime: Instant? = null
@@ -100,6 +102,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                     LAST_NOTIFICATION_TIME_FIELD -> lastNotificationTime = xcp.instant()
                     ACKNOWLEDGED_TIME_FIELD -> acknowledgedTime = xcp.instant()
                     ERROR_MESSAGE_FIELD -> errorMessage = xcp.textOrNull()
+                    SEVERITY_FIELD -> severity = xcp.text()
                 }
             }
 
@@ -108,7 +111,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                     triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
                     state = requireNotNull(state), startTime = startTime, endTime = endTime,
                     lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
-                    errorMessage = errorMessage)
+                    errorMessage = errorMessage, severity = severity)
         }
 
     }
@@ -122,6 +125,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                 .field(TRIGGER_NAME_FIELD, triggerName)
                 .field(STATE_FIELD, state)
                 .field(ERROR_MESSAGE_FIELD, errorMessage)
+                .field(Trigger.SEVERITY_FIELD, severity)
                 .dateField(START_TIME_FIELD, START_TIME_FIELD, startTime.toEpochMilli())
                 .optionalDateField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
                 .optionalDateField(END_TIME_FIELD, endTime)

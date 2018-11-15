@@ -8,6 +8,9 @@
       "monitor_version" : {
         "type" : "long"
       },
+      "severity": {
+        "type": "keyword"
+      },
       "monitor_name" : {
         "type" : "text",
         "fields": {

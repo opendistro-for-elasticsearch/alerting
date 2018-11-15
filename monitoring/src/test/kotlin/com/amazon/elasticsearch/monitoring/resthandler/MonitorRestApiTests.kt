@@ -117,7 +117,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
     fun `test updating conditions for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedTriggers = listOf(Trigger("foo", 1, Script("return true"), emptyList()))
+        val updatedTriggers = listOf(Trigger("foo", "1", Script("return true"), emptyList()))
         val updateResponse = client().performRequest("PUT", monitor.relativeUrl(),
                 emptyMap(), monitor.copy(triggers = updatedTriggers).toHttpEntity())
 

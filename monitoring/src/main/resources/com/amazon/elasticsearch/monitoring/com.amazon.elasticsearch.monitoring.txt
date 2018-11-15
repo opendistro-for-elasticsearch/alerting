@@ -32,7 +32,7 @@ class com.amazon.elasticsearch.monitoring.model.Monitor {
 class com.amazon.elasticsearch.monitoring.model.Trigger {
     String getId()
     String getName()
-    int getSeverity()
+    String getSeverity()
     List getActions()
 }
 

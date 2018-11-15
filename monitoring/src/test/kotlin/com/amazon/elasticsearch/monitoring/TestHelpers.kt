@@ -40,7 +40,7 @@ fun randomMonitor(withMetadata: Boolean = false): Monitor {
 fun randomTrigger(): Trigger {
     return Trigger(id = UUIDs.base64UUID(),
             name = ESRestTestCase.randomAlphaOfLength(10),
-            severity = 1,
+            severity = "1",
             condition = randomScript(),
             actions = listOf(randomAction())
     )
@@ -65,8 +65,8 @@ fun randomAlert(monitor: Monitor = randomMonitor()) : Alert {
 // Temporary function until we have mappings in resource folder.
 fun putAlertMappings(client: RestClient) {
     var mapping = """
-        {"_doc":{"dynamic":"strict","properties":{"monitor_id":{"type":"keyword"},"monitor_version":{"type":"long"},"monitor_name":{"type":"text","fields":{"keyword":{"type":"keyword","ignore_above":256}}},"trigger_id":{"type":"keyword"},"trigger_name":{"type":"text","fields":{"keyword":{"type":"keyword","ignore_above":256}}},"state":{"type":"keyword"},"start_time":{"type":"date"},"last_notification_time":{"type":"date"},"acknowledged_time":{"type":"date"},"end_time":{"type":"date"},"error_message":{"type":"text"}}}}
-    """.trimIndent()
+        {"_doc": { "dynamic" : "strict", "properties" : { "monitor_id" : { "type" : "keyword" }, "monitor_version" : { "type" : "long" }, "severity": { "type": "keyword" }, "monitor_name" : { "type" : "text", "fields": { "keyword": { "type": "keyword", "ignore_above" : 256 } } }, "trigger_id" : { "type" : "keyword" }, "trigger_name" : { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above" : 256 } } }, "state" : { "type": "keyword" }, "start_time" : { "type" : "date" }, "last_notification_time" : { "type" : "date" }, "acknowledged_time" : { "type" : "date" },"end_time" : {"type" : "date"},"error_message" : {"type" : "text"}}}}
+        """.trimIndent()
     client.performRequest("PUT", "/.aes-alerts")
     client.performRequest("PUT", "/.aes-alerts/_mapping/_doc", emptyMap(), StringEntity(mapping, ContentType.APPLICATION_JSON))
 }
