@@ -259,6 +259,7 @@ class MonitorRunner(private val settings: Settings,
             }
         }
 
+        if (requestsToRetry.isEmpty()) return
         var bulkRequest = BulkRequest().add(requestsToRetry)
         val successfulResponses = mutableListOf<BulkItemResponse>()
         var failedResponses = listOf<BulkItemResponse>()
