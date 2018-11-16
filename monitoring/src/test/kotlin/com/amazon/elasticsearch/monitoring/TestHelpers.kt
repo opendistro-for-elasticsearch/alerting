@@ -29,13 +29,15 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 fun randomMonitor(withMetadata: Boolean = false): Monitor {
+    val enabled = ESTestCase.randomBoolean()
     return Monitor(name = ESRestTestCase.randomAlphaOfLength(10),
-            enabled = ESTestCase.randomBoolean(),
+            enabled = enabled,
             inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
             schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
             triggers = (1..ESTestCase.randomInt(10)).map { randomTrigger() },
             uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf(),
-            enabledTime = null)
+            enabledTime = if(enabled) Instant.now() else null,
+            lastUpdateTime = Instant.now())
 }
 
 fun randomTrigger(): Trigger {
@@ -53,7 +55,8 @@ fun randomScript() : Script {
 
 fun randomAction() : Action {
     return SNSAction(name = ESRestTestCase.randomUnicodeOfLength(10),
-            topicARN = "arn:bar:baz",
+            topicARN = "arn:aws:sns:foo:0123456789:bar",
+            roleARN = "arn:aws:iam::012345678901:foobar",
             messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Goodbye {{_ctx.monitor.name}}!", emptyMap()),
             subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Hello {{_ctx.monitor.name}}!", emptyMap()))
 }

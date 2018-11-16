@@ -63,13 +63,12 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
     }
 
     fun `test parsing monitor as a scheduled job`() {
-        val monitor = randomMonitor()
-        createRandomMonitor()
+        val monitor = createRandomMonitor()
 
         val builder = monitor.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), USE_TYPED_KEYS)
         val string = ElasticAPI.INSTANCE.builderToBytesRef(builder).utf8ToString()
         val xcp = createParser(XContentType.JSON.xContent(), string)
-        val scheduledJob = ScheduledJob.parse(xcp)
+        val scheduledJob = ScheduledJob.parse(xcp, monitor.id, monitor.version)
         assertEquals(monitor, scheduledJob)
     }
 
@@ -317,18 +316,6 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         assertTrue("Alert in state ${completedAlert.state} not found in failed list", failedResponseList.contains(errorAlert.id))
         assertTrue("Alert in state ${errorAlert.state} not found in failed list", failedResponseList.contains(completedAlert.id))
         assertFalse("Alert in state ${activeAlert.state} found in failed list", failedResponseList.contains(activeAlert.id))
-    }
-
-    fun `test enabled time disabling monitor`() {
-        val monitor = createMonitor(randomMonitor().copy(enabled = true, enabledTime = Instant.now()), refresh = true)
-        val updatedMonitor = updateMonitor(monitor.copy(enabled = false), refresh = true)
-        assertNull("Enabled time is not null", updatedMonitor.enabledTime)
-    }
-
-    fun `test enabled time enabling monitor`() {
-        val monitor = createMonitor(randomMonitor().copy(enabled = false, enabledTime = null))
-        val updatedMonitor = updateMonitor(monitor.copy(enabled = true))
-        assertNotNull("Enabled time is null", updatedMonitor.enabledTime)
     }
 
     fun `test mappings after monitor creation`() {

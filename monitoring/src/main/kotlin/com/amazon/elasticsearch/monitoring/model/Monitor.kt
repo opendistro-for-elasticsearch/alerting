@@ -13,6 +13,7 @@ import com.amazon.elasticsearch.util.instant
 import com.amazon.elasticsearch.util.optionalTimeField
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
+import org.elasticsearch.common.logging.ServerLoggers
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -28,9 +29,9 @@ import java.time.Instant
  */
 data class Monitor(override val id: String = NO_ID, override val version: Long = NO_VERSION,
                    override val name: String, override val enabled: Boolean,
-                   override val schedule: Schedule, val inputs: List<Input>,
-                   val triggers: List<Trigger>, val uiMetadata: Map<String, Any>,
-                   var enabledTime: Instant?) : ScheduledJob {
+                   override val schedule: Schedule, override val lastUpdateTime: Instant,
+                   val inputs: List<Input>, val triggers: List<Trigger>,
+                   val uiMetadata: Map<String, Any>, val enabledTime: Instant?) : ScheduledJob {
 
     override val type = MONITOR_TYPE
 
@@ -39,6 +40,11 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         val triggerIds = mutableSetOf<String>()
         triggers.forEach { trigger ->
             require (triggerIds.add(trigger.id)) { "Duplicate trigger id: ${trigger.id}. Trigger ids must be unique." }
+        }
+        if (enabled) {
+            requireNotNull(enabledTime)
+        } else {
+            require(enabledTime == null)
         }
     }
 
@@ -61,6 +67,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
                 .field(TRIGGERS_FIELD, triggers.toTypedArray())
+                .dateField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli())
         if (uiMetadata.isNotEmpty()) builder.field(UI_METADATA_FIELD, uiMetadata)
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
@@ -78,6 +85,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         const val NO_ID = ""
         const val NO_VERSION = 1L
         const val INPUTS_FIELD = "inputs"
+        const val LAST_UPDATE_TIME_FIELD = "last_update_time"
         const val UI_METADATA_FIELD = "ui_metadata"
         const val ENABLED_TIME_FIELD = "enabled_time"
 
@@ -87,11 +95,13 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                 ParseField(MONITOR_TYPE),
                 CheckedFunction { parse(it) })
 
-        @JvmStatic @JvmOverloads
+        @JvmStatic
+        @JvmOverloads
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
-            lateinit var name : String
+            lateinit var name: String
             lateinit var schedule: Schedule
+            lateinit var lastUpdateTime: Instant
             var enabledTime: Instant? = null
             var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
@@ -119,8 +129,9 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                             triggers.add(Trigger.parse(xcp))
                         }
                     }
-                    UI_METADATA_FIELD -> uiMetadata = xcp.map()
                     ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
+                    LAST_UPDATE_TIME_FIELD -> lastUpdateTime = xcp.instant() ?: Instant.now()
+                    UI_METADATA_FIELD -> uiMetadata = xcp.map()
                     else -> {
                         xcp.skipChildren()
                     }
@@ -129,11 +140,17 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
 
             require(inputs.size == 1) { "Monitors can only have a single search input" }
 
+            if (enabled && enabledTime == null) {
+                enabledTime = Instant.now()
+            } else if (!enabled) {
+                enabledTime = null
+            }
             return Monitor(id,
                     version,
                     requireNotNull(name) { "Monitor name is null" },
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
+                    lastUpdateTime,
                     inputs.toList(),
                     triggers.toList(),
                     uiMetadata,

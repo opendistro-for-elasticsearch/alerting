@@ -14,6 +14,7 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
+import java.time.Instant
 
 /**
  * A job that runs periodically in the ElasticSearch cluster.
@@ -84,6 +85,9 @@ interface ScheduledJob : ToXContentObject {
 
     /** The schedule for running the job  */
     val schedule: Schedule
+
+    /** The last time the job was updated */
+    val lastUpdateTime: Instant
 
     /** Copy constructor for persisted jobs */
     fun fromDocument(id: String, version: Long) : ScheduledJob
