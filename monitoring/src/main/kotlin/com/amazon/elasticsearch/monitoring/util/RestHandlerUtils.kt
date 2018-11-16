@@ -25,3 +25,4 @@ fun context(request: RestRequest): FetchSourceContext? {
 
 const val _ID = "_id"
 const val _VERSION = "_version"
+const val REFRESH = "refresh"

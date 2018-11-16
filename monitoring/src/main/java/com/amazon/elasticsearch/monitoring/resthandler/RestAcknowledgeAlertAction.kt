@@ -3,12 +3,11 @@ package com.amazon.elasticsearch.monitoring.resthandler
 import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
-import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
+import com.amazon.elasticsearch.monitoring.util.REFRESH
 import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
@@ -91,8 +90,10 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                         val indexRequest = IndexRequest(AlertIndices.ALERT_INDEX, Alert.ALERT_TYPE, hit.id)
                                 .source(acknowledgedAlert.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
                                 .routing(acknowledgedAlert.monitorId)
-                                .setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL)
-                        val indexResponse = client.index(indexRequest).actionGet(MonitoringSettings.INDEX_TIMEOUT.get(settings))
+                        if (channel.request().hasParam(REFRESH)) {
+                            indexRequest.setRefreshPolicy(channel.request().param(REFRESH))
+                        }
+                        val indexResponse = client.index(indexRequest).actionGet(REQUEST_TIMEOUT.get(settings))
                         if (indexResponse.status() != RestStatus.OK) {
                             failedAlerts.add(alert)
                         } else {

@@ -47,7 +47,8 @@ class XContentTests : XContentTestBase {
 
     fun randomAction() : Action {
         return SNSAction(name = "foo",
-                topicARN = "arn:bar:baz",
+                topicARN = "arn:aws:sns:foo:0123456789:bar",
+                roleARN = "arn:aws:iam::012345678901:foobar",
                 messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "quick brown fox", emptyMap()),
                 subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "blah blah", emptyMap()))
     }
