@@ -7,6 +7,7 @@ import com.amazon.elasticsearch.model.Action
 import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
@@ -37,7 +38,7 @@ fun randomMonitor(withMetadata: Boolean = false): Monitor {
             triggers = (1..ESTestCase.randomInt(10)).map { randomTrigger() },
             uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf(),
             enabledTime = if(enabled) Instant.now() else null,
-            lastUpdateTime = Instant.now())
+            lastUpdateTime = Instant.ofEpochSecond(Instant.now().toEpochMilli()))
 }
 
 fun randomTrigger(): Trigger {
@@ -66,13 +67,9 @@ fun randomAlert(monitor: Monitor = randomMonitor()) : Alert {
     return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null)
 }
 
-// Temporary function until we have mappings in resource folder.
 fun putAlertMappings(client: RestClient) {
-    var mapping = """
-        {"_doc": { "dynamic" : "strict", "properties" : { "monitor_id" : { "type" : "keyword" }, "monitor_version" : { "type" : "long" }, "severity": { "type": "keyword" }, "monitor_name" : { "type" : "text", "fields": { "keyword": { "type": "keyword", "ignore_above" : 256 } } }, "trigger_id" : { "type" : "keyword" }, "trigger_name" : { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above" : 256 } } }, "state" : { "type": "keyword" }, "start_time" : { "type" : "date" }, "last_notification_time" : { "type" : "date" }, "acknowledged_time" : { "type" : "date" },"end_time" : {"type" : "date"},"error_message" : {"type" : "text"}}}}
-        """.trimIndent()
     client.performRequest("PUT", "/.aes-alerts")
-    client.performRequest("PUT", "/.aes-alerts/_mapping/_doc", emptyMap(), StringEntity(mapping, ContentType.APPLICATION_JSON))
+    client.performRequest("PUT", "/.aes-alerts/_mapping/_doc", emptyMap(), StringEntity(AlertIndices.alertMapping(), ContentType.APPLICATION_JSON))
 }
 
 fun Response.restStatus() : RestStatus {
