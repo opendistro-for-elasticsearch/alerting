@@ -54,6 +54,10 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
          * The index name pattern to query all alerts, history and current alerts.
          */
         const val ALL_INDEX_PATTERN = ".aes-alert*"
+
+        @JvmStatic
+        fun alertMapping() =
+                javaClass.getResource("alert_mapping.json").readText()
     }
 
     val HISTORY_INDEX_MAX_DOCS_SETTING = MonitoringSettings.ALERT_HISTORY_MAX_DOCS.get(settings)
@@ -145,6 +149,4 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
         return response.isRolledOver
     }
 
-    private fun alertMapping() =
-            javaClass.getResource("alert_mapping.json").readText()
 }
