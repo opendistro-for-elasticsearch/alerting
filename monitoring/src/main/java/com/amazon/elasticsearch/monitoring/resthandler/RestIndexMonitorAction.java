@@ -4,6 +4,7 @@
 package com.amazon.elasticsearch.monitoring.resthandler;
 
 import com.amazon.elasticsearch.ScheduledJobIndices;
+import com.amazon.elasticsearch.Settings.ScheduledJobSettingsKt;
 import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import com.amazon.elasticsearch.monitoring.model.Monitor;
 import com.amazon.elasticsearch.monitoring.util.RestHandlerUtilsKt;
@@ -11,9 +12,7 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.node.NodeClient;
-import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -46,14 +45,11 @@ public class RestIndexMonitorAction extends BaseRestHandler {
 
     private static final String REFRESH = "refresh";
     private static ScheduledJobIndices scheduledJobIndices;
-    private TimeValue TIMEOUT;
 
     public RestIndexMonitorAction(final Settings settings, final RestController controller, final ScheduledJobIndices jobIndices) {
         super(settings);
         controller.registerHandler(POST, MonitoringPlugin.MONITOR_BASE_URI, this); // Create a new monitor
         controller.registerHandler(PUT, MonitoringPlugin.MONITOR_BASE_URI + "{monitorID}", this);
-        TIMEOUT = Setting.positiveTimeSetting("aes.monitoring.request_timeout",
-                TimeValue.timeValueSeconds(10), Setting.Property.Dynamic).get(settings);
         scheduledJobIndices = jobIndices;
     }
 
@@ -91,7 +87,8 @@ public class RestIndexMonitorAction extends BaseRestHandler {
         return channel -> {
             try {
                 client.threadPool().executor(ThreadPool.Names.MANAGEMENT).submit(
-                        () -> scheduledJobIndices.initScheduledJobIndex(TIMEOUT)).get(TIMEOUT.getSeconds(), TimeUnit.SECONDS);
+                        () -> scheduledJobIndices.initScheduledJobIndex()).get(
+                                ScheduledJobSettingsKt.getREQUEST_TIMEOUT().get(settings).getSeconds(), TimeUnit.SECONDS);
                 client.index(indexRequest, indexMonitorResponse(channel));
             } catch (Exception e) {
                 RestStatus status = e instanceof ElasticsearchException?

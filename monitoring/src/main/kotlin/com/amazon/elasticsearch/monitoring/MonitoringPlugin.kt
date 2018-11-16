@@ -5,6 +5,11 @@ package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.ScheduledJobIndices
 import com.amazon.elasticsearch.JobSweeper
+import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
+import com.amazon.elasticsearch.Settings.SWEEP_BACKOFF_MILLIS
+import com.amazon.elasticsearch.Settings.SWEEP_BACKOFF_RETRY_COUNT
+import com.amazon.elasticsearch.Settings.SWEEP_PAGE_SIZE
+import com.amazon.elasticsearch.Settings.SWEEP_PERIOD
 import com.amazon.elasticsearch.action.node.ScheduledJobsStatsTransportAction
 import com.amazon.elasticsearch.action.node.ScheduledJobsStatsAction
 import com.amazon.elasticsearch.model.SNSAction
@@ -18,6 +23,8 @@ import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
 import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestDisableMonitoringAction
+import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.monitoring.resthandler.RestExecuteMonitorAction
 import com.amazon.elasticsearch.schedule.JobScheduler
 import com.amazon.elasticsearch.resthandler.RestScheduledJobStatsHandler
@@ -30,6 +37,7 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry
 import org.elasticsearch.common.settings.ClusterSettings
 import org.elasticsearch.common.settings.IndexScopedSettings
+import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
 import org.elasticsearch.common.unit.TimeValue
@@ -91,6 +99,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
                 RestSearchMonitorAction(settings, restController),
                 RestExecuteMonitorAction(settings, restController, runner),
                 RestAcknowledgeAlertAction(settings, restController),
+                RestDisableMonitoringAction(settings, restController),
                 RestScheduledJobStatsHandler(settings, restController, "_monitors"))
     }
 
@@ -117,6 +126,24 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
         scheduledJobIndices = ScheduledJobIndices(client.admin(), settings, clusterService)
         return listOf(sweeper, scheduler, runner)
+    }
+
+    override fun getSettings(): List<Setting<*>> {
+        return listOf(
+                REQUEST_TIMEOUT,
+                SWEEP_BACKOFF_MILLIS,
+                SWEEP_BACKOFF_RETRY_COUNT,
+                SWEEP_PERIOD,
+                SWEEP_PAGE_SIZE,
+                MonitoringSettings.MONITORING_ENABLED,
+                MonitoringSettings.INPUT_TIMEOUT,
+                MonitoringSettings.INDEX_TIMEOUT,
+                MonitoringSettings.BULK_TIMEOUT,
+                MonitoringSettings.ALERT_BACKOFF_MILLIS,
+                MonitoringSettings.ALERT_BACKOFF_COUNT,
+                MonitoringSettings.ALERT_HISTORY_ROLLOVER_PERIOD,
+                MonitoringSettings.ALERT_HISTORY_INDEX_MAX_AGE,
+                MonitoringSettings.ALERT_HISTORY_MAX_DOCS)
     }
 
     override fun onIndexModule(indexModule: IndexModule) {

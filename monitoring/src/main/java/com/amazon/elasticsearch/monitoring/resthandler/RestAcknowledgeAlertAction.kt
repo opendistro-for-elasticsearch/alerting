@@ -1,16 +1,16 @@
 package com.amazon.elasticsearch.monitoring.resthandler
 
+import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
+import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -38,9 +38,6 @@ import java.time.Instant
  * the ids to the alerts he would like to acknowledge.
  */
 class RestAcknowledgeAlertAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
-
-    private val REQUEST_TIMEOUT = Setting.positiveTimeSetting("aes.monitoring.request_timeout",
-            TimeValue.timeValueSeconds(10), Setting.Property.Dynamic)
 
     init {
         // Acknowledge alerts
@@ -95,7 +92,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                                 .source(acknowledgedAlert.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
                                 .routing(acknowledgedAlert.monitorId)
                                 .setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL)
-                        val indexResponse = client.index(indexRequest).actionGet(REQUEST_TIMEOUT.get(settings))
+                        val indexResponse = client.index(indexRequest).actionGet(MonitoringSettings.INDEX_TIMEOUT.get(settings))
                         if (indexResponse.status() != RestStatus.OK) {
                             failedAlerts.add(alert)
                         } else {

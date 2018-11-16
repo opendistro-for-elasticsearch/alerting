@@ -4,6 +4,11 @@
 
 package com.amazon.elasticsearch
 
+import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
+import com.amazon.elasticsearch.Settings.SWEEP_BACKOFF_MILLIS
+import com.amazon.elasticsearch.Settings.SWEEP_BACKOFF_RETRY_COUNT
+import com.amazon.elasticsearch.Settings.SWEEP_PAGE_SIZE
+import com.amazon.elasticsearch.Settings.SWEEP_PERIOD
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.schedule.JobScheduler
 import com.amazon.elasticsearch.util.firstFailureOrNull
@@ -69,17 +74,17 @@ class JobSweeper(private val settings: Settings,
 
     private val sweptJobs = ConcurrentHashMap<ShardId, ConcurrentHashMap<JobId, JobVersion>>()
 
-    private val sweepPeriod = TimeValue.timeValueMinutes(5) // TODO: Get from settings
+    private val sweepPeriod = SWEEP_PERIOD.get(settings)
 
     private var scheduledFullSweep: Scheduler.Cancellable? = null
 
     @Volatile private var lastFullSweepTimeMillis = threadPool.relativeTimeInMillis()
 
-    companion object SweepConstants {
-        private const val SWEEP_PAGE_SIZE = 100
-        private val SWEEP_SEARCH_TIMEOUT = TimeValue.timeValueSeconds(10)
-        private val SWEEP_SEARCH_BACKOFF = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(50), 3)
-    }
+    private val SWEEP_PAGE_MAX_SIZE = SWEEP_PAGE_SIZE.get(settings)
+    private val SWEEP_SEARCH_TIMEOUT = REQUEST_TIMEOUT.get(settings)
+    private val SWEEP_SEARCH_BACKOFF = BackoffPolicy.exponentialBackoff(
+            SWEEP_BACKOFF_MILLIS.get(settings),
+            SWEEP_BACKOFF_RETRY_COUNT.get(settings))
 
     init {
         clusterService.addListener(this)
@@ -230,7 +235,7 @@ class JobSweeper(private val settings: Settings,
                             //TODO: Remove this after AESAlerting-85
                             .sort(FieldSortBuilder("_id").unmappedType("keyword").missing("_last"))
                             .searchAfter(arrayOf(searchAfter))
-                            .size(SWEEP_PAGE_SIZE)
+                            .size(SWEEP_PAGE_MAX_SIZE)
                             .query(QueryBuilders.matchAllQuery()))
 
 

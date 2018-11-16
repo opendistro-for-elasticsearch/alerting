@@ -1,5 +1,6 @@
 package com.amazon.elasticsearch
 
+import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.model.ScheduledJob
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
@@ -7,9 +8,7 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.client.AdminClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.logging.ServerLoggers
-import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentType
 
 /**
@@ -19,7 +18,7 @@ import org.elasticsearch.common.xcontent.XContentType
  * allowing the index to go through. This is to ensure the correct mappings exist for [ScheduledJob].
  */
 class ScheduledJobIndices(private val client: AdminClient,
-                          settings: Settings,
+                          private val settings: Settings,
                           private val clusterService: ClusterService) {
 
     private val logger = ServerLoggers.getLogger(javaClass, settings)
@@ -31,14 +30,14 @@ class ScheduledJobIndices(private val client: AdminClient,
      *  The  [CreateIndexRequest] happens on a background thread as it would otherwise be a blocking operation during
      *  the rest call.
      */
-    fun initScheduledJobIndex(timeout: TimeValue) {
+    fun initScheduledJobIndex() {
         val clusterState = clusterService.state()
         if (!clusterState.routingTable.hasIndex(ScheduledJob.SCHEDULED_JOBS_INDEX)) {
             try {
                 var result: CreateIndexResponse
                 var indexRequest = CreateIndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
                         .mapping(ScheduledJob.SCHEDULED_JOB_TYPE, scheduledJobMappings(), XContentType.JSON)
-                result = client.indices().create(indexRequest).actionGet(timeout)
+                result = client.indices().create(indexRequest).actionGet(REQUEST_TIMEOUT.get(settings))
                 if (!result.isAcknowledged) {
                     throw InternalError("${ScheduledJob.SCHEDULED_JOBS_INDEX} and mappings call not acknowledged.")
                 }

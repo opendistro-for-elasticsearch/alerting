@@ -5,6 +5,7 @@
 package com.amazon.elasticsearch.monitoring.alerts
 
 import com.amazon.elasticsearch.monitoring.randomAlert
+import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import org.elasticsearch.Version
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
@@ -27,8 +28,8 @@ class AlertIndicesTests : ESIntegTestCase() {
 
     private fun rolloverSettings(maxAge: Long = 1, maxDocs: Long = 0) : Settings {
         return settings(Version.CURRENT)
-                .put(AlertIndices.HISTORY_INDEX_MAX_AGE_SETTING.key, TimeValue.timeValueSeconds(maxAge))
-                .put(AlertIndices.HISTORY_INDEX_MAX_DOCS_SETTING.key, maxDocs)
+                .put(MonitoringSettings.ALERT_HISTORY_INDEX_MAX_AGE.key, TimeValue.timeValueSeconds(maxAge))
+                .put(MonitoringSettings.ALERT_HISTORY_MAX_DOCS.key, maxDocs)
                 .put(Node.NODE_NAME_SETTING.key, "test-node")
                 .build()
     }

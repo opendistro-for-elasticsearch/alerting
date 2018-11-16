@@ -4,6 +4,8 @@
 
 package com.amazon.elasticsearch.monitoring.alerts
 
+import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
+import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
@@ -12,7 +14,6 @@ import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.LocalNodeMasterListener
 import org.elasticsearch.common.logging.ServerLoggers
-import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentType
@@ -52,18 +53,15 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
          * The index name pattern to query all alerts, history and current alerts.
          */
         const val ALL_INDEX_PATTERN = ".aes-alert*"
-
-        private val DEFAULT_TIMEOUT = TimeValue.timeValueSeconds(30)
-
-        val HISTORY_INDEX_ROLLOVER_PERIOD_SETTING: Setting<TimeValue> =
-                Setting.positiveTimeSetting("aes.monitoring.alert_history_rollover_period", TimeValue.timeValueHours(12),
-                        Setting.Property.Dynamic)
-        val HISTORY_INDEX_MAX_AGE_SETTING: Setting<TimeValue> =
-                Setting.positiveTimeSetting("aes.monitoring.alert_history_max_age", TimeValue.timeValueHours(24),
-                        Setting.Property.Dynamic)
-        val HISTORY_INDEX_MAX_DOCS_SETTING: Setting<Long> = Setting.longSetting("aes.monitoring.alert_history_max_docs",
-                1000, 0, Setting.Property.Dynamic)
     }
+
+    val HISTORY_INDEX_MAX_DOCS_SETTING = MonitoringSettings.ALERT_HISTORY_MAX_DOCS.get(settings)
+
+    val HISTORY_INDEX_MAX_AGE_SETTING = MonitoringSettings.ALERT_HISTORY_INDEX_MAX_AGE.get(settings)
+
+    val HISTORY_INDEX_ROLLOVER_PERIOD_SETTING = MonitoringSettings.ALERT_HISTORY_ROLLOVER_PERIOD.get(settings)
+
+    private val DEFAULT_TIMEOUT = REQUEST_TIMEOUT.get(settings)
 
     // for JobsMonitor to report
     var lastRolloverTime : TimeValue? = null
@@ -80,7 +78,7 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
             rolloverHistoryIndex()
             // schedule the next rollover for approx MAX_AGE later
             scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() },
-                    HISTORY_INDEX_ROLLOVER_PERIOD_SETTING.get(settings), executorName())
+                    HISTORY_INDEX_ROLLOVER_PERIOD_SETTING, executorName())
         } catch (e: Exception) {
             // This should be run on cluster startup
             logger.error("Error creating alert indices. " +
@@ -136,8 +134,8 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
         val createIndexRequest = CreateIndexRequest(HISTORY_INDEX_PATTERN)
                 .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
         request.setCreateIndexRequest(createIndexRequest)
-        request.addMaxIndexDocsCondition(HISTORY_INDEX_MAX_DOCS_SETTING.get(settings))
-        request.addMaxIndexAgeCondition(HISTORY_INDEX_MAX_AGE_SETTING.get(settings))
+        request.addMaxIndexDocsCondition(HISTORY_INDEX_MAX_DOCS_SETTING)
+        request.addMaxIndexAgeCondition(HISTORY_INDEX_MAX_AGE_SETTING)
         val response = client.rolloversIndex(request).actionGet(DEFAULT_TIMEOUT)
         if (!response.isRolledOver) {
             logger.info("$HISTORY_WRITE_INDEX not rolled over. Conditions were: ${response.conditionStatus}")

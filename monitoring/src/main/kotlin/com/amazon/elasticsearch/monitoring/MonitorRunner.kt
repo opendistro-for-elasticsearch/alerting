@@ -18,6 +18,7 @@ import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.model.TriggerRunResult
 import com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
+import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.util.convertToMap
 import com.amazon.elasticsearch.util.firstFailureOrNull
 import com.amazon.elasticsearch.util.retry
@@ -62,20 +63,12 @@ class MonitorRunner(private val settings: Settings,
 
     private val logger = ServerLoggers.getLogger(MonitorRunner::class.java, settings)
 
-    private val searchTimeout = SEARCH_TIMEOUT.get(settings)
-    private val indexTimeout = INDEX_TIMEOUT.get(settings)
-    private val bulkTimeout = BULK_TIMEOUT.get(settings)
-
-    companion object {
-
-        // Same default timeouts as elastic: https://www.elastic.co/guide/en/watcher/current/configuring-default-internal-ops-timeouts.html
-        private val SEARCH_TIMEOUT = Setting.positiveTimeSetting("aes.monitoring.search_timeout", TimeValue.timeValueSeconds(30))
-        private val INDEX_TIMEOUT = Setting.positiveTimeSetting("aes.monitoring.index_timeout", TimeValue.timeValueSeconds(60))
-        private val BULK_TIMEOUT = Setting.positiveTimeSetting("aes.monitoring.bulk_timeout", TimeValue.timeValueSeconds(120))
-
-        // TODO: Needs to be tuned
-        private val RETRY_POLICY = BackoffPolicy.constantBackoff(TimeValue.timeValueMillis(50), 2)
-    }
+    private val searchTimeout = MonitoringSettings.INPUT_TIMEOUT.get(settings)
+    private val indexTimeout = MonitoringSettings.INDEX_TIMEOUT.get(settings)
+    private val bulkTimeout = MonitoringSettings.BULK_TIMEOUT.get(settings)
+    private val RETRY_POLICY = BackoffPolicy.constantBackoff(
+            MonitoringSettings.ALERT_BACKOFF_MILLIS.get(settings),
+            MonitoringSettings.ALERT_BACKOFF_COUNT.get(settings))
 
     override fun runJob(job: ScheduledJob, periodStart: Instant, periodEnd: Instant) {
         if (job is Monitor) {
