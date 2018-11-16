@@ -38,7 +38,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
-import java.time.Instant
 import java.time.ZoneId
 
 @TestLogging("level:DEBUG")

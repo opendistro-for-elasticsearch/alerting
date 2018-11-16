@@ -14,7 +14,6 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.LocalNodeMasterListener
-import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentType

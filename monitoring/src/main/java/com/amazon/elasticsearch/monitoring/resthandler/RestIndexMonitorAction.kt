@@ -4,15 +4,13 @@
 package com.amazon.elasticsearch.monitoring.resthandler
 
 import com.amazon.elasticsearch.ScheduledJobIndices
-import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.monitoring.MonitoringPlugin
 import com.amazon.elasticsearch.monitoring.model.Monitor
-import com.amazon.elasticsearch.monitoring.util.*
+import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -29,22 +27,24 @@ import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.threadpool.ThreadPool
 
 import java.io.IOException
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
+import com.amazon.elasticsearch.monitoring.util.REFRESH
+import com.amazon.elasticsearch.monitoring.util._ID
+import com.amazon.elasticsearch.monitoring.util._VERSION
 import org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestRequest.Method.PUT
-import java.time.Instant
 
 /**
  * Rest handlers to create and update monitors
  */
 class RestIndexMonitorAction(settings: Settings, controller: RestController, jobIndices: ScheduledJobIndices) : BaseRestHandler(settings) {
     private val TIMEOUT: TimeValue
-    private val REFRESH = "refresh"
     private var scheduledJobIndices: ScheduledJobIndices
 
     init {
@@ -74,7 +74,7 @@ class RestIndexMonitorAction(settings: Settings, controller: RestController, job
         if (request.method() == PUT) {
             indexRequest.id(id).version(RestActions.parseVersion(request))
         }
-        if (request.hasParam(REFRESH)) {
+        if (request.hasParam(REFRESH)){
             indexRequest.setRefreshPolicy(request.param(REFRESH))
         }
         indexRequest.source(monitor.toXContentWithType(builder))
@@ -91,7 +91,6 @@ class RestIndexMonitorAction(settings: Settings, controller: RestController, job
             }
         }
     }
-
 
     private fun indexMonitorResponse(channel: RestChannel): RestResponseListener<IndexResponse> {
         return object : RestResponseListener<IndexResponse>(channel) {
