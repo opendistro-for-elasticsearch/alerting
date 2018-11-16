@@ -8,7 +8,6 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
-import com.amazon.elasticsearch.monitoring.alerts.AlertError
 import com.amazon.elasticsearch.util.instant
 import com.amazon.elasticsearch.util.optionalTimeField
 import org.elasticsearch.common.lucene.uid.Versions
@@ -23,8 +22,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                  val monitorVersion: Long, val triggerId: String, val triggerName: String,
                  val state: State, val startTime: Instant, val endTime: Instant? = null,
                  val lastNotificationTime: Instant? = null, val acknowledgedTime: Instant? = null,
-                 val errorMessage: String? = null, val errorHistory: List<AlertError>,
-                 val severity: String) : ToXContent {
+                 val errorMessage: String? = null, val severity: String) : ToXContent {
 
     init {
         if (errorMessage != null) {
@@ -33,11 +31,10 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
     }
 
     constructor(monitor: Monitor, trigger: Trigger, startTime: Instant, lastNotificationTime: Instant?,
-                state: State = State.ACTIVE, errorMessage: String? = null, alertErrors: List<AlertError> = mutableListOf())
+                state: State = State.ACTIVE, errorMessage: String? = null)
             : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
             triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
-            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = alertErrors,
-            severity = trigger.severity)
+            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, severity = trigger.severity)
 
     enum class State {
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR
@@ -58,7 +55,6 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
         const val END_TIME_FIELD = "end_time"
         const val ACKNOWLEDGED_TIME_FIELD = "acknowledged_time"
         const val ERROR_MESSAGE_FIELD = "error_message"
-        const val ALERT_HISTORY_FIELD = "alert_history"
         const val SEVERITY_FIELD = "severity"
 
         const val NO_ID = ""
@@ -88,7 +84,6 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
             var lastNotificationTime: Instant? = null
             var acknowledgedTime: Instant? = null
             var errorMessage: String? = null
-            val errorHistory: MutableList<AlertError> = mutableListOf()
 
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -107,12 +102,6 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                     LAST_NOTIFICATION_TIME_FIELD -> lastNotificationTime = xcp.instant()
                     ACKNOWLEDGED_TIME_FIELD -> acknowledgedTime = xcp.instant()
                     ERROR_MESSAGE_FIELD -> errorMessage = xcp.textOrNull()
-                    ALERT_HISTORY_FIELD -> {
-                        ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
-                        while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
-                            errorHistory.add(AlertError.parse(xcp))
-                        }
-                    }
                     SEVERITY_FIELD -> severity = xcp.text()
                 }
             }
@@ -122,7 +111,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                     triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
                     state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
                     lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
-                    errorMessage = errorMessage, errorHistory = errorHistory, severity = severity)
+                    errorMessage = errorMessage, severity = severity)
         }
 
     }
@@ -137,8 +126,6 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                 .field(STATE_FIELD, state)
                 .field(ERROR_MESSAGE_FIELD, errorMessage)
                 .field(SEVERITY_FIELD, severity)
-                .field(ALERT_HISTORY_FIELD, errorHistory.toTypedArray())
-                .field(Trigger.SEVERITY_FIELD, severity)
                 .optionalTimeField(START_TIME_FIELD, startTime)
                 .optionalTimeField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
                 .optionalTimeField(END_TIME_FIELD, endTime)

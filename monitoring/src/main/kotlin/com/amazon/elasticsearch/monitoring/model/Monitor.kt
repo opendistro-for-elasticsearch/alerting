@@ -13,6 +13,7 @@ import com.amazon.elasticsearch.util.instant
 import com.amazon.elasticsearch.util.optionalTimeField
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
+import org.elasticsearch.common.logging.ServerLoggers
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -66,7 +67,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
                 .field(TRIGGERS_FIELD, triggers.toTypedArray())
-                .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
+                .dateField(LAST_UPDATE_TIME_FIELD, LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli())
         if (uiMetadata.isNotEmpty()) builder.field(UI_METADATA_FIELD, uiMetadata)
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()

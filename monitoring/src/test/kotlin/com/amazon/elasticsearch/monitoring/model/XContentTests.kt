@@ -13,6 +13,7 @@ import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
 import com.amazon.elasticsearch.monitoring.randomTrigger
+import com.amazon.elasticsearch.monitoring.toHttpEntity
 import com.amazon.elasticsearch.monitoring.toJsonString
 import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.string
