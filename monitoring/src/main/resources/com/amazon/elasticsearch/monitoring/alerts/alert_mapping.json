@@ -1,6 +1,6 @@
 {
   "_doc": {
-    "dynamic": "strict",
+    "dynamic" : "strict",
     "properties" : {
       "monitor_id" : {
         "type" : "keyword"
@@ -49,17 +49,6 @@
       },
       "error_message" : {
         "type" : "text"
-      },
-      "alert_history": {
-        "type": "nested",
-        "properties" : {
-          "timestamp": {
-            "type": "date"
-          },
-          "message": {
-            "type": "text"
-          }
-        }
       }
     }
   }

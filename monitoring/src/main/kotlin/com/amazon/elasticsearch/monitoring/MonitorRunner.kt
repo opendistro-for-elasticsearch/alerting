@@ -9,7 +9,6 @@ import com.amazon.elasticsearch.model.Action
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.monitoring.alerts.AlertError
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.ActionRunResult
 import com.amazon.elasticsearch.monitoring.model.Alert
@@ -146,16 +145,9 @@ class MonitorRunner(private val settings: Settings,
                 val actionResult = ActionRunResult(action.name, actionOutput, false, errorMessage)
                 triggerResult.actionResults[action.name] = actionResult
 
-                val updatedAlertErrors = alert?.errorHistory?.toMutableList() ?: mutableListOf()
-                if (errorMessage != null)  updatedAlertErrors.add(0, AlertError(currentTime, errorMessage))
-                updatedAlertErrors.take(10)
-
                 val newState = if (errorMessage != null) Alert.State.ERROR else Alert.State.ACTIVE
                 updatedAlerts += if (alert != null) {
-                    alert.copy(state = newState,
-                            lastNotificationTime = currentTime,
-                            errorMessage = errorMessage,
-                            errorHistory = updatedAlertErrors)
+                    alert.copy(state = newState, lastNotificationTime = currentTime, errorMessage = errorMessage)
                 } else {
                     Alert(monitor, trigger, currentTime, currentTime, newState, errorMessage)
                 }
