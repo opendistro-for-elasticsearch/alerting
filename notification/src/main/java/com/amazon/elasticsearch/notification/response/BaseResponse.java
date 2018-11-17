@@ -11,4 +11,8 @@ public abstract class BaseResponse {
             throw new IllegalArgumentException("status code is invalid");
         }
     }
+
+    public int getStatusCode() {
+        return statusCode;
+    }
 }

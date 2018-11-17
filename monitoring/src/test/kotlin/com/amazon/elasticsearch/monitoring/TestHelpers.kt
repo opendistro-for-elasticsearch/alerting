@@ -56,7 +56,7 @@ fun randomScript() : Script {
 
 fun randomAction() : Action {
     return SNSAction(name = ESRestTestCase.randomUnicodeOfLength(10),
-            topicARN = "arn:aws:sns:foo:0123456789:bar",
+            topicARN = "arn:aws:sns:foo:012345678901:bar",
             roleARN = "arn:aws:iam::012345678901:foobar",
             messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Goodbye {{_ctx.monitor.name}}!", emptyMap()),
             subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Hello {{_ctx.monitor.name}}!", emptyMap()))

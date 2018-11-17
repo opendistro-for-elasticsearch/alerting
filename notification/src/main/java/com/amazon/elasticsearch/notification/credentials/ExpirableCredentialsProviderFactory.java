@@ -17,7 +17,7 @@ import org.elasticsearch.common.logging.Loggers;
  */
 public class ExpirableCredentialsProviderFactory implements CredentialsProviderFactory {
 
-    private static final String SNS_ENDPOINT_PREFIX = "sns";
+    private static final String STS_ENDPOINT_PREFIX = "sts";
 
     public ExpirableCredentialsProviderFactory(InternalAuthCredentialsClient internalAuthCredentialsClient) {
         this.internalAuthCredentialsClient = internalAuthCredentialsClient;
@@ -86,7 +86,7 @@ public class ExpirableCredentialsProviderFactory implements CredentialsProviderF
         if (region != null) {
             try {
                 Region awsRegion = RegionUtils.getRegion(region);
-                String stsServiceEndPoint = awsRegion.getServiceEndpoint(SNS_ENDPOINT_PREFIX);
+                String stsServiceEndPoint = awsRegion.getServiceEndpoint(STS_ENDPOINT_PREFIX);
                 return new AwsClientBuilder.EndpointConfiguration(stsServiceEndPoint, region);
             } catch (Exception ex) {
                 logger.error("Error fetching SNS endpoint information. Defaulting to global");

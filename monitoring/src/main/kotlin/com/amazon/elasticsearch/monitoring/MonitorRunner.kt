@@ -21,6 +21,9 @@ import com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
 import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
+import com.amazon.elasticsearch.notification.Notification
+import com.amazon.elasticsearch.notification.message.SNSMessage
+import com.amazon.elasticsearch.notification.response.SNSResponse
 import com.amazon.elasticsearch.util.convertToMap
 import com.amazon.elasticsearch.util.firstFailureOrNull
 import com.amazon.elasticsearch.util.retry
@@ -295,7 +298,12 @@ class MonitorRunner(private val settings: Settings,
                 val message = scriptService.compile(action.messageTemplate, TemplateScript.CONTEXT)
                         .newInstance(action.messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
                         .execute()
-                return "Subject: $subject\nMessage: $message"
+                // channel name will be replaced with actual name once we start supporting dedicated channels page
+                val snsMessage = SNSMessage.Builder("default").withRole(action.roleARN).withTopicArn(action.topicARN)
+                        .withMessage(message).withSubject(subject).build()
+                val response = Notification.publish(snsMessage) as SNSResponse
+                logger.info("Message published for action name: ${action.name}, sns messageid: ${response.messageId}, stauscode: ${response.statusCode}")
+                return response.messageId;
             }
             else -> {
                 logger.info("Unknown action type: ${action.type}")
