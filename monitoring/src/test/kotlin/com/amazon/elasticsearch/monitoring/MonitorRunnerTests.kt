@@ -12,14 +12,14 @@ import org.elasticsearch.common.xcontent.XContentType
 @SuppressForbidden(reason = "cos")
 class MonitorRunnerTests : MonitoringRestTestCase() {
 
-     fun `test execute monitor`() {
-        val monitor = randomMonitor()
-        val response = client().performRequest("POST", "/_awses/monitors/_execute", emptyMap(), monitor.toHttpEntity())
-
-         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
-         val output = xcp.map()
-         assertEquals(monitor.name, output["monitor_name"])
-    }
+//     fun `test execute monitor`() {
+//        val monitor = randomMonitor()
+//        val response = client().performRequest("POST", "/_awses/monitors/_execute", emptyMap(), monitor.toHttpEntity())
+//
+//         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
+//         val output = xcp.map()
+//         assertEquals(monitor.name, output["monitor_name"])
+//    }
 
     // Useful settings when debugging to prevent timeouts
     override fun restClientSettings(): Settings {
