@@ -1,5 +1,6 @@
 rootProject.name = 'aes-plugins'
 include ':monitoring'
 include 'core'
+include ':notification'
 include 'es62'
 include 'es63'
