@@ -14,8 +14,9 @@ import com.amazon.elasticsearch.monitoring.putAlertMappings
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
 import com.amazon.elasticsearch.util.ElasticAPI
-import com.amazon.elasticsearch.util.string
 import org.apache.http.HttpEntity
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
+import com.amazon.elasticsearch.util.string
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
@@ -327,6 +328,32 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         var expectedMap = expected.map()
 
         assertEquals("Mappings are different", expectedMap, mappingsMap)
+    }
+
+    fun `test delete monitor and alerts`() {
+        putAlertMappings(client())
+        val monitor = createRandomMonitor(true)
+        val alert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE))
+
+        var deleteResponse = client().performRequest("DELETE", "_awses/monitors/${monitor.id}")
+        assertEquals("Delete request not successful", RestStatus.OK, deleteResponse.restStatus())
+
+
+        val search = SearchSourceBuilder().query(QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD + ".keyword", monitor.id))).toString()
+        val searchAlertResponse = client().performRequest("GET", "${AlertIndices.ALL_INDEX_PATTERN}/_search",
+                mapOf("routing" to alert.monitorId),
+                NStringEntity(search, ContentType.APPLICATION_JSON))
+
+        val responseParser = createParser(XContentType.JSON.xContent(), searchAlertResponse.entity.content)
+        val responseMap = responseParser.map() as Map<String, Map<String, Any>>
+        val alertMap = responseMap.get("hits")?.get("hits") as List<Map<String, Any>>
+        val alertSource = alertMap[0].get("_source") as Map<String, Any>
+
+        val index = alertMap[0]["_index"] as String
+        assertTrue("Alert did not move to history index.", index.contains("history"))
+
+        val retrievedAlertState = Alert.State.valueOf(alertSource[Alert.STATE_FIELD] as String)
+        assertEquals("Alert did not move to deleted state.", Alert.State.DELETED, retrievedAlertState)
     }
 
     fun `test update monitor with wrong version`() {

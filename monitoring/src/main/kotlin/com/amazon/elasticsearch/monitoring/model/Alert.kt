@@ -27,9 +27,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
                  val severity: String) : ToXContent {
 
     init {
-        if (errorMessage != null) {
-            require(state == State.ERROR) { "Attempt to create an alert with an error in state: $state" }
-        }
+        if (errorMessage != null) require(state == State.DELETED || state == State.ERROR) { "Attempt to create an alert with an error in state: $state" }
     }
 
     constructor(monitor: Monitor, trigger: Trigger, startTime: Instant, lastNotificationTime: Instant?,
@@ -40,7 +38,7 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
             severity = trigger.severity)
 
     enum class State {
-        ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR
+        ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR, DELETED
     }
 
     fun isAcknowledged() : Boolean = (state == State.ACKNOWLEDGED)

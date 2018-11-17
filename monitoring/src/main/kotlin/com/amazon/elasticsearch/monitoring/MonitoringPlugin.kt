@@ -85,6 +85,8 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
     lateinit var scheduler: JobScheduler
     lateinit var sweeper: JobSweeper
     lateinit var scheduledJobIndices: ScheduledJobIndices
+    lateinit var threadPool: ThreadPool
+    lateinit var alertIndices: AlertIndices
 
     override fun getRestHandlers(settings: Settings,
                                  restController: RestController,
@@ -94,7 +96,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
                                  indexNameExpressionResolver: IndexNameExpressionResolver?,
                                  nodesInCluster: Supplier<DiscoveryNodes>): List<RestHandler> {
         return listOf(RestGetMonitorAction(settings, restController),
-                RestDeleteMonitorAction(settings, restController),
+                RestDeleteMonitorAction(settings, restController, threadPool, alertIndices),
                 RestIndexMonitorAction(settings, restController, scheduledJobIndices),
                 RestSearchMonitorAction(settings, restController),
                 RestExecuteMonitorAction(settings, restController, runner),
@@ -120,11 +122,12 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
                                   namedWriteableRegistry: NamedWriteableRegistry): Collection<Any> {
         // Need to figure out how to use the Elasticsearch DI classes rather than handwiring things here.
         val settings = environment.settings()
-        val alertIndices = AlertIndices(settings, client.admin().indices(), threadPool)
+        alertIndices = AlertIndices(settings, client.admin().indices(), threadPool)
         runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices)
         scheduler = JobScheduler(threadPool, runner, MONITORING_THREAD_POOL_NAME)
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
         scheduledJobIndices = ScheduledJobIndices(client.admin(), settings, clusterService)
+        this.threadPool = threadPool
         return listOf(sweeper, scheduler, runner)
     }
 
