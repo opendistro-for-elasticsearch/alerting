@@ -11,6 +11,7 @@ package.AWSSearchServices-ElasticPlugins = {
         1.0 = {
             Gradle = 4.x;
             JDK10 = 1.0;
+            JDK8 = 1.0;
             S3BinarySafeDownloader = 1.0;
             BrazilPath = 1.1;
         };

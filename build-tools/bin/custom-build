@@ -7,11 +7,20 @@ if [ -n "$BRAZIL_PACKAGE_VERSION" ]; then
     s3-safe-download-all
 fi
 
+# As per https://www.elastic.co/blog/elasticsearch-java-9-and-beyond ES gradle plugin enforces that we build with JDK >=9
+# but we need to run tests with JDK8 to ensure compatibility.  So we set both JAVA_HOME (to compile) and RUNTIME_JAVA_HOME
+# (for running tests)
+build_jdk_mv="$(brazil-path [JDK10]pkg.jdk.namemajorversion)"
+build_jdk_path="$(brazil-path [JDK10]pkg.jdk.relativepath)"
+build_jdk_envroot="$("$BRAZIL_BUILD_HOME/bin/brazil-bootstrap" --package ${build_jdk_mv})"
+export JAVA_HOME="${build_jdk_envroot}/${build_jdk_path}"
+
+runtime_jdk_mv="$(brazil-path [JDK8]pkg.jdk.namemajorversion)"
+runtime_jdk_path="$(brazil-path [JDK8]pkg.jdk.relativepath)"
+runtime_jdk_envroot="$("$BRAZIL_BUILD_HOME/bin/brazil-bootstrap" --package ${runtime_jdk_mv})"
+export RUNTIME_JAVA_HOME="${runtime_jdk_envroot}/${runtime_jdk_path}"
+
 ws_root="$(brazil-path workspace-root)"
-jdk_mv="$(brazil-path tooldirect.jdk.namemajorversion)"
-jdk_path="$(brazil-path tooldirect.jdk.relativepath)"
-jdk_envroot="$("$BRAZIL_BUILD_HOME/bin/brazil-bootstrap" --package ${jdk_mv})"
-export JAVA_HOME="${jdk_envroot}/${jdk_path}"
 export GRADLE_USER_HOME="$ws_root/env/.gradle_user_home"
 export TERM=${TERM:-dumb}
 

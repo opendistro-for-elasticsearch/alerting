@@ -26,7 +26,7 @@ abstract class ElasticAPI {
     companion object {
         @JvmStatic val INSTANCE : ElasticAPI by lazy {
             val loader = ServiceLoader.load(ElasticAPI::class.java, ElasticAPI::class.java.classLoader)
-            loader.findFirst().get() // There must always be an instance on the classpath
+            loader.first() // There must always be an instance on the classpath
         }
     }
 
