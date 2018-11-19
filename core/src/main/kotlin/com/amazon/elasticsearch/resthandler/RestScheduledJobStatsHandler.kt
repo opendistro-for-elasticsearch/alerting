@@ -54,6 +54,7 @@ class RestScheduledJobStatsHandler(settings: Settings, controller: RestControlle
         val nodesIds = Strings.splitStringByCommaToArray(request.param("nodeId"));
         val metrics = Strings.tokenizeByCommaToSet(request.param("metric"))
         val scheduledJobsStatsRequest = ScheduledJobsStatsRequest(nodesIds)
+        scheduledJobsStatsRequest.timeout(request.param("timeout"))
 
         if (metrics.isEmpty()) {
             return scheduledJobsStatsRequest
