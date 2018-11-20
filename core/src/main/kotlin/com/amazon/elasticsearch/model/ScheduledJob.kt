@@ -33,7 +33,7 @@ interface ScheduledJob : ToXContentObject {
 
     companion object {
         /** The name of the ElasticSearch index in which we store jobs */
-        const val SCHEDULED_JOBS_INDEX = ".scheduled-jobs"
+        const val SCHEDULED_JOBS_INDEX = ".aes-scheduled-jobs"
 
         /**
          * The mapping type of [ScheduledJob]s in the ES index. Unrelated to [ScheduledJob.type].
