@@ -4,8 +4,12 @@
 
 package com.amazon.elasticsearch.monitoring.alerts
 
+import com.amazon.elasticsearch.monitoring.ALWAYS_RUN
 import com.amazon.elasticsearch.monitoring.randomAlert
+import com.amazon.elasticsearch.monitoring.randomMonitor
+import com.amazon.elasticsearch.monitoring.randomTrigger
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
+import com.amazon.elasticsearch.monitoring.toHttpEntity
 import org.elasticsearch.Version
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
@@ -69,6 +73,26 @@ class AlertIndicesTests : ESIntegTestCase() {
         // then:
         val newAlertIndex = getIndexAlias(AlertIndices.HISTORY_WRITE_INDEX).single { it != oldAlertIndex }
         assertNotEquals("History index was not rolled over", oldAlertIndex, newAlertIndex)
+    }
+
+    // This is kind of a weird test. It's not testing the state of the local AlertIndices instance but
+    // rather the instance inside the test cluster which is on a different JVM.  I suppose one could argue that
+    // it's all the other tests that are weird since they're running plugin code outside the cluster... ¯\_(ツ)_/¯
+    fun `test alert index gets recreated automatically if deleted`() {
+        // Obi-Wan voice: These are not the AlertIndices you're looking for...
+        val alertIndices = AlertIndices(rolloverSettings(), client().admin().indices(), threadPool)
+        alertIndices.createAlertIndex()
+
+        cluster().wipeIndices("_all")
+
+        val trigger = randomTrigger(condition = ALWAYS_RUN)
+        val monitor = randomMonitor(triggers = listOf(trigger))
+
+        val response = getRestClient().performRequest("POST", "/_awses/monitors/_execute",
+                mapOf("dryrun" to "true"), monitor.toHttpEntity())
+        val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
+        val output = xcp.map()
+        assertNull("Error running a monitor after wiping alert indices", output["error"])
     }
 
     private fun assertIndexExists(index: String) {

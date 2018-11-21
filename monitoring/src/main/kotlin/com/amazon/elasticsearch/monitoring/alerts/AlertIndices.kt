@@ -13,6 +13,8 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.client.IndicesAdminClient
+import org.elasticsearch.cluster.ClusterChangedEvent
+import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.LocalNodeMasterListener
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -31,7 +33,7 @@ import org.elasticsearch.threadpool.ThreadPool
  * in Scheduled Jobs we can migrate to using that to rollover the index.
  */
 class AlertIndices(private val settings : Settings, private val client: IndicesAdminClient,
-                   private val threadPool: ThreadPool) : LocalNodeMasterListener {
+                   private val threadPool: ThreadPool) : LocalNodeMasterListener, ClusterStateListener {
 
     private val logger = ElasticAPI.INSTANCE.getLogger(AlertIndices::class.java, settings)
 
@@ -49,9 +51,7 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
         /** The index name pattern to query all the alert history indices */
         const val HISTORY_INDEX_PATTERN = "<.aes-alert-history-{now/d}-1>"
 
-        /**
-         * The index name pattern to query all alerts, history and current alerts.
-         */
+        /** The index name pattern to query all alerts, history and current alerts. */
         const val ALL_INDEX_PATTERN = ".aes-alert*"
 
         @JvmStatic
@@ -96,6 +96,12 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
 
     override fun executorName(): String {
         return ThreadPool.Names.MANAGEMENT
+    }
+
+    override fun clusterChanged(event: ClusterChangedEvent) {
+        // if the indexes have been deleted they need to be reinitalized
+        alertIndexInitialized = event.state().routingTable().hasIndex(ALERT_INDEX)
+        historyIndexInitialized = event.state().metaData().hasAlias(HISTORY_WRITE_INDEX)
     }
 
     fun createAlertIndex() {

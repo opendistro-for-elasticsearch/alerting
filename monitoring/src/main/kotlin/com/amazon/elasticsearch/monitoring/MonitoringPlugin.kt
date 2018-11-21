@@ -123,6 +123,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         // Need to figure out how to use the Elasticsearch DI classes rather than handwiring things here.
         val settings = environment.settings()
         alertIndices = AlertIndices(settings, client.admin().indices(), threadPool)
+        clusterService.addListener(alertIndices)
         runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices)
         scheduler = JobScheduler(threadPool, runner, MONITORING_THREAD_POOL_NAME)
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
