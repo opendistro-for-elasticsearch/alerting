@@ -5,7 +5,6 @@
 package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SNSAction
-import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
