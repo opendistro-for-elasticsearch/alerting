@@ -4,19 +4,21 @@
 package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.Action
+import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
+import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.util.string
-import org.elasticsearch.client.RestClient
 import org.apache.http.HttpEntity
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.Response
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.UUIDs
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.QueryBuilders
@@ -25,41 +27,49 @@ import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-fun randomMonitor(withMetadata: Boolean = false): Monitor {
-    val enabled = ESTestCase.randomBoolean()
-    return Monitor(name = ESRestTestCase.randomAlphaOfLength(10),
-            enabled = enabled,
-            inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
-            schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
-            triggers = (1..ESTestCase.randomInt(10)).map { randomTrigger() },
-            uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf(),
-            enabledTime = if(enabled) Instant.ofEpochSecond(Instant.now().toEpochMilli()) else null,
-            lastUpdateTime = Instant.ofEpochSecond(Instant.now().toEpochMilli()))
+fun randomMonitor(
+        name: String = ESRestTestCase.randomAlphaOfLength(10),
+        inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
+        schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
+        enabled: Boolean = ESTestCase.randomBoolean(),
+        triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
+        enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
+        lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+        withMetadata: Boolean = false): Monitor {
+    return Monitor(name = name, enabled = enabled, inputs = inputs, schedule = schedule, triggers = triggers,
+            enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
+            uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
-fun randomTrigger(): Trigger {
-    return Trigger(id = UUIDs.base64UUID(),
-            name = ESRestTestCase.randomAlphaOfLength(10),
-            severity = "1",
-            condition = randomScript(),
-            actions = listOf(randomAction())
-    )
+fun randomTrigger(id: String = UUIDs.base64UUID(),
+                  name: String = ESRestTestCase.randomAlphaOfLength(10),
+                  severity: String = "1",
+                  condition: Script = randomScript(),
+                  actions: List<Action> = (1..randomInt(10)).map { randomAction() }
+                  ): Trigger {
+    return Trigger(id = id, name = name, severity = severity, condition = condition, actions = actions)
 }
 
-fun randomScript() : Script {
-    return Script("return true")
-}
+fun randomScript(source: String = "return " + ESRestTestCase.randomBoolean().toString()) : Script = Script(source)
 
-fun randomAction() : Action {
-    return SNSAction(name = ESRestTestCase.randomUnicodeOfLength(10),
-            topicARN = "arn:aws:sns:foo:012345678901:bar",
-            roleARN = "arn:aws:iam::012345678901:foobar",
-            messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Goodbye {{_ctx.monitor.name}}!", emptyMap()),
-            subjectTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "Hello {{_ctx.monitor.name}}!", emptyMap()))
+val ALWAYS_RUN = Script("return true")
+val NEVER_RUN = Script("return false")
+
+fun randomTemplateScript(source: String, params: Map<String, String> = emptyMap()) : Script =
+        Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, source, params)
+
+fun randomAction(name: String = ESRestTestCase.randomUnicodeOfLength(10),
+                 topicARN: String = "arn:aws:sns:foo:012345678901:bar",
+                 roleARN: String = "arn:aws:iam::012345678901:foobar",
+                 subjectTemplate: Script = randomTemplateScript("Hello World"),
+                 messageTemplate: Script = randomTemplateScript("Goodbye World")) : Action {
+    return SNSAction(name = name, topicARN = topicARN, roleARN = roleARN, messageTemplate = messageTemplate,
+            subjectTemplate = subjectTemplate)
 }
 
 fun randomAlert(monitor: Monitor = randomMonitor()) : Alert {

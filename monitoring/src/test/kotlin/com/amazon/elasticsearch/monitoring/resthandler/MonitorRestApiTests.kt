@@ -7,6 +7,7 @@ import com.amazon.elasticsearch.model.CronSchedule
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.MonitoringRestTestCase
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
@@ -14,15 +15,13 @@ import com.amazon.elasticsearch.monitoring.putAlertMappings
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
 import com.amazon.elasticsearch.util.ElasticAPI
-import org.apache.http.HttpEntity
-import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.util.string
+import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.apache.http.nio.entity.NStringEntity
-import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -370,20 +369,12 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
     // Helper functions
 
     private fun createRandomMonitor(refresh: Boolean = false, withMetadata: Boolean = false) : Monitor {
-        val monitor = randomMonitor(withMetadata)
+        val monitor = randomMonitor(withMetadata = withMetadata)
         val monitorId = createMonitor(monitor, refresh).id
         if (withMetadata) {
             return getMonitor(monitorId = monitorId, header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
         }
         return getMonitor(monitorId = monitorId)
-    }
-
-    private fun createMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
-        val response = client().performRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(), monitor.toHttpEntity())
-        assertEquals("Unable to create a new monitor", RestStatus.CREATED, response.restStatus())
-
-        val monitorJson = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
-        return monitor.copy(id = monitorJson["_id"] as String, version = (monitorJson["_version"] as Int).toLong())
     }
 
     private fun updateMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
@@ -445,19 +436,6 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
             }
         }
         return alert!!
-    }
-
-    private fun Response.restStatus() : RestStatus {
-        return RestStatus.fromCode(this.statusLine.statusCode)
-    }
-
-    private fun Monitor.toHttpEntity() : HttpEntity {
-        return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
-    }
-
-    private fun Monitor.toJsonString(): String {
-        val builder = XContentFactory.jsonBuilder()
-        return this.toXContent(builder).string()
     }
 
     private fun Monitor.relativeUrl() = "_awses/monitors/$id"

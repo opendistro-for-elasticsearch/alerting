@@ -100,7 +100,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
             lateinit var name: String
             lateinit var schedule: Schedule
-            lateinit var lastUpdateTime: Instant
+            var lastUpdateTime: Instant? = null
             var enabledTime: Instant? = null
             var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
@@ -129,7 +129,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                         }
                     }
                     ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
-                    LAST_UPDATE_TIME_FIELD -> lastUpdateTime = xcp.instant() ?: Instant.now()
+                    LAST_UPDATE_TIME_FIELD -> lastUpdateTime = xcp.instant()
                     UI_METADATA_FIELD -> uiMetadata = xcp.map()
                     else -> {
                         xcp.skipChildren()
@@ -149,7 +149,7 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                     requireNotNull(name) { "Monitor name is null" },
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
-                    lastUpdateTime,
+                    lastUpdateTime ?: Instant.now(),
                     inputs.toList(),
                     triggers.toList(),
                     uiMetadata,

@@ -15,6 +15,7 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentParser.Token.START_OBJECT
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
@@ -26,11 +27,10 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActionListener
 import java.time.Instant
 
-class RestExecuteMonitorAction(val settings: Settings, val restController: RestController,
-                               val runner: MonitorRunner) : BaseRestHandler(settings) {
+class RestExecuteMonitorAction(val settings: Settings, restController: RestController,
+                               private val runner: MonitorRunner) : BaseRestHandler(settings) {
 
     init {
-        // TODO: Add support for executing exising monitors
         restController.registerHandler(POST, "/_awses/monitors/{monitorID}/_execute", this)
         restController.registerHandler(POST, "/_awses/monitors/_execute", this)
     }
@@ -40,7 +40,7 @@ class RestExecuteMonitorAction(val settings: Settings, val restController: RestC
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         return RestChannelConsumer { channel ->
             val dryrun = request.paramAsBoolean("dryrun", false)
-            val requestEnd = request.paramAsTime("period_end", TimeValue(client.threadPool().absoluteTimeInMillis()))
+            val requestEnd = request.paramAsTime("period_end", TimeValue(Instant.now().toEpochMilli()))
 
             val executeMonitor = fun(monitor: Monitor) {
                 client.threadPool().generic().submit {
@@ -83,7 +83,7 @@ class RestExecuteMonitorAction(val settings: Settings, val restController: RestC
                 }
 
                 val xcp = ElasticAPI.INSTANCE.createParser(this.channel.request().xContentRegistry,
-                        response.sourceAsBytesRef, this.channel.request().xContentType)
+                        response.sourceAsBytesRef, this.channel.request().xContentType ?: XContentType.JSON)
                 val monitor = xcp.use {
                     ScheduledJob.parse(xcp, response.id, response.version) as Monitor
                 }

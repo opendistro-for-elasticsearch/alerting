@@ -19,11 +19,11 @@ import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.model.TriggerRunResult
 import com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
-import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.notification.Notification
 import com.amazon.elasticsearch.notification.message.SNSMessage
 import com.amazon.elasticsearch.notification.response.SNSResponse
+import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.convertToMap
 import com.amazon.elasticsearch.util.firstFailureOrNull
 import com.amazon.elasticsearch.util.retry
@@ -81,7 +81,7 @@ class MonitorRunner(private val settings: Settings,
 
     fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false)
             : MonitorRunResult {
-        val monitorResponse = MonitorRunResult(monitor.name, periodStart, periodEnd)
+        var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
         val currentTime = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
 
         if (periodStart == periodEnd) {
@@ -94,11 +94,9 @@ class MonitorRunner(private val settings: Settings,
             loadCurrentAlerts(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
-            logger.error("Error loading alerts for monitor: ${monitor.id}", e)
-            monitor.triggers.forEach { trigger ->
-                monitorResponse.triggerResults[trigger.name] = TriggerRunResult(trigger.name, false, e.stackTraceString())
-            }
-            return monitorResponse
+            val id = if (monitor.id.isBlank()) "_na_" else monitor.id
+            logger.error("Error loading alerts for monitor: $id", e)
+            return monitorResult.copy(errorMessage = e.stackTraceString())
         }
 
         var inputError: Exception? = null
@@ -107,10 +105,12 @@ class MonitorRunner(private val settings: Settings,
         } catch (e: Exception) {
             logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
             inputError = e
+            monitorResult = monitorResult.copy(errorMessage = e.stackTraceString())
             emptyList<Map<String, Any>>()
         }
 
         val updatedAlerts = mutableListOf<Alert>()
+        val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
             val alert = currentAlerts[trigger]
             var ctx = TriggerExecutionContext(monitor, trigger, results, periodStart, periodEnd, alert, inputError)
@@ -127,8 +127,8 @@ class MonitorRunner(private val settings: Settings,
                 true // if the script fails we need to send an alert so set triggered = true
             }
 
-            val triggerResult = TriggerRunResult(trigger.name, triggered, (inputError ?: scriptError)?.stackTraceString())
-            monitorResponse.triggerResults[trigger.id] = triggerResult
+            val triggerResult = TriggerRunResult(trigger.name, triggered, scriptError?.stackTraceString())
+            triggerResults[trigger.id] = triggerResult
             if (!triggered) {
                 if (alert != null) {
                     updatedAlerts += alert.copy(state = Alert.State.COMPLETED, endTime = currentTime)
@@ -141,28 +141,26 @@ class MonitorRunner(private val settings: Settings,
 
             // TODO: Add time based rate limiting
             for (action in trigger.actions) {
-                var actionError : Exception? = null
-                val actionOutput = try {
-                    runAction(action, ctx, dryrun)
+                val actionResult = try {
+                    val actionOutput = runAction(action, ctx, dryrun)
+                    ActionRunResult(action.name, actionOutput, false, triggerResult.errorMessage)
                 } catch (e: Exception) {
-                    actionError = e
-                    null
+                    logger.warn("Error running action", e)
+                    ActionRunResult(action.name, mapOf(), false, e.stackTraceString())
                 }
 
-                val errorMessage = (inputError ?: scriptError ?: actionError)?.stackTraceString()
-                val actionResult = ActionRunResult(action.name, actionOutput, false, errorMessage)
+                val errorMessage = monitorResult.errorMessage ?: triggerResult.errorMessage ?: actionResult.errorMessage
                 triggerResult.actionResults[action.name] = actionResult
 
-                val updatedAlertErrors = alert?.errorHistory?.toMutableList() ?: mutableListOf()
-                if (errorMessage != null)  updatedAlertErrors.add(0, AlertError(currentTime, errorMessage))
-                updatedAlertErrors.take(10)
+                val updatedErrorHistory = alert?.errorHistory?.toMutableList() ?: mutableListOf()
+                if (errorMessage != null)  updatedErrorHistory.add(0, AlertError(currentTime, errorMessage))
 
                 val newState = if (errorMessage != null) Alert.State.ERROR else Alert.State.ACTIVE
                 updatedAlerts += if (alert != null) {
                     alert.copy(state = newState,
                             lastNotificationTime = currentTime,
                             errorMessage = errorMessage,
-                            errorHistory = updatedAlertErrors)
+                            errorHistory = updatedErrorHistory.take(10))
                 } else {
                     Alert(monitor, trigger, currentTime, currentTime, newState, errorMessage)
                 }
@@ -172,7 +170,7 @@ class MonitorRunner(private val settings: Settings,
         if (!dryrun) {
             saveAlerts(updatedAlerts)
         }
-        return monitorResponse
+        return monitorResult.copy(triggerResults = triggerResults)
     }
 
     private fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): List<Map<String, Any>> {
@@ -292,28 +290,30 @@ class MonitorRunner(private val settings: Settings,
         }
     }
 
-    private fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean) : String {
+    private fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean) : Map<String, String> {
+        val actionOutput = mutableMapOf<String, String>()
         when (action) {
             is SNSAction -> {
-                // Todo: integrate with notification
-                val subject = scriptService.compile(action.subjectTemplate, TemplateScript.CONTEXT)
+                actionOutput["subject"] = scriptService.compile(action.subjectTemplate, TemplateScript.CONTEXT)
                         .newInstance(action.subjectTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
                         .execute()
-                val message = scriptService.compile(action.messageTemplate, TemplateScript.CONTEXT)
+                actionOutput["message"] = scriptService.compile(action.messageTemplate, TemplateScript.CONTEXT)
                         .newInstance(action.messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
                         .execute()
                 // channel name will be replaced with actual name once we start supporting dedicated channels page
-                val snsMessage = SNSMessage.Builder("default").withRole(action.roleARN).withTopicArn(action.topicARN)
-                        .withMessage(message).withSubject(subject).build()
-                val response = Notification.publish(snsMessage) as SNSResponse
-                logger.info("Message published for action name: ${action.name}, sns messageid: ${response.messageId}, stauscode: ${response.statusCode}")
-                return response.messageId;
+                if (!dryrun) {
+                    val snsMessage = SNSMessage.Builder("default").withRole(action.roleARN).withTopicArn(action.topicARN)
+                            .withMessage(actionOutput["message"]).withSubject(actionOutput["subject"]).build()
+                    val response = Notification.publish(snsMessage) as SNSResponse
+                    actionOutput["messageId"] = response.messageId
+                    logger.info("Message published for action name: ${action.name}, sns messageid: ${response.messageId}, stauscode: ${response.statusCode}")
+                }
             }
             else -> {
-                logger.info("Unknown action type: ${action.type}")
-                return ""
+                throw IllegalArgumentException("Unknown action type ${action.type}")
             }
         }
+        return actionOutput.toMap()
     }
 }
 
