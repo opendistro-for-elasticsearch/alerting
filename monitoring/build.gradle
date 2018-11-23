@@ -78,14 +78,14 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile "org.jetbrains:annotations:13.0"
 
+    compile project(":elastic-api")
     compile project(":core")
     compile project(":notification")
-
     // Elastic API version specific code
     if (es_mv == "6.3") {
-        compile project(':es63')
+        runtime project(':es63') // This should really be runtimeOnly but the Elastic gradle plugin doesn't copy that configuration into the plugin zip
     } else if (es_mv == "6.2") {
-        compile project(':es62')
+        runtime project(':es62') 
     }
 
     // This needs to be declared manually as the offline dependencies task does not pick this up automatically for some reason

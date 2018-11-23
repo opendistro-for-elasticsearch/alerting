@@ -1,0 +1,7 @@
+apply plugin: 'java'
+apply plugin: 'org.jetbrains.kotlin.jvm'
+
+dependencies {
+    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+}

@@ -105,7 +105,7 @@ task release(type: Copy, group: 'build') {
     includeEmptyDirs = false
     // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip which we need to remove
     eachFile { it.path = it.path - "elasticsearch/" }
-    dependsOn findProject(':monitoring').tasks.build
+    dependsOn subprojects*.tasks.build 
     // Codebuild can't run ES as root so we can't run tests there. In that case depend on assemble
 //    dependsOn project(':monitoring').tasks.assemble
 }

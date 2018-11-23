@@ -9,6 +9,7 @@ import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.model.XContentTestBase
+import com.amazon.elasticsearch.util.string
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script

@@ -1,5 +1,6 @@
 package com.amazon.elasticsearch.model
 
+import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -13,7 +14,7 @@ interface XContentTestBase {
     }
 
     fun parser(xc : String) : XContentParser {
-        val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), xc)
+        val parser = ElasticAPI.INSTANCE.jsonParser(xContentRegistry(), xc)
         parser.nextToken()
         return parser
     }
