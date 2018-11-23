@@ -8,6 +8,14 @@ dependencies {
     compile "com.cronutils:cron-utils:7.0.5"
     compile project(':elastic-api')
 
+    compile project(':elastic-api')
+    // Elastic API version specific code
+    if (es_mv == "6.3") {
+        compile project(':es63')
+    } else if (es_mv == "6.2") {
+        compile project(':es62')
+    }
+    
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
