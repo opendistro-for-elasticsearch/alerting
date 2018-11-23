@@ -154,7 +154,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
                 return@Runnable // skip running job if job is marked descheduled.
             }
             scheduledJobInfo.previousExecutionTime = Instant.now()
-            val (startTime, endTime) = scheduleJob.schedule.getPeriodStartEnd(scheduledJobInfo.previousExecutionTime)
+            val (startTime, endTime) = scheduleJob.schedule.getPeriodStartingAt(scheduledJobInfo.previousExecutionTime)
             jobRunner.runJob(scheduleJob, startTime, endTime)
         }
 

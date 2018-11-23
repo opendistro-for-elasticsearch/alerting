@@ -45,7 +45,7 @@ class RestExecuteMonitorAction(val settings: Settings, val restController: RestC
             val executeMonitor = fun(monitor: Monitor) {
                 client.threadPool().generic().submit {
                     val (periodStart, periodEnd) =
-                            monitor.schedule.getPeriodStartEnd(Instant.ofEpochMilli(requestEnd.millis))
+                            monitor.schedule.getPeriodEndingAt(Instant.ofEpochMilli(requestEnd.millis))
                     try {
                         val response = runner.runMonitor(monitor, periodStart, periodEnd, dryrun)
                         channel.sendResponse(BytesRestResponse(RestStatus.OK, channel.newBuilder().value(response)))

@@ -82,30 +82,55 @@ class ScheduleTest : XContentTestBase {
     }
 
     @Test
-    fun `test interval period`() {
+    fun `test interval period starting at`() {
         val intervalSchedule = IntervalSchedule(1, ChronoUnit.MINUTES)
 
-        val (startTime, endTime) = intervalSchedule.getPeriodStartEnd(null)
+        val (periodStartTime, periodEndTime) = intervalSchedule.getPeriodStartingAt(null)
 
-        assertEquals(startTime, endTime.minus(1, ChronoUnit.MINUTES), "Period didn't match interval")
+        assertEquals(periodStartTime, periodEndTime.minus(1, ChronoUnit.MINUTES), "Period didn't match interval")
 
+        val startTime = Instant.now()
         // Kotlin has destructuring declarations but no destructuring assignments? Gee, thanks...
-        val (startTime2, endTime2) =  intervalSchedule.getPeriodStartEnd(endTime)
-        assertEquals(startTime2, endTime, "Periods don't overlap")
-        assertEquals(startTime, endTime.minus(1, ChronoUnit.MINUTES), "Period didn't match interval")
+        val (periodStartTime2, _) =  intervalSchedule.getPeriodStartingAt(startTime)
+        assertEquals(startTime, periodStartTime2, "Periods doesn't start at provided start time")
     }
 
     @Test
-    fun `test cron period`() {
+    fun `test interval period ending at`() {
+        val intervalSchedule = IntervalSchedule(1, ChronoUnit.MINUTES)
+
+        val (periodStartTime, periodEndTime) = intervalSchedule.getPeriodEndingAt(null)
+
+        assertEquals(periodStartTime, periodEndTime.minus(1, ChronoUnit.MINUTES), "Period didn't match interval")
+
+        val endTime = Instant.now()
+        //  destructuring declarations but no destructuring assignments? Gee, thanks... https://youtrack.jetbrains.com/issue/KT-11362
+        val (_, periodEndTime2) =  intervalSchedule.getPeriodEndingAt(endTime)
+        assertEquals(endTime, periodEndTime2, "Periods doesn't end at provided end time")
+    }
+
+    @Test
+    fun `test cron period starting at`() {
         val cronSchedule = CronSchedule("0 * * * *", ZoneId.of("Asia/Tokyo"))
 
-        val (startTime, endTime) = cronSchedule.getPeriodStartEnd(null)
-
+        val (startTime1, endTime) = cronSchedule.getPeriodStartingAt(null)
+        assertTrue(startTime1 <= Instant.now(), "startTime is in future; should be the last execution time")
         assertTrue(cronSchedule.executionTime.isMatch(ZonedDateTime.ofInstant(endTime, ZoneId.of("Asia/Tokyo"))))
-        assertNotNull(startTime, "Start time is null for cron")
 
-        val (startTime2, endTime2) = cronSchedule.getPeriodStartEnd(endTime)
-        assertEquals(startTime2, endTime, "Periods don't overlap")
+        val (startTime, _) = cronSchedule.getPeriodStartingAt(endTime)
+        assertEquals(startTime, endTime, "Subsequent period doesn't start at provided end time")
+    }
+
+    @Test
+    fun `test cron period ending at`() {
+        val cronSchedule = CronSchedule("0 * * * *", ZoneId.of("Asia/Tokyo"))
+
+        val (startTime, endTime1) = cronSchedule.getPeriodEndingAt(null)
+        assertTrue(endTime1 >= Instant.now(), "endTime is in past; should be the next execution time")
+        assertTrue(cronSchedule.executionTime.isMatch(ZonedDateTime.ofInstant(startTime, ZoneId.of("Asia/Tokyo"))))
+
+        val (_, endTime2) = cronSchedule.getPeriodEndingAt(startTime)
+        assertEquals(endTime2, startTime, "Previous period doesn't end at provided start time")
     }
 
      @Test

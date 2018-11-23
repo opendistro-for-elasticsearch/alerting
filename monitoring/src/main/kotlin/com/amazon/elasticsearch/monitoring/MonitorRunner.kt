@@ -84,6 +84,10 @@ class MonitorRunner(private val settings: Settings,
         val monitorResponse = MonitorRunResult(monitor.name, periodStart, periodEnd)
         val currentTime = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
 
+        if (periodStart == periodEnd) {
+            logger.warn("Start and end time are the same: $periodStart. This monitor's schedule will probably only run once.")
+        }
+
         val currentAlerts = try {
             alertIndices.createAlertIndex()
             alertIndices.createInitialHistoryIndex()

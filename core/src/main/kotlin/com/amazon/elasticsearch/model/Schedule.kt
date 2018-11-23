@@ -99,10 +99,22 @@ sealed class Schedule : ToXContentObject {
     abstract fun nextTimeToExecute() : Duration?
 
     /**
-     * Returns the start and end time for the next run of the this schedule based on the last endTime of the cron.
+     * Returns the start and end time for this schedule starting at the given start time (if provided).
+     * If not, the start time is assumed to be the last time the Schedule would have executed (if it's a Cron schedule)
+     * or [Instant.now] if it's an interval schedule.
+     *
      * If this is a schedule that runs only once this function will return [Instant.now] for both start and end time.
      */
-    abstract fun getPeriodStartEnd(previousEndTime: Instant?) : Pair<Instant, Instant>
+    abstract fun getPeriodStartingAt(startTime: Instant?) : Pair<Instant, Instant>
+
+    /**
+     * Returns the start and end time for this schedule ending at the given end time (if provided).
+     * If not, the end time is assumed to be the next time the Schedule would have executed (if it's a Cron schedule)
+     * or [Instant.now] if it's an interval schedule.
+     *
+     * If this is a schedule that runs only once this function will return [Instant.now] for both start and end time.
+     */
+    abstract fun getPeriodEndingAt(endTime: Instant?) : Pair<Instant, Instant>
 
     abstract fun runningOnTime(lastExecutionTime: Instant?): Boolean
 }
@@ -115,7 +127,7 @@ data class CronSchedule(val expression: String,
                         // visible for testing
                         @Transient val testInstant: Instant? = null) : Schedule() {
     @Transient
-    val executionTime = ExecutionTime.forCron(cronParser.parse(expression))
+    val executionTime : ExecutionTime = ExecutionTime.forCron(cronParser.parse(expression))
 
     override fun nextTimeToExecute(): Duration? {
         val zonedDateTime = ZonedDateTime.ofInstant(testInstant ?: Instant.now(), timezone)
@@ -123,22 +135,39 @@ data class CronSchedule(val expression: String,
         return timeToNextExecution.orElse(null)
     }
 
-    override fun getPeriodStartEnd(previousEndTime: Instant?): Pair<Instant, Instant> {
-        val realPreviousEndTime = if (previousEndTime != null) {
-            previousEndTime
+    override fun getPeriodStartingAt(startTime: Instant?): Pair<Instant, Instant> {
+        val realStartTime = if (startTime != null) {
+            startTime
         } else {
             // Probably the first time we're running. Try to figure out the last execution time
-            val lastExecutionTime = executionTime.lastExecution(ZonedDateTime.now())
-            // This shouldn't happen unless the cron is configured to run only once (which we currently don't support).
+            val lastExecutionTime = executionTime.lastExecution(ZonedDateTime.now(timezone))
+            // This shouldn't happen unless the cron is configured to run only once, which our current cron syntax doesn't support
             if (!lastExecutionTime.isPresent) {
                 val currentTime = Instant.now()
                 return Pair(currentTime, currentTime)
             }
             lastExecutionTime.get().toInstant()
         }
-        val zonedDateTime = ZonedDateTime.ofInstant(realPreviousEndTime, timezone)
+        val zonedDateTime = ZonedDateTime.ofInstant(realStartTime, timezone)
         val newEndTime = executionTime.nextExecution(zonedDateTime).orElse(null)
-        return Pair(realPreviousEndTime, newEndTime?.toInstant() ?: Instant.now())
+        return Pair(realStartTime, newEndTime?.toInstant() ?: realStartTime)
+    }
+
+    override fun getPeriodEndingAt(endTime: Instant?): Pair<Instant, Instant> {
+        val realEndTime = if (endTime != null) {
+            endTime
+        } else {
+            val nextExecutionTime = executionTime.nextExecution(ZonedDateTime.now(timezone))
+            // This shouldn't happen unless the cron is configured to run only once which our current cron syntax doesn't support
+            if (!nextExecutionTime.isPresent) {
+                val currentTime = Instant.now()
+                return Pair(currentTime, currentTime)
+            }
+            nextExecutionTime.get().toInstant()
+        }
+        val zonedDateTime = ZonedDateTime.ofInstant(realEndTime, timezone)
+        val newStartTime = executionTime.lastExecution(zonedDateTime).orElse(null)
+        return Pair(newStartTime?.toInstant() ?: realEndTime, realEndTime)
     }
 
     override fun runningOnTime(lastExecutionTime: Instant?): Boolean {
@@ -181,14 +210,19 @@ data class IntervalSchedule(val interval: Int,
     override fun nextTimeToExecute(): Duration? {
         // TODO this should really be nextExecutionTime = lastExecutionTime + interval
         // https://issues-pdx.amazon.com/issues/AESAlerting-93
-        val intervalDuration = Duration.of(interval.toLong(), unit)
-        return intervalDuration
+        return Duration.of(interval.toLong(), unit)
     }
 
-    override fun getPeriodStartEnd(previousEndTime: Instant?): Pair<Instant, Instant> {
-        val realPreviousEndTime = previousEndTime ?: Instant.now().minusMillis(intervalInMills)
-        val newEndTime = realPreviousEndTime.plusMillis(intervalInMills)
-        return Pair(realPreviousEndTime, newEndTime)
+    override fun getPeriodStartingAt(startTime: Instant?): Pair<Instant, Instant> {
+        val realStartTime = startTime ?: Instant.now()
+        val newEndTime = realStartTime.plusMillis(intervalInMills)
+        return Pair(realStartTime, newEndTime)
+    }
+
+    override fun getPeriodEndingAt(endTime: Instant?): Pair<Instant, Instant> {
+        val realEndTime = endTime ?: Instant.now()
+        val newStartTime = realEndTime.minusMillis(intervalInMills)
+        return Pair(newStartTime, realEndTime)
     }
 
     override fun runningOnTime(lastExecutionTime: Instant?): Boolean {
