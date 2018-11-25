@@ -27,7 +27,7 @@ export TERM=${TERM:-dumb}
 # ES 6.2 test runner doesn't honor java.io.tmpdir so we need to set ES_TMPDIR here. This is also set in the build.gradle for other ES versions
 build_root="$(brazil-path package-build-root)"
 export ES_TMPDIR="$build_root/private/es_tmp"
-mkdir -p ES_TMPDIR
+mkdir -p $ES_TMPDIR
 
 GRADLE=$(which gradle)
 for ES_MAJOR_VERSION in "6.2" "6.3"; do
