@@ -1,0 +1,29 @@
+task cleanUpWorkspace {
+    doLast {
+        buildDir.eachFile { file ->
+            if (file.name != "plugins" && !file.name.startsWith("brazil-")) {
+                delete(file)
+            }
+        }
+        subprojects { Project sp ->
+            if (sp.file('Config').exists()) return // Avoid other brazil pkgs; can't hurt to be safe
+            sp.delete(sp.buildDir)
+        }
+    }
+}
+
+task cleanSymlinkBuildDir {
+    doLast {
+        project.delete project.file('build').listFiles() ?: []
+        project.delete project.file('build')
+    }
+    project.tasks.findByPath('clean')?.dependsOn it
+}
+
+// Brazil caches the contents of the entire build workspace which includes large intermediate files inside the 
+// subproject build dir. To avoid this we delete this directory at the end of the build. 
+afterEvaluate {
+    if (sandboxedBuild) {
+        release.finalizedBy cleanUpWorkspace
+    }
+}

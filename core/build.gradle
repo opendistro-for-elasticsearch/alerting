@@ -11,9 +11,5 @@ dependencies {
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
     // Elastic API version specific code
-    if (es_mv == "6.3") {
-        testRuntimeOnly project(':es63')
-    } else if (es_mv == "6.2") {
-        testRuntimeOnly project(':es62')
-    }
+    testRuntimeOnly project(elasticApiImplProject)
 }

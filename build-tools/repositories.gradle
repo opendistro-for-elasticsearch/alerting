@@ -1,0 +1,11 @@
+ext {
+    offlineRepositoryRoot = rootProject.file("${rootDir.parentFile}/offline-repo").absolutePath
+}
+repositories {
+    if (sandboxedBuild) {
+        maven { url offlineRepositoryRoot }
+    } else {
+        mavenCentral()
+    }
+}
+

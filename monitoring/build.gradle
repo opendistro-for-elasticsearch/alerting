@@ -1,13 +1,12 @@
 apply plugin: 'java'
 apply plugin: 'idea'
-apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'org.jetbrains.kotlin.jvm'
+apply plugin: 'elasticsearch.esplugin'
 
 ext {
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
-    aws_version = "1.11.223"
 }
 
 esplugin {
@@ -17,10 +16,30 @@ esplugin {
     extendedPlugins = ['lang-painless']
 }
 
-// We don't have unit tests, only integration tests.
-test.enabled = false
-// turn off javadoc as it barfs on Kotlin code
-javadoc.enabled = false
+dependencies {
+    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${es_version}"
+
+    // Elasticsearch Nanny state
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+    compile "org.jetbrains:annotations:13.0"
+    compile "com.google.code.findbugs:jsr305:3.0.2"
+
+    compile project(":core")
+    compile project(":notification")
+    compile project(':elastic-api')
+    // Elastic API version specific code
+    runtime project(elasticApiImplProject)
+
+    // This needs to be declared manually as the offline dependencies task does not pick this up automatically for some reason
+    checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
+}
+
+test.enabled = false // We don't have unit tests, only integration tests.
+javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
+licenseHeaders.enabled = false
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
 
 // We can't just create a single cluster with numNodes = 3 since that creates task dependencies in such a way that killing and
 // restarting a single node also restarts all the other nodes.  Instead we setup 3 separate single node clusters with the
@@ -65,32 +84,6 @@ integTestCluster {
 run {
     distribution = es_distribution
 //    debug = true // Uncomment to attach debugger to runCluster on port 8000
-}
-
-licenseHeaders.enabled = false
-dependencyLicenses.enabled = false
-thirdPartyAudit.enabled = false
-
-dependencies {
-    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${es_version}"
-    
-    // Elasticsearch Nanny state
-    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
-    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
-    compile "org.jetbrains:annotations:13.0"
-
-    compile project(":elastic-api")
-    compile project(":core")
-    compile project(":notification")
-    // Elastic API version specific code
-    if (es_mv == "6.3") {
-        runtime project(':es63') // This should really be runtimeOnly but the Elastic gradle plugin doesn't copy that configuration into the plugin zip
-    } else if (es_mv == "6.2") {
-        runtime project(':es62') 
-    }
-
-    // This needs to be declared manually as the offline dependencies task does not pick this up automatically for some reason
-    checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
 }
 
 afterEvaluate {

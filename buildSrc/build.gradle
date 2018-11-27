@@ -1,10 +1,10 @@
 // Copied from Gradle offline dependency plugin and fixed to work on Gradle 4.10
 apply plugin: 'groovy'
 
-ext.isBrazilBuild = System.getenv('BRAZIL_PACKAGE_VERSION') != null
+apply from: '../build-tools/amazon-sandbox.gradle'
 
 repositories {
-	if (!isBrazilBuild) {
+	if (!sandboxedBuild) {
 		mavenCentral()
 		maven { url 'https://repo.gradle.org/gradle/libs-releases' }
 	}
@@ -53,7 +53,7 @@ task repackageDependencies(type: Jar) {
 	}
 }
 
-if (!isBrazilBuild) {
+if (!sandboxedBuild) {
 	compileJava.dependsOn 'repackageDependencies'
 }
 

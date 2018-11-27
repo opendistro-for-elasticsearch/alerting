@@ -1,0 +1,16 @@
+ext {
+    kotlin_version = '1.2.60'
+    aws_version = "1.11.223"
+    aes_62_version = '6.2.3'
+    aes_63_version = '6.3.1'
+
+    // Allow builds to target a specific ES version via the -P command line switch and default to 6.3 (latest)
+    es_mv = findProperty('aes.mv') ?: '6.3'
+    es_version = ['6.3' : aes_63_version, '6.2': aes_62_version][es_mv]
+    assert es_version != null : "Can't determine AES version for MV: $es_mv"
+    // Elasticsearch distribution in mavenCentral that is used when running integ tests and clusters 
+    es_distribution = (es_version < "6.3.0") ? 'zip' : 'oss-zip'
+    // The implementation of elastic-api to use for the selected MV
+    elasticApiImplProject = ["6.3" : ":es63", "6.2": ":es62"][es_mv]
+    logger.lifecycle("Targeting ES version: ${es_version}")
+}
