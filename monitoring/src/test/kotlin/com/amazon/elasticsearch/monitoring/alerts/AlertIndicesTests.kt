@@ -4,7 +4,6 @@
 
 package com.amazon.elasticsearch.monitoring.alerts
 
-import com.amazon.elasticsearch.monitoring.ALWAYS_RUN
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
 import com.amazon.elasticsearch.monitoring.randomTrigger
@@ -20,6 +19,7 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.node.Node
+import org.elasticsearch.script.Script
 import org.elasticsearch.test.ESIntegTestCase
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
@@ -85,8 +85,8 @@ class AlertIndicesTests : ESIntegTestCase() {
 
         cluster().wipeIndices("_all")
 
-        val trigger = randomTrigger(condition = ALWAYS_RUN)
-        val monitor = randomMonitor(triggers = listOf(trigger))
+        val trigger = randomTrigger().copy(condition = Script("return true"))
+        val monitor = randomMonitor().copy(triggers = listOf(trigger))
 
         val response = getRestClient().performRequest("POST", "/_awses/monitors/_execute",
                 mapOf("dryrun" to "true"), monitor.toHttpEntity())

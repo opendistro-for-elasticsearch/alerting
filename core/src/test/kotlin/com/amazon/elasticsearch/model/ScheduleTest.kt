@@ -1,5 +1,6 @@
 package com.amazon.elasticsearch.model
 
+import com.amazon.elasticsearch.util.string
 import org.elasticsearch.common.xcontent.ToXContent
 import java.time.Instant
 import java.time.ZoneId
