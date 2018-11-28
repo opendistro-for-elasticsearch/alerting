@@ -5,6 +5,7 @@
 package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SNSAction
+import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
@@ -20,7 +21,12 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.common.xcontent.*
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -153,6 +159,24 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     private fun Alert.toJsonString(): String {
         val builder = XContentFactory.jsonBuilder()
         return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+    }
+
+    protected fun Monitor.relativeUrl() = "_awses/monitors/$id"
+
+    protected fun alertsJson(ids: List<String>): HttpEntity {
+        val builder = XContentFactory.jsonBuilder()
+        builder.startObject().startArray("alerts")
+        ids.forEach { builder.value(it) }
+        builder.endArray().endObject()
+        return StringEntity(builder.string(), ContentType.APPLICATION_JSON)
+    }
+
+    protected fun createAcknowledgeObject(alerts: List<Alert>): HttpEntity {
+        val builder = XContentFactory.jsonBuilder().startObject()
+                .startArray("alerts")
+        alerts.forEach { builder.value(it.id) }
+        builder.endArray().endObject()
+        return StringEntity(builder.string(), ContentType.APPLICATION_JSON)
     }
 
     // Useful settings when debugging to prevent timeouts

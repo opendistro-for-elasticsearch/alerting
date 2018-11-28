@@ -6,7 +6,6 @@ package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertError
-import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import org.elasticsearch.client.Response
@@ -98,11 +97,13 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
 
     fun `test execute monitor adds to alert error history`() {
         putAlertMappings(client()) // Required as we do not have a create alert API.
+        // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
         val listOfFiveErrorMessages = (1..5).map { i -> AlertError(timestamp = Instant.now(), message = "error message $i") }
-        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfFiveErrorMessages, triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
+        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfFiveErrorMessages,
+                triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
         val response = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
         val updatedAlert = getAlert(alertId = activeAlert.id, monitorId = monitor.id)
@@ -119,12 +120,13 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
 
     fun `test execute monitor limits alert error history to 10 error messages`() {
         putAlertMappings(client()) // Required as we do not have a create alert API.
-
+        // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
         val listOfTenErrorMessages = (1..10).map { i -> AlertError(timestamp = Instant.now(),message = "error message $i") }
-        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfTenErrorMessages, triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
+        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfTenErrorMessages,
+                triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
         val response = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
         val updatedAlert = getAlert(alertId = activeAlert.id, monitorId = monitor.id)
@@ -136,7 +138,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
                 assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
             }
         }
-        assertTrue(updatedAlert.errorHistory.size == 10)
+        assertTrue("Found ${updatedAlert.errorHistory.size} error messages in history instead of 10", updatedAlert.errorHistory.size == 10)
     }
 
     fun `test execute monitor creates alert for trigger with no actions`() {

@@ -15,18 +15,14 @@ import com.amazon.elasticsearch.monitoring.putAlertMappings
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
 import com.amazon.elasticsearch.util.ElasticAPI
-import com.amazon.elasticsearch.util.string
-import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -318,10 +314,10 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         createRandomMonitor(refresh = true)
 
         val response = client().performRequest("GET", "/${ScheduledJob.SCHEDULED_JOBS_INDEX}/_mapping/_doc")
-        var parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
-        var mappingsMap = parserMap[ScheduledJob.SCHEDULED_JOBS_INDEX]!!["mappings"] as Map<String, Any>
-        var expected = createParser(XContentType.JSON.xContent(), javaClass.classLoader.getResource("mappings/scheduled-jobs.json").readText())
-        var expectedMap = expected.map()
+        val parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
+        val mappingsMap = parserMap[ScheduledJob.SCHEDULED_JOBS_INDEX]!!["mappings"] as Map<String, Any>
+        val expected = createParser(XContentType.JSON.xContent(), javaClass.classLoader.getResource("mappings/scheduled-jobs.json").readText())
+        val expectedMap = expected.map()
 
         assertEquals("Mappings are different", expectedMap, mappingsMap)
     }
@@ -331,7 +327,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         val monitor = createRandomMonitor(true)
         val alert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE))
 
-        var deleteResponse = client().performRequest("DELETE", "_awses/monitors/${monitor.id}")
+        val deleteResponse = client().performRequest("DELETE", "_awses/monitors/${monitor.id}")
         assertEquals("Delete request not successful", RestStatus.OK, deleteResponse.restStatus())
 
 
@@ -353,7 +349,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
     }
 
     fun `test update monitor with wrong version`() {
-        var monitor = createRandomMonitor(refresh = true)
+        val monitor = createRandomMonitor(refresh = true)
         try {
             client().performRequest("PUT", "${monitor.relativeUrl()}?refresh=true&version=1234",
                     emptyMap(), monitor.toHttpEntity())
@@ -361,25 +357,5 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals(RestStatus.CONFLICT, e.response.restStatus())
         }
-    }
-
-    // Helper functions
-
-    private fun Monitor.relativeUrl() = "_awses/monitors/$id"
-
-    private fun alertsJson(ids: List<String>): HttpEntity {
-        val builder = XContentFactory.jsonBuilder()
-        builder.startObject().startArray("alerts")
-        ids.forEach { builder.value(it) }
-        builder.endArray().endObject()
-        return StringEntity(builder.string(), ContentType.APPLICATION_JSON)
-    }
-
-    private fun createAcknowledgeObject(alerts: List<Alert>): HttpEntity {
-        val builder = XContentFactory.jsonBuilder().startObject()
-                .startArray("alerts")
-        alerts.forEach { builder.value(it.id) }
-        builder.endArray().endObject()
-        return StringEntity(builder.string(), ContentType.APPLICATION_JSON)
     }
 }
