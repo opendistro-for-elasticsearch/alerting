@@ -20,9 +20,29 @@ task cleanSymlinkBuildDir {
     project.tasks.findByPath('clean')?.dependsOn it
 }
 
+// See https://w.amazon.com/index.php/Coverlay/FAQ#What_are_the_languages_that_Coverlay_supports.3F
+task copyCoverageForBrazil(type: Copy) {
+    dependsOn project.provider { jacocoReport }
+    from "$buildDir/reports/jacoco/jacocoReport.xml"
+    into "$buildDir/brazil-documentation/coverage"
+    rename '.*', 'coverage.xml'
+}
+
+// See https://w.amazon.com/index.php/BrazilBuildSystem/Concepts/UnitTestingInBrazil#Unit_Test_Upload
+task copyTestReportsForBrazil(type: Copy) {
+    dependsOn project.provider { jacocoReport }
+    into "$buildDir/brazil-unit-tests"
+    subprojects {
+        from "${it.buildDir}/build/test-results"
+        from "${it.buildDir}/build/reports/integTestRunnerJunit"
+        include '*.xml'
+    }
+}
+
 // Brazil caches the contents of the entire build workspace which includes large intermediate files inside the 
 // subproject build dir. To avoid this we delete this directory at the end of the build. 
 afterEvaluate {
+    release.dependsOn copyTestReportsForBrazil, copyCoverageForBrazil
     if (sandboxedBuild) {
         release.finalizedBy cleanUpWorkspace
     }

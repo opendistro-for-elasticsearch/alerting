@@ -2,6 +2,8 @@ apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'elasticsearch.esplugin'
+apply plugin: 'jacoco'
+apply from: '../build-tools/esplugin-coverage.gradle'
 
 ext {
     projectSubstitutions = [:]

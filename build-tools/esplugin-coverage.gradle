@@ -1,0 +1,68 @@
+import javax.management.remote.JMXConnectorFactory
+import javax.management.remote.JMXServiceURL
+
+/**
+ * ES Plugin build tools don't work with the Gradle Jacoco Plugin to report coverage out of the box. 
+ * https://github.com/elastic/elasticsearch/issues/28867.
+ * 
+ * This code sets up coverage reporting manually for ES plugin tests. This is complicated because:
+ *  1. The ES integTest Task doesn't implement Gradle's JavaForkOptions so we have to manually start the jacoco agent with the test JVM
+ *  2. The cluster nodes are stopped using 'kill -9' which means jacoco can't dump it's execution output to a file on VM shutdown
+ *  3. The Java Security Manager prevents JMX from writing execution output to the file.
+ *
+ *  To workaround these we start the cluster with jmx enabled and then use Jacoco's JMX MBean to get the execution data before the
+ *  cluster is stopped and dump it to a file. Luckily our current security policy seems to allow this. This will also probably
+ *  break if there are multiple nodes in the integTestCluster. But for now... it sorta works. 
+ */
+apply plugin: 'jacoco'
+
+// Get gradle to generate the required jvm agent arg for us using a dummy Test task
+task dummyTest(type: Test) {
+    enabled = false
+    workingDir = file("/") // Force absolute path to jacoco agent jar
+    jacoco {
+        destinationFile = file("${buildDir}/jacoco/integTest.exec")
+        destinationFile.parentFile.mkdirs()
+        jmx = true
+    }
+}
+
+integTestCluster {
+    jvmArgs += " ${dummyTest.jacoco.getAsJvmArg()}"
+    systemProperty 'com.sun.management.jmxremote', "true"
+    systemProperty 'com.sun.management.jmxremote.authenticate', "false"
+    systemProperty 'com.sun.management.jmxremote.port', "7777"
+    systemProperty 'com.sun.management.jmxremote.ssl', "false"
+    systemProperty 'java.rmi.server.hostname', "127.0.0.1"
+}
+
+task jacocoIntegTestReport(type: JacocoReport, group: 'verification') {
+    dependsOn integTest
+    executionData dummyTest.jacoco.destinationFile
+    sourceDirectories = sourceSets.main.allSource
+    classDirectories = sourceSets.main.output
+    reports {
+        html.enabled = true // human readable
+        xml.enabled = true // for coverlay
+    }
+}
+
+// See https://www.eclemma.org/jacoco/trunk/doc/api/org/jacoco/agent/rt/IAgent.html
+task dumpCoverage {
+    doFirst {
+        def serverUrl = "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
+        def connector = JMXConnectorFactory.connect(new JMXServiceURL(serverUrl))
+        try {
+            def jacocoMBean = new GroovyMBean(connector.MBeanServerConnection, "org.jacoco:type=Runtime")
+            byte[] data = jacocoMBean.getExecutionData(false)
+            file(dummyTest.jacoco.destinationFile).setBytes(data)
+        } finally {
+            connector.close()
+        }
+    }
+}
+project.gradle.projectsEvaluated {
+    dumpCoverage.dependsOn integTestRunner
+    tasks['integTestCluster#stop'].dependsOn dumpCoverage
+    jacocoIntegTestReport.dependsOn dumpCoverage
+}

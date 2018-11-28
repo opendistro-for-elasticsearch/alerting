@@ -1,0 +1,41 @@
+allprojects {
+    plugins.withId('jacoco') {
+        // 0.8.2 doesn't show missing coverage of Kotlin generated methods. Remove once this becomes gradle's default
+        jacoco.toolVersion = '0.8.2'
+    }
+}
+
+// TODO: Offline dependencies task doesn't handle configurations with defaultDependencies. Declare manually
+dependencies { 
+    jacocoAnt "org.jacoco:org.jacoco.ant:${jacoco.toolVersion}"
+}
+
+task jacocoMerge(type: JacocoMerge) {
+    gradle.projectsEvaluated {
+        subprojects.each { 
+            jacocoMerge.dependsOn it.tasks.withType(JacocoReport)
+            jacocoMerge.executionData it.tasks.withType(JacocoReport).collect { it.executionData } 
+        }
+    }
+    doFirst {
+        executionData = files(executionData.findAll { it.exists() })
+    }
+}
+
+task jacocoReport(type: JacocoReport, group: 'verification') {
+    description = 'Generates an aggregate report from all subprojects'
+    dependsOn jacocoMerge
+    executionData jacocoMerge.destinationFile
+
+    reports {
+        html.enabled = true // human readable
+        xml.enabled = true
+    }
+
+    gradle.projectsEvaluated {
+        sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
+        classDirectories = files(subprojects.sourceSets.main.output)
+    }
+}
+
+check.dependsOn jacocoReport

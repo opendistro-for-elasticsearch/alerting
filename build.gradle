@@ -19,8 +19,10 @@ buildscript {
 }
 
 apply plugin: 'base'
+apply plugin: 'jacoco'
 apply from: 'build-tools/brazil.gradle'
 apply from: 'build-tools/prepare-offline-repo.gradle'
+apply from: 'build-tools/merged-coverage.gradle'
 
 allprojects {
     group = 'com.amazon.elasticsearch'
