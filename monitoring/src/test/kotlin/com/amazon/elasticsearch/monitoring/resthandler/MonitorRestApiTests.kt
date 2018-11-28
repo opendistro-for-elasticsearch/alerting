@@ -27,9 +27,6 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.common.xcontent.XContentParser.Token.END_OBJECT
-import org.elasticsearch.common.xcontent.XContentParser.Token.START_OBJECT
-import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -368,86 +365,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
 
     // Helper functions
 
-    private fun createRandomMonitor(refresh: Boolean = false, withMetadata: Boolean = false) : Monitor {
-        val monitor = randomMonitor(withMetadata = withMetadata)
-        val monitorId = createMonitor(monitor, refresh).id
-        if (withMetadata) {
-            return getMonitor(monitorId = monitorId, header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-        }
-        return getMonitor(monitorId = monitorId)
-    }
-
-    private fun updateMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
-        val response = client().performRequest("PUT", "${monitor.relativeUrl()}?refresh=$refresh",
-                emptyMap(), monitor.toHttpEntity())
-        assertEquals("Unable to update a monitor", RestStatus.OK, response.restStatus())
-        return getMonitor(monitorId = monitor.id)
-    }
-
-    private fun createAlert(alert: Alert): Alert {
-        val response = client().performRequest("POST", "/.aes-alerts/_doc?refresh=true&routing=${alert.monitorId}", emptyMap(), alert.toHttpEntity())
-        assertEquals("Unable to create a new alert", RestStatus.CREATED, response.restStatus())
-
-        val alertJson = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
-        return alert.copy(id = alertJson["_id"] as String, version = (alertJson["_version"] as Int).toLong())
-    }
-
-    private fun getMonitor(monitorId: String, header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")): Monitor {
-        val response = client().performRequest("GET", "_awses/monitors/$monitorId", header)
-        assertEquals("Unable to get monitor $monitorId", RestStatus.OK, response.restStatus())
-
-        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(START_OBJECT, parser.nextToken(), parser::getTokenLocation)
-
-        var id : String = ScheduledJob.NO_ID
-        var version : Long = ScheduledJob.NO_VERSION
-        var monitor : Monitor? = null
-
-        while (parser.nextToken() != END_OBJECT) {
-            parser.nextToken()
-
-            when (parser.currentName()) {
-                "_id" ->      id = parser.text()
-                "_version" ->  version = parser.longValue()
-                "monitor" ->  monitor = Monitor.parse(parser)
-            }
-        }
-        return monitor!!.copy(id  = id, version = version)
-    }
-
-    private fun getAlert(alertId: String, monitorId: String): Alert {
-        val response = client().performRequest("GET", "/.aes-alerts/_doc/$alertId?routing=$monitorId")
-        assertEquals("Unable to get alert $alertId", RestStatus.OK, response.restStatus())
-
-        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(START_OBJECT, parser.nextToken(), parser::getTokenLocation)
-
-        var id: String = Alert.NO_ID
-        var version: Long = Alert.NO_VERSION
-        var alert: Alert? = null
-
-        while (parser.nextToken() != END_OBJECT) {
-            parser.nextToken()
-
-            when (parser.currentName()) {
-                "_id" -> id = parser.text()
-                "_version" -> version = parser.longValue()
-                "_source" -> alert = Alert.parse(parser, id, version)
-            }
-        }
-        return alert!!
-    }
-
     private fun Monitor.relativeUrl() = "_awses/monitors/$id"
-
-    private fun Alert.toHttpEntity(): HttpEntity {
-        return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
-    }
-
-    private fun Alert.toJsonString(): String {
-        val builder = XContentFactory.jsonBuilder()
-        return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
-    }
 
     private fun alertsJson(ids: List<String>): HttpEntity {
         val builder = XContentFactory.jsonBuilder()
