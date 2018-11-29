@@ -7,6 +7,7 @@ package com.amazon.elasticsearch.monitoring
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.util.ElasticAPI
@@ -16,6 +17,7 @@ import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -96,27 +98,40 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         return monitor!!.copy(id  = id, version = version)
     }
 
-    protected fun getAlert(alertId: String, monitorId: String): Alert {
-        val response = client().performRequest("GET", "/.aes-alerts/_doc/$alertId?routing=$monitorId")
+    protected fun getAlert(alertId: String, monitorId: String, refresh: Boolean = true): Alert {
+        if (refresh) refreshIndex(AlertIndices.ALL_INDEX_PATTERN)
+        val response = client().performRequest("GET", "/${AlertIndices.ALL_INDEX_PATTERN}/_search?q=_id:$alertId&routing=$monitorId")
         assertEquals("Unable to get alert $alertId", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+        val searchResponse = SearchResponse.fromXContent(parser)
+        val hit = searchResponse.hits.hits.firstOrNull()
+        assertNotNull("Unable to get alert", hit)
 
-        var id: String = Alert.NO_ID
-        var version: Long = Alert.NO_VERSION
-        var alert: Alert? = null
+        val xcp = createParser(XContentType.JSON.xContent(), hit!!.sourceRef)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        return Alert.parse(xcp, hit.id, hit.version)
+    }
 
-        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-            parser.nextToken()
+    protected fun getActiveAlert(triggerId: String, monitorId: String, refresh: Boolean = true): Alert {
+        if (refresh) refreshIndex(AlertIndices.ALERT_INDEX)
+        val response = client().performRequest("GET", "/${AlertIndices.ALERT_INDEX}/_search?routing=$monitorId&default_operator=AND&q=monitor_id:$monitorId+trigger_id:$triggerId")
+        assertEquals("Unable to get alert", RestStatus.OK, response.restStatus())
 
-            when (parser.currentName()) {
-                "_id" -> id = parser.text()
-                "_version" -> version = parser.longValue()
-                "_source" -> alert = Alert.parse(parser, id, version)
-            }
-        }
-        return alert!!
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        val searchResponse = SearchResponse.fromXContent(parser)
+        val hit = searchResponse.hits.hits.firstOrNull()
+        assertNotNull("Unable to get alert", hit)
+
+        val xcp = createParser(XContentType.JSON.xContent(), hit!!.sourceRef)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        return Alert.parse(xcp, hit.id, hit.version)
+    }
+
+    protected fun refreshIndex(index: String): Response {
+        val response = client().performRequest("POST", "/$index/_refresh")
+        assertEquals("Unable to refresh index", RestStatus.OK, response.restStatus())
+        return response
     }
 
     protected fun Response.restStatus() : RestStatus {

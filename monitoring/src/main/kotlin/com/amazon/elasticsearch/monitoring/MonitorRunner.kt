@@ -36,6 +36,7 @@ import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
@@ -82,7 +83,6 @@ class MonitorRunner(private val settings: Settings,
     fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false)
             : MonitorRunResult {
         var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
-        val currentTime = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
 
         if (periodStart == periodEnd) {
             logger.warn("Start and end time are the same: $periodStart. This monitor's schedule will probably only run once.")
@@ -112,8 +112,8 @@ class MonitorRunner(private val settings: Settings,
         val updatedAlerts = mutableListOf<Alert>()
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
-            val alert = currentAlerts[trigger]
-            var ctx = TriggerExecutionContext(monitor, trigger, results, periodStart, periodEnd, alert, inputError)
+            val currentAlert = currentAlerts[trigger]
+            var ctx = TriggerExecutionContext(monitor, trigger, results, periodStart, periodEnd, currentAlert, inputError)
             var scriptError: Exception? = null
 
             val triggered = try {
@@ -129,15 +129,11 @@ class MonitorRunner(private val settings: Settings,
 
             val triggerResult = TriggerRunResult(trigger.name, triggered, scriptError?.stackTraceString())
             triggerResults[trigger.id] = triggerResult
-            if (!triggered) {
-                if (alert != null) {
-                    updatedAlerts += alert.copy(state = Alert.State.COMPLETED, endTime = currentTime)
-                }
-                continue
-            }
-            if (alert != null && alert.state == Alert.State.ACKNOWLEDGED) {
-                continue
-            }
+
+            val updatedAlert = composeAlert(monitor, trigger, currentAlert, triggered, monitorResult.errorMessage ?: triggerResult.errorMessage)
+            updatedAlert?.let { updatedAlerts += it }
+
+            if (!triggered || currentAlert?.state == Alert.State.ACKNOWLEDGED) continue
 
             // TODO: Add time based rate limiting
             for (action in trigger.actions) {
@@ -149,21 +145,10 @@ class MonitorRunner(private val settings: Settings,
                     ActionRunResult(action.name, mapOf(), false, e.stackTraceString())
                 }
 
-                val errorMessage = monitorResult.errorMessage ?: triggerResult.errorMessage ?: actionResult.errorMessage
                 triggerResult.actionResults[action.name] = actionResult
-
-                val updatedErrorHistory = alert?.errorHistory?.toMutableList() ?: mutableListOf()
-                if (errorMessage != null)  updatedErrorHistory.add(0, AlertError(currentTime, errorMessage))
-
-                val newState = if (errorMessage != null) Alert.State.ERROR else Alert.State.ACTIVE
-                updatedAlerts += if (alert != null) {
-                    alert.copy(state = newState,
-                            lastNotificationTime = currentTime,
-                            errorMessage = errorMessage,
-                            errorHistory = updatedErrorHistory.take(10))
-                } else {
-                    Alert(monitor, trigger, currentTime, currentTime, newState, errorMessage)
-                }
+                composeAlert(monitor, trigger, currentAlert, triggered,
+                        monitorResult.errorMessage ?: triggerResult.errorMessage ?: actionResult.errorMessage)
+                        ?.let { updatedAlerts += it }
             }
         }
 
@@ -171,6 +156,19 @@ class MonitorRunner(private val settings: Settings,
             saveAlerts(updatedAlerts)
         }
         return monitorResult.copy(triggerResults = triggerResults)
+    }
+
+    private fun currentTime() = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
+
+    private fun composeAlert(monitor: Monitor, trigger: Trigger, alert: Alert?, triggered: Boolean, errorMessage: String?): Alert? {
+        val currentTime = currentTime()
+        if (!triggered) return alert?.copy(state = Alert.State.COMPLETED, endTime = currentTime, errorMessage = null)
+        if (alert?.isAcknowledged() == true) return null
+        val alertState = if (errorMessage == null) Alert.State.ACTIVE else Alert.State.ERROR
+        val errorHistory = alert?.errorHistory?.toMutableList() ?: mutableListOf()
+        errorMessage?.let { errorHistory.add(0, AlertError(currentTime, errorMessage)) }
+        return alert?.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = errorMessage, errorHistory = errorHistory.take(10))
+                ?: Alert(monitor, trigger, currentTime, currentTime, alertState, errorMessage, errorHistory)
     }
 
     private fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): List<Map<String, Any>> {

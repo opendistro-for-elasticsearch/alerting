@@ -297,7 +297,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE))
 
         val response = client().performRequest("POST",
-                "/_awses/monitors/${monitor.id}/_acknowledge/alerts",
+                "/_awses/monitors/${monitor.id}/_acknowledge/alerts?refresh=true",
                 emptyMap(),
                 createAcknowledgeObject(listOf(acknowledgedAlert, completedAlert, errorAlert, activeAlert)))
         assertEquals("Acknowledge call failed.", RestStatus.OK, response.restStatus())

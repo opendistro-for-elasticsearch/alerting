@@ -66,13 +66,14 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                 .types(Alert.ALERT_TYPE)
                 .routing(monitorId)
                 .source(SearchSourceBuilder().query(queryBuilder).timeout(REQUEST_TIMEOUT.get(settings)))
-        return RestChannelConsumer { channel -> client.search(searchRequest, searchAlertResponse(channel, client, alertIds)) }
+        val refreshPolicy = if (request.hasParam(REFRESH)) request.param(REFRESH) else null
+        return RestChannelConsumer { channel -> client.search(searchRequest, searchAlertResponse(channel, client, alertIds, refreshPolicy)) }
     }
 
     /**
      * Async response to the search request. Return a list of the acknowledged alerts.
      */
-    private fun searchAlertResponse(channel: RestChannel, client: NodeClient, alertIds: List<String>): RestResponseListener<SearchResponse> {
+    private fun searchAlertResponse(channel: RestChannel, client: NodeClient, alertIds: List<String>, refreshPolicy: String? = null): RestResponseListener<SearchResponse> {
         return object: RestResponseListener<SearchResponse>(channel) {
             @Throws(Exception::class)
             override fun buildResponse(response: SearchResponse): RestResponse {
@@ -90,9 +91,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                         val indexRequest = IndexRequest(AlertIndices.ALERT_INDEX, Alert.ALERT_TYPE, hit.id)
                                 .source(acknowledgedAlert.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
                                 .routing(acknowledgedAlert.monitorId)
-                        if (channel.request().hasParam(REFRESH)) {
-                            indexRequest.setRefreshPolicy(channel.request().param(REFRESH))
-                        }
+                        refreshPolicy?.let { indexRequest.setRefreshPolicy(it) }
                         val indexResponse = client.index(indexRequest).actionGet(REQUEST_TIMEOUT.get(settings))
                         if (indexResponse.status() != RestStatus.OK) {
                             failedAlerts.add(alert)

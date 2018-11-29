@@ -6,6 +6,7 @@ package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertError
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import org.elasticsearch.client.Response
@@ -104,7 +105,6 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfFiveErrorMessages, triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
         val response = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
-
         val updatedAlert = getAlert(alertId = activeAlert.id, monitorId = monitor.id)
 
         val output = entityAsMap(response)
@@ -115,7 +115,6 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
             }
         }
         assertTrue("Found ${updatedAlert.errorHistory.size} error messages in history instead of 6", updatedAlert.errorHistory.size == 6)
-
     }
 
     fun `test execute monitor limits alert error history to 10 error messages`() {
@@ -128,7 +127,6 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfTenErrorMessages, triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
         val response = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
-
         val updatedAlert = getAlert(alertId = activeAlert.id, monitorId = monitor.id)
 
         val output = entityAsMap(response)
@@ -139,7 +137,18 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
             }
         }
         assertTrue(updatedAlert.errorHistory.size == 10)
+    }
 
+    fun `test execute monitor creates alert for trigger with no actions`() {
+        putAlertMappings(client()) // Required as we do not have a create alert API.
+
+        val trigger = randomTrigger(condition = ALWAYS_RUN, actions = emptyList())
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
+
+        executeMonitor(monitor.id, mapOf("dryrun" to "false"))
+        val alert = getActiveAlert(trigger.id, monitor.id)
+
+        assertNotNull("Missing alert", alert)
     }
 
     private fun executeMonitor(monitorId: String, params: Map<String, String> = mapOf("dryrun" to "true")) : Response =
