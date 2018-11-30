@@ -73,7 +73,7 @@ class MonitorRunner(private val settings: Settings,
 
     override fun runJob(job: ScheduledJob, periodStart: Instant, periodEnd: Instant) {
         if (job is Monitor) {
-            threadPool.generic().submit { runMonitor(job, periodStart, periodEnd) }
+            threadPool.executor(MonitoringPlugin.MONITOR_RUNNER_THREAD_POOL_NAME).submit{ runMonitor(job, periodStart, periodEnd) }
         } else {
             throw IllegalArgumentException("Invalid job type")
         }

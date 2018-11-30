@@ -69,7 +69,7 @@ class JobSweeper(private val settings: Settings,
 
     private val logger = ElasticAPI.INSTANCE.getLogger(javaClass, settings)
 
-    private val fullSweepExecutor = Executors.newSingleThreadExecutor(EsExecutors.daemonThreadFactory("scheduled-job-sweeper"))
+    private val fullSweepExecutor = Executors.newSingleThreadExecutor(EsExecutors.daemonThreadFactory("aes_job_sweeper"))
 
     private val sweptJobs = ConcurrentHashMap<ShardId, ConcurrentHashMap<JobId, JobVersion>>()
 

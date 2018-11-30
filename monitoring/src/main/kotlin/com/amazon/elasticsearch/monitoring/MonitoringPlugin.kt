@@ -57,6 +57,7 @@ import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ExecutorBuilder
+import org.elasticsearch.threadpool.FixedExecutorBuilder
 import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
@@ -78,7 +79,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         @JvmField val KIBANA_USER_AGENT = "Kibana"
         @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
         @JvmField val MONITOR_BASE_URI = "/_awses/monitors/"
-        @JvmField val MONITORING_THREAD_POOL_NAME = "AESMonitoringScheduledJobs"
+        @JvmField val MONITOR_RUNNER_THREAD_POOL_NAME = "aes_monitor_runner"
     }
 
     lateinit var runner: MonitorRunner
@@ -125,7 +126,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         alertIndices = AlertIndices(settings, client.admin().indices(), threadPool)
         clusterService.addListener(alertIndices)
         runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices)
-        scheduler = JobScheduler(threadPool, runner, MONITORING_THREAD_POOL_NAME)
+        scheduler = JobScheduler(threadPool, runner)
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
         scheduledJobIndices = ScheduledJobIndices(client.admin(), settings, clusterService)
         this.threadPool = threadPool
@@ -162,8 +163,9 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
 
     override fun getExecutorBuilders(settings: Settings): MutableList<ExecutorBuilder<*>> {
         val availableProcessors = EsExecutors.numberOfProcessors(settings)
-        // Use the same getting as ES GENERIC Executor builder.
+        // Use the same setting as ES GENERIC Executor builder.
         val genericThreadPoolMax = Math.min(512, Math.max(128, 4 * availableProcessors))
-        return mutableListOf(ScalingExecutorBuilder(MONITORING_THREAD_POOL_NAME, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30L)))
+        val monitorRunnerExecutor = ScalingExecutorBuilder(MONITOR_RUNNER_THREAD_POOL_NAME, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30L))
+        return mutableListOf(monitorRunnerExecutor)
     }
 }

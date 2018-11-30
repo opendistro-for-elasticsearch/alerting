@@ -4,3 +4,4 @@ buildSrc/libs
 build/
 .DS_Store
 offline-repo.zip
+*.log
