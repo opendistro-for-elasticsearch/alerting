@@ -1,6 +1,6 @@
 // Build things needed to be able to build in brazil and coverlay.
 def isBrazilBuild = System.getenv('BRAZIL_PACKAGE_VERSION') != null
-def isCoverlayBuild = (System.getenv('APOLLO_ENVIRONMENT_ROOT') ?: "").contains('Coverlay')
+def isCoverlayBuild = !(System.getenv('CANONICAL_ENVROOT') ?: "").isEmpty()
 ext { 
     sandboxedBuild = isBrazilBuild || isCoverlayBuild
 }
