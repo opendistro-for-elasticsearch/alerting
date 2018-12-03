@@ -29,8 +29,9 @@ import java.time.Instant
 data class Monitor(override val id: String = NO_ID, override val version: Long = NO_VERSION,
                    override val name: String, override val enabled: Boolean,
                    override val schedule: Schedule, override val lastUpdateTime: Instant,
+                   override val enabledTime: Instant?,
                    val inputs: List<Input>, val triggers: List<Trigger>,
-                   val uiMetadata: Map<String, Any>, val enabledTime: Instant?) : ScheduledJob {
+                   val uiMetadata: Map<String, Any>) : ScheduledJob {
 
     override val type = MONITOR_TYPE
 
@@ -150,10 +151,10 @@ data class Monitor(override val id: String = NO_ID, override val version: Long =
                     enabled,
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     lastUpdateTime ?: Instant.now(),
+                    enabledTime,
                     inputs.toList(),
                     triggers.toList(),
-                    uiMetadata,
-                    enabledTime)
+                    uiMetadata)
         }
     }
 }

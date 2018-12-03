@@ -20,7 +20,7 @@ class ScheduleTest : XContentTestBase {
         val testInstance = Instant.ofEpochSecond(1538164858L) // This is 2018-09-27 20:00:58 GMT which will in conversion lead to 30min 58 seconds IST
 
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Kolkata"), testInstance)
-        val nextTimeToExecute = cronSchedule.nextTimeToExecute()
+        val nextTimeToExecute = cronSchedule.nextTimeToExecute(Instant.now())
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
         assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
     }
@@ -31,10 +31,11 @@ class ScheduleTest : XContentTestBase {
         val testInstance = Instant.ofEpochSecond(1537927198L) // This is 2018-09-26 01:59:58 GMT which will in conversion lead to Wednesday 10:59:58 JST
 
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Tokyo"), testInstance)
-        val nextTimeToExecute = cronSchedule.nextTimeToExecute()
+        val nextTimeToExecute = cronSchedule.nextTimeToExecute(Instant.now())
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
         assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
     }
+
     @Test
     fun `test cron schedule round trip`() {
         val cronExpression = "0 * * * *"
@@ -91,7 +92,7 @@ class ScheduleTest : XContentTestBase {
 
         val startTime = Instant.now()
         // Kotlin has destructuring declarations but no destructuring assignments? Gee, thanks...
-        val (periodStartTime2, _) =  intervalSchedule.getPeriodStartingAt(startTime)
+        val (periodStartTime2, _) = intervalSchedule.getPeriodStartingAt(startTime)
         assertEquals(startTime, periodStartTime2, "Periods doesn't start at provided start time")
     }
 
@@ -105,7 +106,7 @@ class ScheduleTest : XContentTestBase {
 
         val endTime = Instant.now()
         //  destructuring declarations but no destructuring assignments? Gee, thanks... https://youtrack.jetbrains.com/issue/KT-11362
-        val (_, periodEndTime2) =  intervalSchedule.getPeriodEndingAt(endTime)
+        val (_, periodEndTime2) = intervalSchedule.getPeriodEndingAt(endTime)
         assertEquals(endTime, periodEndTime2, "Periods doesn't end at provided end time")
     }
 
@@ -133,15 +134,9 @@ class ScheduleTest : XContentTestBase {
         assertEquals(endTime2, startTime, "Previous period doesn't end at provided start time")
     }
 
-     @Test
-     fun `cron job not running on time`() {
-        val cronExpression = "* * * * *"
-        val testInstance = Instant.ofEpochSecond(1539715678L)
-
-        val cronSchedule = CronSchedule(cronExpression, ZoneId.of("UTC"), testInstance)
-        val nextTimeToExecute = cronSchedule.nextTimeToExecute()
-        assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
+    @Test
+    fun `cron job not running on time`() {
+        val cronSchedule = createTestCronSchedule()
 
         val lastExecutionTime = 1539715560L
         assertFalse(cronSchedule.runningOnTime(Instant.ofEpochSecond(lastExecutionTime)))
@@ -149,26 +144,37 @@ class ScheduleTest : XContentTestBase {
 
     @Test
     fun `cron job running on time`() {
-        val cronExpression = "* * * * *"
-        val testInstance = Instant.ofEpochSecond(1539715678L)
-
-        val cronSchedule = CronSchedule(cronExpression, ZoneId.of("UTC"), testInstance)
-        val nextTimeToExecute = cronSchedule.nextTimeToExecute()
-        assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
+        val cronSchedule = createTestCronSchedule()
 
         val lastExecutionTime = 1539715620L
         assertTrue(cronSchedule.runningOnTime(Instant.ofEpochSecond(lastExecutionTime)))
     }
 
     @Test
-    fun `period job running on time`() {
+    fun `period job running exactly at interval`() {
         val testInstance = Instant.ofEpochSecond(1539715678L)
+        val enabledTime = Instant.ofEpochSecond(1539615178L)
         val intervalSchedule = IntervalSchedule(1, ChronoUnit.MINUTES, testInstance)
 
-        val nextTimeToExecute = intervalSchedule.nextTimeToExecute()
+        val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 60L, "Execute time should be 60 seconds")
+        assertTrue(nextTimeToExecute!!.seconds == 60L, "Excepted 60 seconds but was ${nextTimeToExecute!!.seconds}")
+    }
+
+    @Test
+    fun `period job 3 minutes`() {
+        val testInstance = Instant.ofEpochSecond(1539615226L)
+        val enabledTime = Instant.ofEpochSecond(1539615144L)
+        val intervalSchedule = IntervalSchedule(3, ChronoUnit.MINUTES, testInstance)
+
+        val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
+        assertNotNull(nextTimeToExecute, "There should be next execute time.")
+        assertTrue(nextTimeToExecute!!.seconds == 98L, "Excepted 98 seconds but was ${nextTimeToExecute!!.seconds}")
+    }
+
+    @Test
+    fun `period job running on time`() {
+        val intervalSchedule = createTestIntervalSchedule()
 
         val lastExecutionTime = 1539715620L
         assertTrue(intervalSchedule.runningOnTime(Instant.ofEpochSecond(lastExecutionTime)))
@@ -176,12 +182,7 @@ class ScheduleTest : XContentTestBase {
 
     @Test
     fun `period job not running on time`() {
-        val testInstance = Instant.ofEpochSecond(1539715678L)
-        val intervalSchedule = IntervalSchedule(1, ChronoUnit.MINUTES, testInstance)
-
-        val nextTimeToExecute = intervalSchedule.nextTimeToExecute()
-        assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 60L, "Execute time should be 60 seconds")
+        val intervalSchedule = createTestIntervalSchedule()
 
         val lastExecutionTime = 1539715560L
         assertFalse(intervalSchedule.runningOnTime(Instant.ofEpochSecond(lastExecutionTime)))
@@ -189,14 +190,33 @@ class ScheduleTest : XContentTestBase {
 
     @Test
     fun `period job test null last execution time`() {
-        val testInstance = Instant.ofEpochSecond(1539715678L)
-        val intervalSchedule = IntervalSchedule(1, ChronoUnit.MINUTES, testInstance)
-
-        val nextTimeToExecute = intervalSchedule.nextTimeToExecute()
-        assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 60L, "Execute time should be 60 seconds")
+        val intervalSchedule = createTestIntervalSchedule()
 
         assertTrue(intervalSchedule.runningOnTime(null))
+    }
+
+    private fun createTestIntervalSchedule(): IntervalSchedule {
+        val testInstance = Instant.ofEpochSecond(1539715678L)
+        val enabledTime = Instant.ofEpochSecond(1539615146L)
+        val intervalSchedule = IntervalSchedule(1, ChronoUnit.MINUTES, testInstance)
+
+        val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
+        assertNotNull(nextTimeToExecute, "There should be next execute time.")
+        assertTrue(nextTimeToExecute!!.seconds == 28L, "Excepted 28 seconds but was ${nextTimeToExecute!!.seconds}")
+
+        return intervalSchedule
+    }
+
+    private fun createTestCronSchedule(): CronSchedule {
+        val cronExpression = "* * * * *"
+        val testInstance = Instant.ofEpochSecond(1539715678L)
+
+        val cronSchedule = CronSchedule(cronExpression, ZoneId.of("UTC"), testInstance)
+        val nextTimeToExecute = cronSchedule.nextTimeToExecute(Instant.now())
+        assertNotNull(nextTimeToExecute, "There should be next execute time.")
+        assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
+
+        return cronSchedule
     }
 
     @Test

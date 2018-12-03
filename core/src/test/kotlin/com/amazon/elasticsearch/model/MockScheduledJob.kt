@@ -10,7 +10,8 @@ class MockScheduledJob(override val id: String,
                        override val type: String,
                        override val enabled: Boolean,
                        override val schedule: Schedule,
-                       override var lastUpdateTime: Instant) : ScheduledJob {
+                       override var lastUpdateTime: Instant,
+                       override val enabledTime: Instant?) : ScheduledJob {
     override fun fromDocument(id: String, version: Long): ScheduledJob {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }

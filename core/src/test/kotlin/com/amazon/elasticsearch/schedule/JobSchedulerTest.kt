@@ -29,7 +29,7 @@ class JobSchedulerTest {
     fun `schedule and deschedule`() {
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(testThreadPool, jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, IntervalSchedule(1, ChronoUnit.MINUTES), Instant.now())
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, IntervalSchedule(1, ChronoUnit.MINUTES, Instant.now()), Instant.now(), Instant.now())
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
 
@@ -44,7 +44,7 @@ class JobSchedulerTest {
         val cronExpression = "0/5 * 30 2 *"
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(testThreadPool, jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now())
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now(), Instant.now())
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
         assertEquals(setOf("mockScheduledJob-id"), jobScheduler.scheduledJobs(), "List of ScheduledJobs are not the same.")
@@ -59,7 +59,7 @@ class JobSchedulerTest {
         val cronExpression = "0/5 * * * *"
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(testThreadPool, jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", false, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now())
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", false, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now(), Instant.now())
 
         assertFalse(jobScheduler.schedule(mockScheduledJob), "We should return false if we try to schedule disabled schedule.")
         assertEquals(setOf(), jobScheduler.scheduledJobs(), "List of ScheduledJobs are not the same.")
@@ -70,7 +70,7 @@ class JobSchedulerTest {
         val cronExpression = "0/5 * * * *"
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(testThreadPool, jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now())
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now(), Instant.now())
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
         assertEquals(setOf("mockScheduledJob-id"), jobScheduler.scheduledJobs(), "List of ScheduledJobs are not the same.")

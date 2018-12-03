@@ -96,7 +96,10 @@ sealed class Schedule : ToXContentObject {
         }
     }
 
-    abstract fun nextTimeToExecute() : Duration?
+    /**
+     * @param enabledTime is used in IntervalSchedule to calculate next time to execute the schedule.
+     */
+    abstract fun nextTimeToExecute(enabledTime: Instant) : Duration?
 
     /**
      * Returns the start and end time for this schedule starting at the given start time (if provided).
@@ -129,7 +132,10 @@ data class CronSchedule(val expression: String,
     @Transient
     val executionTime : ExecutionTime = ExecutionTime.forCron(cronParser.parse(expression))
 
-    override fun nextTimeToExecute(): Duration? {
+    /*
+     * @param enabledTime is not used in CronSchedule.
+     */
+    override fun nextTimeToExecute(enabledTime: Instant): Duration? {
         val zonedDateTime = ZonedDateTime.ofInstant(testInstant ?: Instant.now(), timezone)
         val timeToNextExecution = executionTime.timeToNextExecution(zonedDateTime)
         return timeToNextExecution.orElse(null)
@@ -210,7 +216,6 @@ data class IntervalSchedule(val interval: Int,
 
     init {
         if (!SUPPORTED_UNIT.contains(unit)) {
-            val errormessage = "Timezone $unit is not supported expected $SUPPORTED_UNIT"
             throw IllegalArgumentException("Timezone $unit is not supported expected $SUPPORTED_UNIT")
         }
     }
@@ -218,10 +223,15 @@ data class IntervalSchedule(val interval: Int,
     @Transient
     private val intervalInMills = Duration.of(interval.toLong(), unit).toMillis()
 
-    override fun nextTimeToExecute(): Duration? {
-        // TODO this should really be nextExecutionTime = lastExecutionTime + interval
-        // https://issues-pdx.amazon.com/issues/AESAlerting-93
-        return Duration.of(interval.toLong(), unit)
+    override fun nextTimeToExecute(enabledTime: Instant): Duration? {
+        val enabledTimeEpochMillis = enabledTime.toEpochMilli()
+
+        val currentTime = testInstant ?: Instant.now()
+        val delta = currentTime.toEpochMilli() - enabledTimeEpochMillis
+        // Remainder of the Delta time is how much we have already spent waiting.
+        // We need to subtract remainder of that time from the interval time to get remaining schedule time to wait.
+        val remainingScheduleTime = intervalInMills - delta.rem(intervalInMills)
+        return Duration.of(remainingScheduleTime, ChronoUnit.MILLIS)
     }
 
     override fun getPeriodStartingAt(startTime: Instant?): Pair<Instant, Instant> {

@@ -89,6 +89,9 @@ interface ScheduledJob : ToXContentObject {
     /** The last time the job was updated */
     val lastUpdateTime: Instant
 
+    /** The time the job was enabled */
+    val enabledTime: Instant?
+
     /** Copy constructor for persisted jobs */
     fun fromDocument(id: String, version: Long) : ScheduledJob
 

@@ -137,7 +137,11 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
     }
 
     private fun reschedule(scheduleJob: ScheduledJob, scheduledJobInfo: ScheduledJobInfo): Boolean {
-        val duration = scheduleJob.schedule.nextTimeToExecute()
+        if (scheduleJob.enabledTime == null) {
+            logger.info("${scheduleJob.name} there is no enabled time. This job should never have been scheduled.")
+            return false
+        }
+        val duration = scheduleJob.schedule.nextTimeToExecute(scheduleJob.enabledTime!!)
         // Validate if there is next execution that needs to happen.
         // e.g cron job that is expected to run in 30th of Feb (which doesn't exist). "0/5 * 30 2 *"
         if (duration == null) {
