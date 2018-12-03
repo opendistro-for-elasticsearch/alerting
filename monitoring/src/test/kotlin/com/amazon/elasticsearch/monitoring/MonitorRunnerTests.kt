@@ -8,30 +8,33 @@ import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertError
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
-import org.elasticsearch.client.Response
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script
 import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.junit.Assert
 import java.time.Instant
 
 class MonitorRunnerTests : MonitoringRestTestCase() {
 
-    fun `test execute monitor`() {
-         val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name}}"),
+    fun `test execute monitor with dryrun`() {
+         val action = randomSNSAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name}}"),
                  messageTemplate = randomTemplateScript("Goodbye {{_ctx.monitor.name}}"))
          val monitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
 
-        val response = executeMonitor(monitor)
+        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
 
         val output = entityAsMap(response)
-         assertEquals(monitor.name, output["monitor_name"])
-         for (triggerResult in output.objectMap("trigger_results").values) {
-             for (actionResult in triggerResult.objectMap("action_results").values) {
-                 @Suppress("UNCHECKED_CAST") val actionOutput = actionResult["output"] as Map<String, String>
-                 assertEquals("Hello ${monitor.name}", actionOutput["subject"])
-                 assertEquals("Goodbye ${monitor.name}", actionOutput["message"])
-             }
-         }
+        assertEquals(monitor.name, output["monitor_name"])
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            for (actionResult in triggerResult.objectMap("action_results").values) {
+                @Suppress("UNCHECKED_CAST") val actionOutput = actionResult["output"] as Map<String, String>
+                assertEquals("Hello ${monitor.name}", actionOutput["subject"])
+                assertEquals("Goodbye ${monitor.name}", actionOutput["message"])
+            }
+        }
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert saved for test monitor", 0, alerts.size)
     }
 
     fun `test execute monitor not triggered`() {
@@ -44,6 +47,9 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         for (triggerResult in output.objectMap("trigger_results").values) {
             assertTrue("Unexpected trigger was run", triggerResult.objectMap("action_results").isEmpty())
         }
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert saved for test monitor", 0, alerts.size)
     }
 
     fun `test execute monitor script error`() {
@@ -58,11 +64,14 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         for (triggerResult in output.objectMap("trigger_results").values) {
             assertTrue("Missing trigger error message", (triggerResult["error"] as String).isNotEmpty())
         }
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert saved for test monitor", 0, alerts.size)
     }
 
     fun `test execute action template error`() {
         // Intentional syntax error in mustache template
-        val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name"))
+        val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val monitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
 
         val response = executeMonitor(monitor)
@@ -74,6 +83,9 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
                 assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
             }
         }
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert saved for test monitor", 0, alerts.size)
     }
 
     fun `test execute monitor search with period`() {
@@ -93,21 +105,53 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         val triggerResult = output.objectMap("trigger_results").objectMap(trigger.id)
         assertEquals(true, triggerResult["triggered"].toString().toBoolean())
         assertTrue("Unexpected trigger error message", triggerResult["error"]?.toString().isNullOrEmpty())
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor)
+    }
+
+    fun `test monitor with one bad action and one good action`() {
+        val goodAction = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name}}"))
+        val syntaxErrorAction = randomAction(name = "bad syntax", template = randomTemplateScript("{{foo"))
+        val actions = listOf(goodAction, syntaxErrorAction)
+        val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = actions))))
+
+        val output = entityAsMap(executeMonitor(monitor.id))
+
+        assertEquals(monitor.name, output["monitor_name"])
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            for (actionResult in triggerResult.objectMap("action_results").values) {
+                @Suppress("UNCHECKED_CAST") val actionOutput = actionResult["output"] as Map<String, String>
+                if (actionResult["name"] == goodAction.name) {
+                    assertEquals("Hello ${monitor.name}", actionOutput["message"])
+                } else if (actionResult["name"] == syntaxErrorAction.name) {
+                    assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
+                } else {
+                    Assert.fail("Unknown action: ${actionResult["name"]}")
+                }
+            }
+        }
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, Alert.State.ERROR)
     }
 
     fun `test execute monitor adds to alert error history`() {
         putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
-        val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name"))
+        val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
         val listOfFiveErrorMessages = (1..5).map { i -> AlertError(timestamp = Instant.now(), message = "error message $i") }
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfFiveErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
-        val response = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
-        val updatedAlert = getAlert(alertId = activeAlert.id, monitorId = monitor.id)
+        val response = executeMonitor(monitor.id)
 
+        val updatedAlert = searchAlerts(monitor).single()
+        assertEquals("Existing active alert was not updated", activeAlert.id, updatedAlert.id)
         val output = entityAsMap(response)
         assertEquals(monitor.name, output["monitor_name"])
         for (triggerResult in output.objectMap("trigger_results").values) {
@@ -115,21 +159,20 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
                 assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
             }
         }
-        assertTrue("Found ${updatedAlert.errorHistory.size} error messages in history instead of 6", updatedAlert.errorHistory.size == 6)
+        assertEquals("Wrong number of error messages in history",6, updatedAlert.errorHistory.size)
     }
 
     fun `test execute monitor limits alert error history to 10 error messages`() {
         putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
-        val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name"))
+        val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
         val listOfTenErrorMessages = (1..10).map { i -> AlertError(timestamp = Instant.now(),message = "error message $i") }
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfTenErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
-        val response = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
-        val updatedAlert = getAlert(alertId = activeAlert.id, monitorId = monitor.id)
+        val response = executeMonitor(monitor.id)
 
         val output = entityAsMap(response)
         assertEquals(monitor.name, output["monitor_name"])
@@ -138,7 +181,9 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
                 assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
             }
         }
-        assertTrue("Found ${updatedAlert.errorHistory.size} error messages in history instead of 10", updatedAlert.errorHistory.size == 10)
+        val updatedAlert = searchAlerts(monitor).single()
+        assertEquals("Existing active alert was not updated", activeAlert.id, updatedAlert.id)
+        assertEquals("Wrong number of error messages in history", 10, updatedAlert.errorHistory.size)
     }
 
     fun `test execute monitor creates alert for trigger with no actions`() {
@@ -147,17 +192,31 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = emptyList())
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
 
-        executeMonitor(monitor.id, mapOf("dryrun" to "false"))
-        val alert = getActiveAlert(trigger.id, monitor.id)
+        executeMonitor(monitor.id)
 
-        assertNotNull("Missing alert", alert)
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, Alert.State.ACTIVE)
     }
 
-    private fun executeMonitor(monitorId: String, params: Map<String, String> = mapOf("dryrun" to "true")) : Response =
-            client().performRequest("POST", "/_awses/monitors/$monitorId/_execute", params)
+    private fun verifyAlert(alert: Alert, monitor: Monitor, expectedState: Alert.State = Alert.State.ACTIVE) {
+        assertNotNull(alert.id)
+        assertNotNull(alert.startTime)
+        assertNotNull(alert.lastNotificationTime)
+        assertEquals("Alert in wrong state", expectedState, alert.state)
+        if (expectedState == Alert.State.ERROR) {
+            assertNotNull("Missing error message", alert.errorMessage)
+        } else {
+            assertNull("Unexpected error message", alert.errorMessage)
+        }
+        assertEquals(monitor.id, alert.monitorId)
+        assertEquals(monitor.name, alert.monitorName)
+        assertEquals(monitor.version, alert.monitorVersion)
 
-    private fun executeMonitor(monitor: Monitor, params: Map<String, String> = mapOf("dryrun" to "true")) : Response =
-            client().performRequest("POST", "/_awses/monitors/_execute", params, monitor.toHttpEntity())
+        // assert trigger exists for alert
+        val trigger = monitor.triggers.filter { it.id == alert.triggerId }.single()
+        assertEquals(trigger.name, alert.triggerName)
+    }
 
     @Suppress("UNCHECKED_CAST")
     /** helper that returns a field in a json map whose values are all json objects */

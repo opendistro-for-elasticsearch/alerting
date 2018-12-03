@@ -12,6 +12,7 @@ import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.monitoring.model.TestAction
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.string
@@ -62,11 +63,12 @@ fun randomScript(source: String = "return " + ESRestTestCase.randomBoolean().toS
 
 val ALWAYS_RUN = Script("return true")
 val NEVER_RUN = Script("return false")
+val DRYRUN_MONITOR = mapOf("dryrun" to "true")
 
 fun randomTemplateScript(source: String, params: Map<String, String> = emptyMap()) : Script =
         Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, source, params)
 
-fun randomAction(name: String = ESRestTestCase.randomUnicodeOfLength(10),
+fun randomSNSAction(name: String = ESRestTestCase.randomUnicodeOfLength(10),
                  topicARN: String = "arn:aws:sns:foo:012345678901:bar",
                  roleARN: String = "arn:aws:iam::012345678901:foobar",
                  subjectTemplate: Script = randomTemplateScript("Hello World"),
@@ -74,6 +76,9 @@ fun randomAction(name: String = ESRestTestCase.randomUnicodeOfLength(10),
     return SNSAction(name = name, topicARN = topicARN, roleARN = roleARN, messageTemplate = messageTemplate,
             subjectTemplate = subjectTemplate)
 }
+
+fun randomAction(name: String = ESRestTestCase.randomUnicodeOfLength(10),
+                 template: Script = randomTemplateScript("Hello World")) = TestAction(name, template)
 
 fun randomAlert(monitor: Monitor = randomMonitor()) : Alert {
     val trigger = randomTrigger()

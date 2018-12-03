@@ -293,7 +293,7 @@ class MonitorRestApiTests : MonitoringRestTestCase() {
         val response = acknowledgeAlerts(monitor, acknowledgedAlert, completedAlert, errorAlert, activeAlert)
         val responseMap = response.asMap()
 
-        val activeAlertAcknowledged = getAlert(activeAlert.id, monitor.id)
+        val activeAlertAcknowledged = searchAlerts(monitor).single { it.id == activeAlert.id }
         assertNotNull("Unsuccessful acknowledgement", responseMap["success"] as List<String>)
         assertTrue("Alert not in acknowledged response", responseMap["success"].toString().contains(activeAlert.id))
         assertEquals("Alert not acknowledged.", Alert.State.ACKNOWLEDGED, activeAlertAcknowledged.state)

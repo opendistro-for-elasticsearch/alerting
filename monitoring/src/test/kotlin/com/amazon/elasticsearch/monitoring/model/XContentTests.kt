@@ -74,7 +74,7 @@ class XContentTests :ESTestCase() {
     }
 
     override fun xContentRegistry() : NamedXContentRegistry {
-        return NamedXContentRegistry(listOf(SNSAction.XCONTENT_REGISTRY,
+        return NamedXContentRegistry(listOf(SNSAction.XCONTENT_REGISTRY, TestAction.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY) +
                 SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }

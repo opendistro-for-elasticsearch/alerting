@@ -9,6 +9,7 @@ import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.monitoring.model.TestAction
 import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.string
 import org.apache.http.HttpEntity
@@ -26,6 +27,7 @@ import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -39,7 +41,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     override fun xContentRegistry(): NamedXContentRegistry {
         return NamedXContentRegistry(mutableListOf(Monitor.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY,
-                SNSAction.XCONTENT_REGISTRY) +
+                SNSAction.XCONTENT_REGISTRY, TestAction.XCONTENT_REGISTRY) +
                 SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 
@@ -102,34 +104,23 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         return monitor.copy(id  = id, version = version)
     }
 
-    protected fun getAlert(alertId: String, monitorId: String, refresh: Boolean = true): Alert {
-        if (refresh) refreshIndex(AlertIndices.ALL_INDEX_PATTERN)
-        val response = client().performRequest("GET", "/${AlertIndices.ALL_INDEX_PATTERN}/_search?q=_id:$alertId&routing=$monitorId")
-        assertEquals("Unable to get alert $alertId", RestStatus.OK, response.restStatus())
+    protected fun searchAlerts(monitor: Monitor, indices: String = AlertIndices.ALERT_INDEX, refresh: Boolean = true) : List<Alert> {
+        if (refresh) refreshIndex(indices)
 
-        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        val searchResponse = SearchResponse.fromXContent(parser)
-        val hit = searchResponse.hits.hits.firstOrNull()
-        assertNotNull("Unable to get alert", hit)
+        // If this is a test monitor (it doesn't have an ID) and no alerts will be saved for it.
+        val searchParams = if (monitor.id != Monitor.NO_ID) {
+            mapOf("routing" to monitor.id, "q" to "monitor_id:${monitor.id}")
+        } else {
+            mapOf()
+        }
+        val httpResponse = client().performRequest("GET", "/$indices/_search", searchParams)
+        assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
 
-        val xcp = createParser(XContentType.JSON.xContent(), hit!!.sourceRef)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        return Alert.parse(xcp, hit.id, hit.version)
-    }
-
-    protected fun getActiveAlert(triggerId: String, monitorId: String, refresh: Boolean = true): Alert {
-        if (refresh) refreshIndex(AlertIndices.ALERT_INDEX)
-        val response = client().performRequest("GET", "/${AlertIndices.ALERT_INDEX}/_search?routing=$monitorId&default_operator=AND&q=monitor_id:$monitorId+trigger_id:$triggerId")
-        assertEquals("Unable to get alert", RestStatus.OK, response.restStatus())
-
-        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        val searchResponse = SearchResponse.fromXContent(parser)
-        val hit = searchResponse.hits.hits.firstOrNull()
-        assertNotNull("Unable to get alert", hit)
-
-        val xcp = createParser(XContentType.JSON.xContent(), hit!!.sourceRef)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        return Alert.parse(xcp, hit.id, hit.version)
+        val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, httpResponse.entity.content))
+        return searchResponse.hits.hits.map {
+            val xcp = createParser(JsonXContent.jsonXContent, it.sourceRef).also { it.nextToken() }
+            Alert.parse(xcp, it.id, it.version)
+        }
     }
 
     protected fun acknowledgeAlerts(monitor: Monitor, vararg alerts: Alert) : Response {
@@ -150,6 +141,12 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         assertEquals("Unable to refresh index", RestStatus.OK, response.restStatus())
         return response
     }
+
+    protected fun executeMonitor(monitorId: String, params: Map<String, String> = mapOf()) : Response =
+            client().performRequest("POST", "/_awses/monitors/$monitorId/_execute", params)
+
+    protected fun executeMonitor(monitor: Monitor, params: Map<String, String> = mapOf()) : Response =
+            client().performRequest("POST", "/_awses/monitors/_execute", params, monitor.toHttpEntity())
 
     fun putAlertMappings() {
         client().performRequest("PUT", "/.aes-alerts")

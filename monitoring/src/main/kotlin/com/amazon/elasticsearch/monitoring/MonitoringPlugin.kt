@@ -17,6 +17,7 @@ import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.monitoring.model.TestAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
@@ -113,7 +114,8 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {
         return listOf(Monitor.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY,
-                SNSAction.XCONTENT_REGISTRY)
+                SNSAction.XCONTENT_REGISTRY,
+                TestAction.XCONTENT_REGISTRY)
     }
 
     override fun createComponents(client: Client, clusterService: ClusterService, threadPool: ThreadPool,

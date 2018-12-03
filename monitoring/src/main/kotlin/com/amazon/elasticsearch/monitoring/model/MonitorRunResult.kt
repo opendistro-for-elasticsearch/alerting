@@ -35,6 +35,14 @@ data class TriggerRunResult(val triggerName: String, val triggered: Boolean, val
                 .field("action_results", actionResults as Map<String, ActionRunResult>)
                 .endObject()
     }
+
+    fun alertError() : String? {
+        if (errorMessage != null) return errorMessage
+        for (actionResult in actionResults.values) {
+            if (actionResult.errorMessage != null) return actionResult.errorMessage
+        }
+        return null
+    }
 }
 
 data class ActionRunResult(val actionName: String, val output: Map<String, String>, val throttled: Boolean = false,

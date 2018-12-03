@@ -15,6 +15,7 @@ import com.amazon.elasticsearch.monitoring.model.ActionRunResult
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.MonitorRunResult
+import com.amazon.elasticsearch.monitoring.model.TestAction
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.model.TriggerRunResult
 import com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext
@@ -125,33 +126,22 @@ class MonitorRunner(private val settings: Settings,
                 ctx = ctx.copy(error = inputError ?: scriptError)
                 true // if the script fails we need to send an alert so set triggered = true
             }
-
             val triggerResult = TriggerRunResult(trigger.name, triggered, scriptError?.stackTraceString())
             triggerResults[trigger.id] = triggerResult
 
-            val updatedAlert = composeAlert(monitor, trigger, currentAlert, triggered, monitorResult.errorMessage ?: triggerResult.errorMessage)
-            updatedAlert?.let { updatedAlerts += it }
-
-            if (!triggered || currentAlert?.state == Alert.State.ACKNOWLEDGED) continue
-
             // TODO: Add time based rate limiting
-            for (action in trigger.actions) {
-                val actionResult = try {
-                    val actionOutput = runAction(action, ctx, dryrun)
-                    ActionRunResult(action.name, actionOutput, false, triggerResult.errorMessage)
-                } catch (e: Exception) {
-                    logger.warn("Error running action", e)
-                    ActionRunResult(action.name, mapOf(), false, e.stackTraceString())
+            if (triggered && currentAlert?.state != Alert.State.ACKNOWLEDGED) {
+                for (action in trigger.actions) {
+                    triggerResult.actionResults[action.name] = runAction(action, ctx, dryrun)
                 }
-
-                triggerResult.actionResults[action.name] = actionResult
-                composeAlert(monitor, trigger, currentAlert, triggered,
-                        monitorResult.errorMessage ?: triggerResult.errorMessage ?: actionResult.errorMessage)
-                        ?.let { updatedAlerts += it }
             }
+            val updatedAlert = composeAlert(monitor, trigger, currentAlert, triggered,
+                    monitorResult.errorMessage ?: triggerResult.alertError())
+            if (updatedAlert != null) updatedAlerts += updatedAlert
         }
 
-        if (!dryrun) {
+        // Don't save alerts if this is a test monitor
+        if (!dryrun && monitor.id != Monitor.NO_ID) {
             saveAlerts(updatedAlerts)
         }
         return monitorResult.copy(triggerResults = triggerResults)
@@ -287,30 +277,46 @@ class MonitorRunner(private val settings: Settings,
         }
     }
 
-    private fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean) : Map<String, String> {
+    private fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean) : ActionRunResult {
+        return try {
+            val actionOutput = when (action) {
+                is SNSAction -> action.run(ctx, dryrun)
+                is TestAction -> action.run(ctx)
+                else -> throw IllegalArgumentException("Unknown action type: ${action.type}")
+            }
+            ActionRunResult(action.name, actionOutput, false, null)
+        } catch (e: Exception) {
+            ActionRunResult(action.name, mapOf(), false, e.stackTraceString())
+        }
+    }
+
+    private fun SNSAction.run(ctx: TriggerExecutionContext, dryrun: Boolean) : Map<String, String> {
         val actionOutput = mutableMapOf<String, String>()
-        when (action) {
-            is SNSAction -> {
-                actionOutput["subject"] = scriptService.compile(action.subjectTemplate, TemplateScript.CONTEXT)
-                        .newInstance(action.subjectTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
-                        .execute()
-                actionOutput["message"] = scriptService.compile(action.messageTemplate, TemplateScript.CONTEXT)
-                        .newInstance(action.messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
-                        .execute()
-                // channel name will be replaced with actual name once we start supporting dedicated channels page
-                if (!dryrun) {
-                    val snsMessage = SNSMessage.Builder("default").withRole(action.roleARN).withTopicArn(action.topicARN)
-                            .withMessage(actionOutput["message"]).withSubject(actionOutput["subject"]).build()
-                    val response = Notification.publish(snsMessage) as SNSResponse
-                    actionOutput["messageId"] = response.messageId
-                    logger.info("Message published for action name: ${action.name}, sns messageid: ${response.messageId}, stauscode: ${response.statusCode}")
-                }
-            }
-            else -> {
-                throw IllegalArgumentException("Unknown action type ${action.type}")
-            }
+
+        actionOutput["subject"] = scriptService.compile(subjectTemplate, TemplateScript.CONTEXT)
+                .newInstance(subjectTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
+                .execute()
+
+        actionOutput["message"] = scriptService.compile(messageTemplate, TemplateScript.CONTEXT)
+                .newInstance(messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
+                .execute()
+
+        // channel name will be replaced with actual name once we start supporting dedicated channels page
+        if (!dryrun) {
+            val snsMessage = SNSMessage.Builder("default").withRole(roleARN).withTopicArn(topicARN)
+                    .withMessage(actionOutput["message"]).withSubject(actionOutput["subject"]).build()
+            val response = Notification.publish(snsMessage) as SNSResponse
+            actionOutput["messageId"] = response.messageId
+            logger.info("Message published for action name: ${name}, sns messageid: ${response.messageId}, statuscode: ${response.statusCode}")
         }
         return actionOutput.toMap()
     }
-}
 
+    private fun TestAction.run(ctx: TriggerExecutionContext) : Map<String, String> {
+        val actionOutput = mutableMapOf<String, String>()
+        actionOutput["message"] = scriptService.compile(messageTemplate, TemplateScript.CONTEXT)
+                .newInstance(messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
+                .execute()
+        return actionOutput.toMap()
+    }
+}
