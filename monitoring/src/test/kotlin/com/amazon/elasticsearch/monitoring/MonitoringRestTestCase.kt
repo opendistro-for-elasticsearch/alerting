@@ -5,7 +5,6 @@
 package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SNSAction
-import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
@@ -24,9 +23,9 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -48,7 +47,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         return entityAsMap(this)
     }
 
-    protected fun createMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
+    protected fun createMonitor(monitor: Monitor, refresh: Boolean = true) : Monitor {
         val response = client().performRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(), monitor.toHttpEntity())
         assertEquals("Unable to create a new monitor", RestStatus.CREATED, response.restStatus())
 
@@ -87,9 +86,9 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
 
-        var id : String = ScheduledJob.NO_ID
-        var version : Long = ScheduledJob.NO_VERSION
-        var monitor : Monitor? = null
+        lateinit var id : String
+        var version : Long = 0
+        lateinit var monitor : Monitor
 
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             parser.nextToken()
@@ -100,7 +99,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
                 "monitor" ->  monitor = Monitor.parse(parser)
             }
         }
-        return monitor!!.copy(id  = id, version = version)
+        return monitor.copy(id  = id, version = version)
     }
 
     protected fun getAlert(alertId: String, monitorId: String, refresh: Boolean = true): Alert {
@@ -133,10 +132,29 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         return Alert.parse(xcp, hit.id, hit.version)
     }
 
+    protected fun acknowledgeAlerts(monitor: Monitor, vararg alerts: Alert) : Response {
+        val request = XContentFactory.jsonBuilder().startObject()
+                .array("alerts", *alerts.map { it.id }.toTypedArray())
+                .endObject()
+                .string()
+                .let { StringEntity(it, ContentType.APPLICATION_JSON) }
+
+        val response = client().performRequest("POST", "${monitor.relativeUrl()}/_acknowledge/alerts?refresh=true",
+                emptyMap(), request)
+        assertEquals("Acknowledge call failed.", RestStatus.OK, response.restStatus())
+        return response
+    }
+
     protected fun refreshIndex(index: String): Response {
         val response = client().performRequest("POST", "/$index/_refresh")
         assertEquals("Unable to refresh index", RestStatus.OK, response.restStatus())
         return response
+    }
+
+    fun putAlertMappings() {
+        client().performRequest("PUT", "/.aes-alerts")
+        client().performRequest("PUT", "/.aes-alerts/_mapping/_doc", emptyMap(),
+                StringEntity(AlertIndices.alertMapping(), ContentType.APPLICATION_JSON))
     }
 
     protected fun Response.restStatus() : RestStatus {
@@ -167,14 +185,6 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         val builder = XContentFactory.jsonBuilder()
         builder.startObject().startArray("alerts")
         ids.forEach { builder.value(it) }
-        builder.endArray().endObject()
-        return StringEntity(builder.string(), ContentType.APPLICATION_JSON)
-    }
-
-    protected fun createAcknowledgeObject(alerts: List<Alert>): HttpEntity {
-        val builder = XContentFactory.jsonBuilder().startObject()
-                .startArray("alerts")
-        alerts.forEach { builder.value(it.id) }
         builder.endArray().endObject()
         return StringEntity(builder.string(), ContentType.APPLICATION_JSON)
     }

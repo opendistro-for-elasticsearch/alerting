@@ -96,7 +96,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
     }
 
     fun `test execute monitor adds to alert error history`() {
-        putAlertMappings(client()) // Required as we do not have a create alert API.
+        putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
@@ -119,7 +119,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
     }
 
     fun `test execute monitor limits alert error history to 10 error messages`() {
-        putAlertMappings(client()) // Required as we do not have a create alert API.
+        putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
@@ -142,7 +142,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
     }
 
     fun `test execute monitor creates alert for trigger with no actions`() {
-        putAlertMappings(client()) // Required as we do not have a create alert API.
+        putAlertMappings() // Required as we do not have a create alert API.
 
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = emptyList())
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)

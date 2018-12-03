@@ -1,6 +1,9 @@
 {
   "_doc": {
     "dynamic": "strict",
+    "_routing": {
+      "required" : true
+    },
     "properties" : {
       "monitor_id" : {
         "type" : "keyword"

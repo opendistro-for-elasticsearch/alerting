@@ -4,21 +4,29 @@
 
 package com.amazon.elasticsearch.monitoring.alerts
 
+import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
 import com.amazon.elasticsearch.monitoring.randomTrigger
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
-import com.amazon.elasticsearch.monitoring.toHttpEntity
+import com.amazon.elasticsearch.monitoring.toJsonString
+import com.amazon.elasticsearch.util.ElasticAPI
+import com.amazon.elasticsearch.util.string
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.StringEntity
 import org.elasticsearch.Version
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.node.Node
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.test.ESIntegTestCase
 import org.elasticsearch.threadpool.Scheduler
@@ -60,10 +68,11 @@ class AlertIndicesTests : ESIntegTestCase() {
         // given:
         val alertIndices = AlertIndices(rolloverSettings(), client().admin().indices(), threadPool)
         alertIndices.createInitialHistoryIndex()
-        val alert = randomAlert()
+        val alert = randomAlert(monitor = createMonitor(randomMonitor()))
         val builder = XContentBuilder.builder(XContentType.JSON.xContent())
         val request = IndexRequest(AlertIndices.HISTORY_WRITE_INDEX, AlertIndices.MAPPING_TYPE)
                 .source(alert.toXContent(builder, ToXContent.EMPTY_PARAMS))
+                .routing(alert.monitorId)
         client().index(request).actionGet()
 
         // when:
@@ -89,7 +98,7 @@ class AlertIndicesTests : ESIntegTestCase() {
         val monitor = randomMonitor().copy(triggers = listOf(trigger))
 
         val response = getRestClient().performRequest("POST", "/_awses/monitors/_execute",
-                mapOf("dryrun" to "true"), monitor.toHttpEntity())
+                mapOf("dryrun" to "true"), StringEntity(monitor.toJsonString(), ContentType.APPLICATION_JSON))
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
         val output = xcp.map()
         assertNull("Error running a monitor after wiping alert indices", output["error"])
@@ -101,7 +110,26 @@ class AlertIndicesTests : ESIntegTestCase() {
     }
 
     private fun getIndexAlias(alias: String) : List<String> {
-        return client().admin().indices().getAliases(GetAliasesRequest(alias)).actionGet()
-                .aliases.keys().map { it.value }
+        val aliases = client().admin().indices().getAliases(GetAliasesRequest(alias)).actionGet().aliases
+        val indices = mutableListOf<String>()
+        aliases.forEach { entry ->
+            if (entry.value.any { amd -> amd.alias == alias }) {
+                indices.add(entry.key)
+            }
+        }
+        return indices.toList()
+    }
+
+    // Copy of code in MonitoringRestTestCase; it's needed because we don't have TransportClient support for monitor CRUD
+    // APIs only RestClient. If we ever have more tests that are subclasses of ESIntegTestCase we should factor these
+    // out so they're shared. But given that ESIntegTestCase is going to be deprecated soon we shouldn't have those.
+    private fun createMonitor(monitor: Monitor, refresh: Boolean = true) : Monitor {
+        val response = getRestClient().performRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(),
+                StringEntity(monitor.toJsonString(), ContentType.APPLICATION_JSON))
+        val responseStatus = RestStatus.fromCode(response.statusLine.statusCode)
+        assertEquals("Unable to create a new monitor", RestStatus.CREATED, responseStatus)
+
+        val monitorJson = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
+        return monitor.copy(id = monitorJson["_id"] as String, version = (monitorJson["_version"] as Int).toLong())
     }
 }

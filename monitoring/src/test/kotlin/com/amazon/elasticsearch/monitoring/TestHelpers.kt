@@ -13,6 +13,7 @@ import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
+import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.string
 import org.apache.http.HttpEntity
 import org.apache.http.entity.ContentType
@@ -20,6 +21,7 @@ import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.UUIDs
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -27,6 +29,7 @@ import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.ESTestCase.assertEquals
 import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
@@ -77,22 +80,7 @@ fun randomAlert(monitor: Monitor = randomMonitor()) : Alert {
     return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null)
 }
 
-fun putAlertMappings(client: RestClient) {
-    client.performRequest("PUT", "/.aes-alerts")
-    client.performRequest("PUT", "/.aes-alerts/_mapping/_doc", emptyMap(), StringEntity(AlertIndices.alertMapping(), ContentType.APPLICATION_JSON))
-}
-
-fun Response.restStatus() : RestStatus {
-    return RestStatus.fromCode(this.statusLine.statusCode)
-}
-
-fun Monitor.toHttpEntity() : HttpEntity {
-    return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
-}
-
 fun Monitor.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
 }
-
-fun Monitor.relativeUrl() = "_awses/monitors/$id"
