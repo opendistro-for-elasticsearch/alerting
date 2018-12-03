@@ -2,6 +2,13 @@ allprojects {
     plugins.withId('jacoco') {
         // 0.8.2 doesn't show missing coverage of Kotlin generated methods. Remove once this becomes gradle's default
         jacoco.toolVersion = '0.8.2'
+        tasks.withType(Test) { 
+            jacoco { append = false }
+        }
+        // For some reason this dependency isn't getting setup automatically by the jacoco plugin
+        tasks.withType(JacocoReport) { 
+            dependsOn tasks.withType(Test)
+        }
     }
 }
 
