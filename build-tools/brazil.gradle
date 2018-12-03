@@ -23,9 +23,9 @@ task cleanSymlinkBuildDir {
 // See https://w.amazon.com/index.php/Coverlay/FAQ#What_are_the_languages_that_Coverlay_supports.3F
 task copyCoverageForBrazil(type: Copy) {
     dependsOn project.provider { jacocoReport }
-    from "$buildDir/reports/jacoco/jacocoReport/jacocoReport.xml"
     into "$buildDir/brazil-documentation/coverage"
-    rename '.*', 'coverage.xml'
+    from("$buildDir/reports/jacoco/jacocoReport/")
+    rename 'jacocoReport.xml', 'coverage.xml'
 }
 
 // See https://w.amazon.com/index.php/BrazilBuildSystem/Concepts/UnitTestingInBrazil#Unit_Test_Upload
