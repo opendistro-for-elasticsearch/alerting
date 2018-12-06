@@ -28,7 +28,6 @@ import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.convertToMap
 import com.amazon.elasticsearch.util.firstFailureOrNull
 import com.amazon.elasticsearch.util.retry
-import com.amazon.elasticsearch.util.stackTraceString
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -80,14 +79,12 @@ class MonitorRunner(private val settings: Settings,
         }
     }
 
-    fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false)
-            : MonitorRunResult {
-        var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
-
+    fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false) : MonitorRunResult {
         if (periodStart == periodEnd) {
-            logger.warn("Start and end time are the same: $periodStart. This monitor's schedule will probably only run once.")
+            logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
 
+        var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             alertIndices.createAlertIndex()
             alertIndices.createInitialHistoryIndex()
@@ -96,16 +93,14 @@ class MonitorRunner(private val settings: Settings,
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
             val id = if (monitor.id.isBlank()) "_na_" else monitor.id
             logger.error("Error loading alerts for monitor: $id", e)
-            return monitorResult.copy(errorMessage = e.stackTraceString())
+            return monitorResult.copy(error = e)
         }
 
-        var inputError: Exception? = null
         val results = try {
             collectInputResults(monitor, periodStart, periodEnd)
         } catch (e: Exception) {
             logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
-            inputError = e
-            monitorResult = monitorResult.copy(errorMessage = e.stackTraceString())
+            monitorResult = monitorResult.copy(error = e)
             emptyList<Map<String, Any>>()
         }
 
@@ -113,30 +108,21 @@ class MonitorRunner(private val settings: Settings,
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
             val currentAlert = currentAlerts[trigger]
-            var ctx = TriggerExecutionContext(monitor, trigger, results, periodStart, periodEnd, currentAlert, inputError)
-            var scriptError: Exception? = null
-
-            val triggered = try {
-                scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
-                        .newInstance(trigger.condition.params)
-                        .execute(ctx)
-            } catch (e: Exception) {
-                logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
-                scriptError = e
-                ctx = ctx.copy(error = inputError ?: scriptError)
-                true // if the script fails we need to send an alert so set triggered = true
-            }
-            val triggerResult = TriggerRunResult(trigger.name, triggered, scriptError?.stackTraceString())
+            val triggerCtx = TriggerExecutionContext(monitor, trigger, results, periodStart, periodEnd, currentAlert,
+                    monitorResult.error)
+            val triggerResult = runTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
             // TODO: Add time based rate limiting
-            if (triggered && currentAlert?.state != Alert.State.ACKNOWLEDGED) {
+            if (triggerResult.triggered && currentAlert?.state != Alert.State.ACKNOWLEDGED) {
+                val actionCtx = triggerCtx.copy(error = monitorResult.error ?: triggerResult.error)
                 for (action in trigger.actions) {
-                    triggerResult.actionResults[action.name] = runAction(action, ctx, dryrun)
+                    triggerResult.actionResults[action.name] = runAction(action, actionCtx, dryrun)
                 }
             }
-            val updatedAlert = composeAlert(monitor, trigger, currentAlert, triggered,
-                    monitorResult.errorMessage ?: triggerResult.alertError())
+
+            val updatedAlert = composeAlert(monitor, trigger, currentAlert, triggerResult.triggered,
+                    monitorResult.alertError() ?: triggerResult.alertError())
             if (updatedAlert != null) updatedAlerts += updatedAlert
         }
 
@@ -185,6 +171,19 @@ class MonitorRunner(private val settings: Settings,
             }
         }
         return results.toList()
+    }
+
+    private fun runTrigger(monitor: Monitor, trigger: Trigger, ctx: TriggerExecutionContext) : TriggerRunResult {
+        try {
+            val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
+                    .newInstance(trigger.condition.params)
+                    .execute(ctx)
+            return TriggerRunResult(trigger.name, triggered, null)
+        } catch (e: Exception) {
+            logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
+            // if the script fails we need to send an alert so set triggered = true
+            return TriggerRunResult(trigger.name, true, e)
+        }
     }
 
     private fun loadCurrentAlerts(monitor: Monitor) : Map<Trigger, Alert?> {
@@ -240,7 +239,7 @@ class MonitorRunner(private val settings: Settings,
                 Alert.State.COMPLETED -> {
                     listOf<DocWriteRequest<*>>(
                             DeleteRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, alert.id)
-                            .routing(alert.monitorId),
+                                    .routing(alert.monitorId),
                             IndexRequest(AlertIndices.HISTORY_WRITE_INDEX, AlertIndices.MAPPING_TYPE)
                                     .routing(alert.monitorId)
                                     .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
@@ -286,7 +285,7 @@ class MonitorRunner(private val settings: Settings,
             }
             ActionRunResult(action.name, actionOutput, false, null)
         } catch (e: Exception) {
-            ActionRunResult(action.name, mapOf(), false, e.stackTraceString())
+            ActionRunResult(action.name, mapOf(), false, e)
         }
     }
 
