@@ -32,6 +32,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.rules.DisableOnDebug
+import java.util.Locale
 
 abstract class MonitoringRestTestCase : ESRestTestCase() {
 
@@ -147,6 +148,27 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
 
     protected fun executeMonitor(monitor: Monitor, params: Map<String, String> = mapOf()) : Response =
             client().performRequest("POST", "/_awses/monitors/_execute", params, monitor.toHttpEntity())
+
+    protected fun indexDoc(index: String, id: String, doc: String, refresh: Boolean = true) : Response {
+        val requestBody = StringEntity(doc, ContentType.APPLICATION_JSON)
+        val params = if (refresh) mapOf("refresh" to "true") else mapOf()
+        val response = client().performRequest("PUT", "$index/_doc/$id", params, requestBody)
+        assertTrue("Unable to index doc: '${doc.take(15)}...' to index: '$index'",
+                listOf(RestStatus.OK, RestStatus.CREATED).contains(response.restStatus()))
+        return response
+    }
+
+    /** A test index that can be used across tests. Feel free to add new fields but don't remove any. */
+    protected fun createTestIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)) : String {
+        createIndex(index, Settings.EMPTY, """
+            "_doc" : {
+              "properties" : {
+                 "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
+              }
+            }
+        """.trimIndent())
+        return index
+    }
 
     fun putAlertMappings() {
         client().performRequest("PUT", "/.aes-alerts")

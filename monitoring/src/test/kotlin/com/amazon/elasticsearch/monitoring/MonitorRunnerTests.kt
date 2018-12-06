@@ -11,8 +11,11 @@ import com.amazon.elasticsearch.monitoring.model.Monitor
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script
 import org.elasticsearch.search.builder.SearchSourceBuilder
-import org.junit.Assert
 import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit.DAYS
+import java.time.temporal.ChronoUnit.MILLIS
 
 class MonitorRunnerTests : MonitoringRestTestCase() {
 
@@ -96,7 +99,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
             return _ctx.results[0].hits.hits.size() > 0
         """.trimIndent()
         val trigger = randomTrigger(condition = Script(triggerScript))
-        val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)), refresh = true)
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))
 
         val response = executeMonitor(monitor.id)
 
@@ -109,6 +112,42 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
         verifyAlert(alerts.single(), monitor)
+    }
+
+    fun `test execute monitor search with period date math`() {
+        val testIndex = createTestIndex()
+        val fiveDaysAgo = ZonedDateTime.now().minus(5, DAYS).truncatedTo(MILLIS)
+        val testTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(fiveDaysAgo)
+        val testDoc = """{ "test_strict_date_time" : "$testTime" }"""
+        indexDoc(testIndex, "1", testDoc)
+
+        // Queries that use period_start/end should expect these values to always be formatted as 'epoch_millis'. Either
+        // the query should specify the format (like below) or the mapping for the index/field being queried should allow
+        // epoch_millis as an alternative (ES's default mapping for date fields "strict_date_optional_time||epoch_millis")
+        val query = QueryBuilders.rangeQuery("test_strict_date_time")
+                .gt("{{period_end}}||-10d")
+                .lte("{{period_end}}")
+                .format("epoch_millis")
+        val input = SearchInput(indices = listOf(testIndex), query = SearchSourceBuilder().query(query))
+        val triggerScript = """
+            // make sure there is exactly one hit
+            return _ctx.results[0].hits.hits.size() == 1
+        """.trimIndent()
+        val trigger = randomTrigger(condition = Script(triggerScript))
+        val monitor = randomMonitor(inputs = listOf(input), triggers = listOf(trigger))
+
+        val response = executeMonitor(monitor)
+
+        val output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        val triggerResult = output.objectMap("trigger_results").objectMap(trigger.id)
+        assertEquals(true, triggerResult["triggered"].toString().toBoolean())
+        assertTrue("Unexpected trigger error message", triggerResult["error"]?.toString().isNullOrEmpty())
+        assertNotEquals("period incorrect", output["period_start"], output["period_end"])
+
+        // Don't expect any alerts for this monitor as it has not been saved
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert saved for test monitor", 0, alerts.size)
     }
 
     fun `test monitor with one bad action and one good action`() {
@@ -128,7 +167,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
                 } else if (actionResult["name"] == syntaxErrorAction.name) {
                     assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
                 } else {
-                    Assert.fail("Unknown action: ${actionResult["name"]}")
+                    fail("Unknown action: ${actionResult["name"]}")
                 }
             }
         }
@@ -143,7 +182,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
-        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
         val listOfFiveErrorMessages = (1..5).map { i -> AlertError(timestamp = Instant.now(), message = "error message $i") }
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfFiveErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
@@ -167,7 +206,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
-        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
         val listOfTenErrorMessages = (1..10).map { i -> AlertError(timestamp = Instant.now(),message = "error message $i") }
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfTenErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
@@ -190,7 +229,7 @@ class MonitorRunnerTests : MonitoringRestTestCase() {
         putAlertMappings() // Required as we do not have a create alert API.
 
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = emptyList())
-        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)), refresh = true)
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
 
         executeMonitor(monitor.id)
 
