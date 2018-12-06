@@ -9,28 +9,18 @@ import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.SearchInput
-import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.TestAction
 import com.amazon.elasticsearch.monitoring.model.Trigger
-import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.string
-import org.apache.http.HttpEntity
-import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
-import org.elasticsearch.client.Response
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.UUIDs
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.QueryBuilders
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.ESTestCase.assertEquals
 import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
@@ -54,7 +44,7 @@ fun randomTrigger(id: String = UUIDs.base64UUID(),
                   name: String = ESRestTestCase.randomAlphaOfLength(10),
                   severity: String = "1",
                   condition: Script = randomScript(),
-                  actions: List<Action> = (1..randomInt(10)).map { randomAction() }
+                  actions: List<Action> = (0..randomInt(10)).map { randomAction() }
                   ): Trigger {
     return Trigger(id = id, name = name, severity = severity, condition = condition, actions = actions)
 }

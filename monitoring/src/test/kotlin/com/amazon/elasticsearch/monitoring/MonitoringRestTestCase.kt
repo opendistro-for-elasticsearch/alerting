@@ -164,7 +164,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
 
     private fun Monitor.toJsonString(): String {
         val builder = XContentFactory.jsonBuilder()
-        return this.toXContent(builder).string()
+        return shuffleXContent(toXContent(builder)).string()
     }
 
     private fun Alert.toHttpEntity(): HttpEntity {
@@ -173,18 +173,10 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
 
     private fun Alert.toJsonString(): String {
         val builder = XContentFactory.jsonBuilder()
-        return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+        return shuffleXContent(toXContent(builder, ToXContent.EMPTY_PARAMS)).string()
     }
 
     protected fun Monitor.relativeUrl() = "_awses/monitors/$id"
-
-    protected fun alertsJson(ids: List<String>): HttpEntity {
-        val builder = XContentFactory.jsonBuilder()
-        builder.startObject().startArray("alerts")
-        ids.forEach { builder.value(it) }
-        builder.endArray().endObject()
-        return StringEntity(builder.string(), ContentType.APPLICATION_JSON)
-    }
 
     // Useful settings when debugging to prevent timeouts
     override fun restClientSettings(): Settings {
