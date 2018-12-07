@@ -43,13 +43,12 @@ licenseHeaders.enabled = false
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
 
-// We can't just create a single cluster with numNodes = 3 since that creates task dependencies in such a way that killing and
-// restarting a single node also restarts all the other nodes.  Instead we setup 3 separate single node clusters with the
-// same cluster name that we can start and kill separately using '../gradlew 'runMultiNodeTest1#start"
+// See package README.md for details on using these tasks.
 (1..3).each { i ->
+    def _numNodes = findProperty('numNodes') as Integer ?: 1
     tasks.create(name : "runMultiNode$i", type: org.elasticsearch.gradle.test.RunTask) {
         daemonize = true
-        numNodes = 1
+        numNodes = _numNodes
         setting 'node.name', "multi-node-$i"
         setting 'http.port', '9200-9300'
         setting 'transport.tcp.port', '9300-9400'
@@ -57,7 +56,16 @@ thirdPartyAudit.enabled = false
         plugin project.path
         distribution = es_distribution
     }
+    
+    tasks.create(name: "startMultiNode$i") {
+        if (_numNodes == 1) {
+            dependsOn "runMultiNode${i}#start"
+        } else {
+            (0..<_numNodes).each { n -> dependsOn "runMultiNode${i}#node${n}.start" }
+        }
+    }
 }
+task startMultiNode(dependsOn: startMultiNode1)
 
 // Brazil doesn't allow access to /tmp which is the default temp dir.  Switch to a temp dir under the build root
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
@@ -75,17 +83,16 @@ integTestRunner {
     // different output dirs.  Right now we only have kotlin tests.
     testClassesDir = compileTestKotlin.destinationDir
 
-    // Uncomment to attach a debugger to integration tests JVM
-//    jvmArg '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    if (System.getProperty("test.debug") != null) {
+        jvmArg '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    }
 }
 
 integTestCluster {
     distribution = es_distribution
-//    debug = true // Uncomment to attach debugger to integTestCluster on port 8000
 }
 run {
     distribution = es_distribution
-//    debug = true // Uncomment to attach debugger to runCluster on port 8000
 }
 
 afterEvaluate {
