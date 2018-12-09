@@ -25,7 +25,6 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile "org.jetbrains:annotations:13.0"
-    compile "com.google.code.findbugs:jsr305:3.0.2"
 
     compile project(":core")
     compile project(":notification")
