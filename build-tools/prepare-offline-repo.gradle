@@ -6,7 +6,7 @@ import io.pry.gradle.offline_dependencies.UpdateOfflineRepositoryTask
  * added and the output 'offline-repo.zip' file should be put in Brazil's S3 using S3BinarySafeDownloader: 
  * https://code.amazon.com/packages/S3BinarySafeDownloader/trees/mainline
  */
-if (project.findProperty("edit-offline-repo")) {
+if (project.findProperty("offlineRepo")) {
     task prepareOfflineRepo(type: Zip, group: 'build') {
         archiveName = "offline-repo.zip"
         destinationDir = project.file('buildSrc')

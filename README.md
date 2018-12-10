@@ -18,7 +18,17 @@ This package is organised into subprojects most of which contribute JARs to the 
 All subprojects in this package use the [Gradle](https://docs.gradle.org/4.10.2/userguide/userguide.html) build system. Gradle comes with excellent documentation which should be your first stop when trying to figure out how to operate or modify the build. 
 
 However to build the `monitoring` plugin subproject we also use the Elastic build tools for Gradle.  These tools are idiosyncratic and don't always follow the conventions and instructions for building regular java code using Gradle. Not everything in `monitoring` will work the way it's described in the Gradle documentation. If you encounter such a situation the Elastic build tools [source code](https://code.amazon.com/packages/ElasticSearch/trees/heads/aes-6.2/--/elasticsearch/src/buildSrc/src/main/groovy/org/elasticsearch/gradle) is your best bet for figuring out what's going on. 
- 
+
+### Building in Brazil
+
+To build in brazil we need to prefetch our dependencies and upload it to Brazil's S3 using [S3BinarySafeDownloader](https://code.amazon.com/packages/S3BinarySafeDownloader/trees/mainline). This needs to be done every time a new dependency is added or a dependency version is upgraded.  During the build the dependencies are automatically fetched and unpacked into a local maven repo and the build is configured to use that repo instead of downloading dependencies from mavenCentral. To update a dependency, add it to the relevant build.gradle and then run the following commands: 
+
+```
+./gradlew -P offlineRepo=true prepareOfflineRepo
+brazil-build-tool-exec s3-safe-upload buildSrc/offline-repo.zip
+git commit -a -m 'Add dependency <XXX> to offline repo' 
+```
+  
 ### Building from command line
 
 1. `./gradlew release` builds and tests all subprojects
