@@ -16,8 +16,19 @@ import javax.management.remote.JMXServiceURL
  */
 apply plugin: 'jacoco'
 
-// Get gradle to generate the required jvm agent arg for us using a dummy Test task
+// Get gradle to generate the required jvm agent arg for us using a dummy tasks of type Test. Unfortunately Elastic's
+// testing tasks don't derive from Test so the jacoco plugin can't do this automatically.
 task dummyTest(type: Test) {
+    enabled = false
+    workingDir = file("/") // Force absolute path to jacoco agent jar
+    jacoco {
+        destinationFile = file("${buildDir}/jacoco/test.exec")
+        destinationFile.parentFile.mkdirs()
+        jmx = true
+    }
+}
+
+task dummyIntegTest(type: Test) {
     enabled = false
     workingDir = file("/") // Force absolute path to jacoco agent jar
     jacoco {
@@ -27,8 +38,12 @@ task dummyTest(type: Test) {
     }
 }
 
+test {
+    jvmArg dummyTest.jacoco.getAsJvmArg()
+}
+
 integTestCluster {
-    jvmArgs += " ${dummyTest.jacoco.getAsJvmArg()}"
+    jvmArgs += " ${dummyIntegTest.jacoco.getAsJvmArg()}"
     systemProperty 'com.sun.management.jmxremote', "true"
     systemProperty 'com.sun.management.jmxremote.authenticate', "false"
     systemProperty 'com.sun.management.jmxremote.port', "7777"
@@ -36,9 +51,9 @@ integTestCluster {
     systemProperty 'java.rmi.server.hostname', "127.0.0.1"
 }
 
-task jacocoIntegTestReport(type: JacocoReport, group: 'verification') {
-    dependsOn integTest
-    executionData dummyTest.jacoco.destinationFile
+task jacocoTestReport(type: JacocoReport, group: 'verification') {
+    dependsOn integTest, test
+    executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
     sourceDirectories = sourceSets.main.allSource
     classDirectories = sourceSets.main.output
     reports {
@@ -55,7 +70,7 @@ task dumpCoverage {
         try {
             def jacocoMBean = new GroovyMBean(connector.MBeanServerConnection, "org.jacoco:type=Runtime")
             byte[] data = jacocoMBean.getExecutionData(false)
-            file(dummyTest.jacoco.destinationFile).setBytes(data)
+            file(dummyIntegTest.jacoco.destinationFile).setBytes(data)
         } finally {
             connector.close()
         }
@@ -64,5 +79,5 @@ task dumpCoverage {
 project.gradle.projectsEvaluated {
     dumpCoverage.dependsOn integTestRunner
     tasks['integTestCluster#stop'].dependsOn dumpCoverage
-    jacocoIntegTestReport.dependsOn dumpCoverage
+    jacocoTestReport.dependsOn dumpCoverage
 }

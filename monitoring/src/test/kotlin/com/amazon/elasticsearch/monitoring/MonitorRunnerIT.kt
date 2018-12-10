@@ -17,7 +17,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit.DAYS
 import java.time.temporal.ChronoUnit.MILLIS
 
-class MonitorRunnerTests : MonitoringRestTestCase() {
+class MonitorRunnerIT : MonitoringRestTestCase() {
 
     fun `test execute monitor with dryrun`() {
          val action = randomSNSAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name}}"),

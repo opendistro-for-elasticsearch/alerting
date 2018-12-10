@@ -11,7 +11,6 @@ import com.amazon.elasticsearch.monitoring.randomTrigger
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.monitoring.toJsonString
 import com.amazon.elasticsearch.util.ElasticAPI
-import com.amazon.elasticsearch.util.string
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
 import org.elasticsearch.Version
@@ -23,7 +22,6 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.node.Node
 import org.elasticsearch.rest.RestStatus
@@ -36,7 +34,7 @@ import org.mockito.Mockito.any
 import org.mockito.Mockito.anyString
 import org.mockito.Mockito.mock
 
-class AlertIndicesTests : ESIntegTestCase() {
+class AlertIndicesIT : ESIntegTestCase() {
 
     private fun rolloverSettings(maxAge: Long = 1, maxDocs: Long = 0) : Settings {
         return settings(Version.CURRENT)

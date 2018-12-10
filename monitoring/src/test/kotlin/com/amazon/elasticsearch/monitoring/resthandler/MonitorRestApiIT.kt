@@ -33,7 +33,7 @@ import java.time.ZoneId
 
 @TestLogging("level:DEBUG")
 @Suppress("UNCHECKED_CAST")
-class MonitorRestApiTests : MonitoringRestTestCase() {
+class MonitorRestApiIT : MonitoringRestTestCase() {
 
     val USE_TYPED_KEYS = ToXContent.MapParams(mapOf("with_type" to "true"))
 
