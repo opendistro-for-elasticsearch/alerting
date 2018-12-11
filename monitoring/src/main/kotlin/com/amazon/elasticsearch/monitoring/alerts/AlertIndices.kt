@@ -4,9 +4,11 @@
 
 package com.amazon.elasticsearch.monitoring.alerts
 
-import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices.Companion.ALERT_INDEX
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices.Companion.HISTORY_WRITE_INDEX
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
+import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
@@ -102,6 +104,10 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
         // if the indexes have been deleted they need to be reinitalized
         alertIndexInitialized = event.state().routingTable().hasIndex(ALERT_INDEX)
         historyIndexInitialized = event.state().metaData().hasAlias(HISTORY_WRITE_INDEX)
+    }
+
+    fun isInitialized() : Boolean {
+        return alertIndexInitialized && historyIndexInitialized
     }
 
     fun createAlertIndex() {

@@ -325,22 +325,12 @@ class MonitorRestApiIT : MonitoringRestTestCase() {
         val deleteResponse = client().performRequest("DELETE", "_awses/monitors/${monitor.id}")
         assertEquals("Delete request not successful", RestStatus.OK, deleteResponse.restStatus())
 
+        val alerts = searchAlerts(monitor)
+        assertEquals("Active alert was not deleted", 0, alerts.size)
 
-        val search = SearchSourceBuilder().query(QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD + ".keyword", monitor.id))).toString()
-        val searchAlertResponse = client().performRequest("GET", "${AlertIndices.ALL_INDEX_PATTERN}/_search",
-                mapOf("routing" to alert.monitorId),
-                NStringEntity(search, ContentType.APPLICATION_JSON))
-
-        val responseParser = createParser(XContentType.JSON.xContent(), searchAlertResponse.entity.content)
-        val responseMap = responseParser.map() as Map<String, Map<String, Any>>
-        val alertMap = responseMap.get("hits")?.get("hits") as List<Map<String, Any>>
-        val alertSource = alertMap[0].get("_source") as Map<String, Any>
-
-        val index = alertMap[0]["_index"] as String
-        assertTrue("Alert did not move to history index.", index.contains("history"))
-
-        val retrievedAlertState = Alert.State.valueOf(alertSource[Alert.STATE_FIELD] as String)
-        assertEquals("Alert did not move to deleted state.", Alert.State.DELETED, retrievedAlertState)
+        val historyAlerts = searchAlerts(monitor, AlertIndices.HISTORY_WRITE_INDEX)
+        assertEquals("Alert was not moved to history", 1, historyAlerts.size)
+        assertEquals("Alert data incorrect", alert.copy(state = Alert.State.DELETED), historyAlerts.single())
     }
 
     fun `test update monitor with wrong version`() {

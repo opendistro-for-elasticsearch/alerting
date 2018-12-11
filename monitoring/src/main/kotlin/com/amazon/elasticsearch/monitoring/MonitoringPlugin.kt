@@ -3,32 +3,32 @@
  */
 package com.amazon.elasticsearch.monitoring
 
-import com.amazon.elasticsearch.ScheduledJobIndices
 import com.amazon.elasticsearch.JobSweeper
+import com.amazon.elasticsearch.ScheduledJobIndices
 import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.Settings.SWEEP_BACKOFF_MILLIS
 import com.amazon.elasticsearch.Settings.SWEEP_BACKOFF_RETRY_COUNT
 import com.amazon.elasticsearch.Settings.SWEEP_PAGE_SIZE
 import com.amazon.elasticsearch.Settings.SWEEP_PERIOD
-import com.amazon.elasticsearch.action.node.ScheduledJobsStatsTransportAction
 import com.amazon.elasticsearch.action.node.ScheduledJobsStatsAction
+import com.amazon.elasticsearch.action.node.ScheduledJobsStatsTransportAction
 import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.TestAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestDisableMonitoringAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestExecuteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
-import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
-import com.amazon.elasticsearch.monitoring.resthandler.RestDisableMonitoringAction
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
-import com.amazon.elasticsearch.monitoring.resthandler.RestExecuteMonitorAction
-import com.amazon.elasticsearch.schedule.JobScheduler
 import com.amazon.elasticsearch.resthandler.RestScheduledJobStatsHandler
+import com.amazon.elasticsearch.schedule.JobScheduler
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
@@ -56,6 +56,7 @@ import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ExecutorBuilder
+import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
@@ -93,7 +94,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
                                  indexNameExpressionResolver: IndexNameExpressionResolver?,
                                  nodesInCluster: Supplier<DiscoveryNodes>): List<RestHandler> {
         return listOf(RestGetMonitorAction(settings, restController),
-                RestDeleteMonitorAction(settings, restController, threadPool, alertIndices),
+                RestDeleteMonitorAction(settings, restController, alertIndices),
                 RestIndexMonitorAction(settings, restController, scheduledJobIndices),
                 RestSearchMonitorAction(settings, restController),
                 RestExecuteMonitorAction(settings, restController, runner),

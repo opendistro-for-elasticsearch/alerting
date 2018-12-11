@@ -32,6 +32,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.rules.DisableOnDebug
+import java.net.URLEncoder
 import java.util.Locale
 
 abstract class MonitoringRestTestCase : ESRestTestCase() {
@@ -109,12 +110,14 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         if (refresh) refreshIndex(indices)
 
         // If this is a test monitor (it doesn't have an ID) and no alerts will be saved for it.
-        val searchParams = if (monitor.id != Monitor.NO_ID) {
-            mapOf("routing" to monitor.id, "q" to "monitor_id:${monitor.id}")
-        } else {
-            mapOf()
-        }
-        val httpResponse = client().performRequest("GET", "/$indices/_search", searchParams)
+        val searchParams = if (monitor.id != Monitor.NO_ID) mapOf("routing" to monitor.id) else mapOf()
+        val request = """
+                { "version" : true,
+                  "query" : { "term" : { "${Alert.MONITOR_ID_FIELD}" : "${monitor.id}" } }
+                }
+                """.trimIndent()
+        val httpResponse = client().performRequest("GET", "/$indices/_search", searchParams,
+                StringEntity(request, ContentType.APPLICATION_JSON))
         assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
 
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, httpResponse.entity.content))
@@ -171,9 +174,11 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     }
 
     fun putAlertMappings() {
-        client().performRequest("PUT", "/.aes-alerts")
-        client().performRequest("PUT", "/.aes-alerts/_mapping/_doc", emptyMap(),
-                StringEntity(AlertIndices.alertMapping(), ContentType.APPLICATION_JSON))
+        val mappingHack = AlertIndices.alertMapping().trimStart('{').trimEnd('}')
+        val encodedHistoryIndex = URLEncoder.encode(AlertIndices.HISTORY_INDEX_PATTERN, Charsets.UTF_8.toString())
+        createIndex(AlertIndices.ALERT_INDEX, Settings.EMPTY, mappingHack)
+        createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack)
+        client().performRequest("PUT", "/$encodedHistoryIndex/_alias/${AlertIndices.HISTORY_WRITE_INDEX}")
     }
 
     protected fun Response.restStatus() : RestStatus {
