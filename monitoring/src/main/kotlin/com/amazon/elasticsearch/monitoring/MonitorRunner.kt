@@ -39,6 +39,8 @@ import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.util.concurrent.EsExecutors
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -52,6 +54,7 @@ import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.script.TemplateScript
 import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 
@@ -71,9 +74,22 @@ class MonitorRunner(private val settings: Settings,
             MonitoringSettings.ALERT_BACKOFF_MILLIS.get(settings),
             MonitoringSettings.ALERT_BACKOFF_COUNT.get(settings))
 
+    companion object {
+        private const val THREAD_POOL_NAME = "aes_monitor_runner"
+
+        fun executorBuilder(settings: Settings): ScalingExecutorBuilder {
+            val availableProcessors = EsExecutors.numberOfProcessors(settings)
+            // Use the same setting as ES GENERIC Executor builder.
+            val genericThreadPoolMax = Math.min(512, Math.max(128, 4 * availableProcessors))
+            return ScalingExecutorBuilder(THREAD_POOL_NAME, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30L))
+        }
+    }
+
+    fun executor() = threadPool.executor(THREAD_POOL_NAME)!!
+
     override fun runJob(job: ScheduledJob, periodStart: Instant, periodEnd: Instant) {
         if (job is Monitor) {
-            threadPool.executor(MonitoringPlugin.MONITOR_RUNNER_THREAD_POOL_NAME).submit{ runMonitor(job, periodStart, periodEnd) }
+            executor().submit{ runMonitor(job, periodStart, periodEnd) }
         } else {
             throw IllegalArgumentException("Invalid job type")
         }

@@ -41,8 +41,6 @@ import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
-import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.common.util.concurrent.EsExecutors
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
@@ -58,8 +56,6 @@ import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ExecutorBuilder
-import org.elasticsearch.threadpool.FixedExecutorBuilder
-import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
@@ -80,7 +76,6 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         @JvmField val KIBANA_USER_AGENT = "Kibana"
         @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
         @JvmField val MONITOR_BASE_URI = "/_awses/monitors/"
-        @JvmField val MONITOR_RUNNER_THREAD_POOL_NAME = "aes_monitor_runner"
     }
 
     lateinit var runner: MonitorRunner
@@ -163,11 +158,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         return listOf(TriggerScript.CONTEXT)
     }
 
-    override fun getExecutorBuilders(settings: Settings): MutableList<ExecutorBuilder<*>> {
-        val availableProcessors = EsExecutors.numberOfProcessors(settings)
-        // Use the same setting as ES GENERIC Executor builder.
-        val genericThreadPoolMax = Math.min(512, Math.max(128, 4 * availableProcessors))
-        val monitorRunnerExecutor = ScalingExecutorBuilder(MONITOR_RUNNER_THREAD_POOL_NAME, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30L))
-        return mutableListOf(monitorRunnerExecutor)
+    override fun getExecutorBuilders(settings: Settings): List<ExecutorBuilder<*>> {
+        return listOf(MonitorRunner.executorBuilder(settings))
     }
 }
