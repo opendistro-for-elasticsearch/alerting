@@ -227,14 +227,14 @@ class MonitorRunner(private val settings: Settings,
             // back we're ok if that acknowledgement is lost. It's easier to get the user to retry than for the runner to
             // spend time reloading the alert and writing it back.
             when (alert.state) {
-                Alert.State.ACTIVE, Alert.State.ERROR, Alert.State.DELETED -> {
+                Alert.State.ACTIVE, Alert.State.ERROR -> {
                     listOf<DocWriteRequest<*>>(IndexRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE)
                             .routing(alert.monitorId)
                             .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
                             .id(if (alert.id != Alert.NO_ID) alert.id else null))
                 }
-                Alert.State.ACKNOWLEDGED -> {
-                    throw IllegalStateException("Unexpected attempt to save ACKNOWLEDGED alert $alert")
+                Alert.State.ACKNOWLEDGED, Alert.State.DELETED -> {
+                    throw IllegalStateException("Unexpected attempt to save ${alert.state} alert: $alert")
                 }
                 Alert.State.COMPLETED -> {
                     listOf<DocWriteRequest<*>>(
