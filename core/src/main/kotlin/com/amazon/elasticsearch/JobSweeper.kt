@@ -75,7 +75,7 @@ class JobSweeper(private val settings: Settings,
 
     private var scheduledFullSweep: Scheduler.Cancellable? = null
 
-    @Volatile private var lastFullSweepTimeMillis = threadPool.relativeTimeInMillis()
+    @Volatile private var lastFullSweepTimeNano = System.nanoTime()
 
 
     @Volatile private var sweeperEnabled: Boolean?  = null
@@ -223,10 +223,13 @@ class JobSweeper(private val settings: Settings,
 
         // Setup an anti-entropy/self-healing background sweep, in case a sweep that was triggered by an event fails.
         val scheduledSweep = Runnable {
-            val elapsedTime = TimeValue.timeValueMillis(threadPool.relativeTimeInMillis() - lastFullSweepTimeMillis)
+            val elapsedTime = getFullSweepElapsedTime()
 
             // Rate limit to at most one full sweep per sweep period
-            if (elapsedTime >= sweepPeriod) {
+            // The schedule runs may wake up a few milliseconds early.
+            // Delta will be giving some buffer on the schedule to allow waking up slightly earlier.
+            val delta = sweepPeriod.millis - elapsedTime.millis
+            if (delta < 20L) { // give 20ms buffer.
                 fullSweepExecutor.submit {
                     logger.debug("Performing background sweep of scheduled jobs.")
                     sweepAllShards()
@@ -270,7 +273,7 @@ class JobSweeper(private val settings: Settings,
                 shardLogger.error("Error while sweeping shard $shardId", e)
             }
         }
-        lastFullSweepTimeMillis = threadPool.relativeTimeInMillis()
+        lastFullSweepTimeNano = System.nanoTime()
     }
 
     private fun sweepShard(shardId: ShardId, shardNodes: ShardNodes, startAfter: String = "") {
@@ -348,14 +351,16 @@ class JobSweeper(private val settings: Settings,
                 }
     }
 
+    private fun getFullSweepElapsedTime(): TimeValue {
+        return TimeValue.timeValueNanos(System.nanoTime() - lastFullSweepTimeNano)
+    }
+
     fun getJobSweeperMetrics(): JobSweeperMetrics {
         if(!isSweepingEnabled()) {
             return JobSweeperMetrics(-1, true)
         }
-        val bufferMillis = 5 * 1000
-        val lastFullSweepTimeMillis = threadPool.relativeTimeInMillis() - lastFullSweepTimeMillis
-        return JobSweeperMetrics(lastFullSweepTimeMillis,
-                lastFullSweepTimeMillis <= (sweepPeriod.millis + bufferMillis))
+        val elapsedTime = getFullSweepElapsedTime()
+        return JobSweeperMetrics(elapsedTime.millis, elapsedTime.millis <= sweepPeriod.millis)
     }
 }
 
