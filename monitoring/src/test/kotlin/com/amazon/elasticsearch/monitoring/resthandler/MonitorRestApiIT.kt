@@ -293,8 +293,9 @@ class MonitorRestApiIT : MonitoringRestTestCase() {
         val completedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.COMPLETED))
         val errorAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ERROR))
         val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE))
+        val invalidAlert = randomAlert(monitor).copy(id = "foobar")
 
-        val response = acknowledgeAlerts(monitor, acknowledgedAlert, completedAlert, errorAlert, activeAlert)
+        val response = acknowledgeAlerts(monitor, acknowledgedAlert, completedAlert, errorAlert, activeAlert, invalidAlert)
         val responseMap = response.asMap()
 
         val activeAlertAcknowledged = searchAlerts(monitor).single { it.id == activeAlert.id }
@@ -306,6 +307,7 @@ class MonitorRestApiIT : MonitoringRestTestCase() {
         assertTrue("Alert in state ${acknowledgedAlert.state} not found in failed list", failedResponseList.contains(acknowledgedAlert.id))
         assertTrue("Alert in state ${completedAlert.state} not found in failed list", failedResponseList.contains(errorAlert.id))
         assertTrue("Alert in state ${errorAlert.state} not found in failed list", failedResponseList.contains(completedAlert.id))
+        assertTrue("Invalid alert not found in failed list", failedResponseList.contains(invalidAlert.id))
         assertFalse("Alert in state ${activeAlert.state} found in failed list", failedResponseList.contains(activeAlert.id))
     }
 

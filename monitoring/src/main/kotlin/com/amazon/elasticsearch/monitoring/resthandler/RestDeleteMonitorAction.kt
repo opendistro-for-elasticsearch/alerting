@@ -59,7 +59,7 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
 
         return RestChannelConsumer { channel ->
             if (alertIndices.isInitialized()) {
-                MoveAlertsHandler(client, monitorId, channel).start()
+                MoveAlertsHandler(client, channel, monitorId).start()
             } else {
                 val deleteMonitorRequest =
                         DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
@@ -68,17 +68,17 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
         }
     }
 
-    inner class MoveAlertsHandler(private val client: NodeClient, private val monitorId: String,
-                                  private val channel: RestChannel) {
+    inner class MoveAlertsHandler(client: NodeClient, channel: RestChannel, private val monitorId: String) :
+            AsyncActionHandler(client, channel) {
 
         @Volatile private var failureMessage: String? = null
         @Volatile private var failureStatus : RestStatus? = null
 
-        fun start() = findActiveAlert()
+        fun start() = findActiveAlerts()
 
         // Can't use the reindex API here since it doesn't return the IDs of successfully moved documents. Without IDs
         // we run a small risk of deleting alerts that haven't been moved to history.
-        private fun findActiveAlert() {
+        private fun findActiveAlerts() {
             val activeAlertsQuery = SearchSourceBuilder.searchSource()
                     .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitorId))
                     .version(true)
@@ -107,7 +107,9 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
 
         private fun onCopyResponse(response: BulkResponse) {
             val deleteRequests = response.items.filterNot { it.isFailed }.map {
-                DeleteRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, it.id).routing(monitorId)
+                DeleteRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, it.id)
+                        .routing(monitorId)
+                        .version(it.version)
             }
             if (response.hasFailures()) {
                 failureMessage = response.buildFailureMessage()
@@ -130,10 +132,6 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
 
             val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
             client.delete(deleteRequest, RestStatusToXContentListener(channel))
-        }
-
-        private fun onFailure(e: Exception) {
-            channel.sendResponse(BytesRestResponse(channel, e))
         }
 
         private fun alertContentParser(bytesReference: BytesReference): XContentParser {

@@ -1,20 +1,25 @@
 package com.amazon.elasticsearch.monitoring.resthandler
 
-import com.amazon.elasticsearch.Settings.REQUEST_TIMEOUT
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ACKNOWLEDGED
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ACTIVE
+import com.amazon.elasticsearch.monitoring.model.Alert.State.COMPLETED
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ERROR
 import com.amazon.elasticsearch.monitoring.util.REFRESH
 import com.amazon.elasticsearch.util.ElasticAPI
-import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.action.bulk.BulkRequest
+import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
+import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.index.query.QueryBuilders
@@ -25,12 +30,9 @@ import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
-import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
-import java.time.Instant
 
 /**
  * This class consists of the REST handler to acknowledge alerts.
@@ -51,78 +53,91 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val monitorId = request.param("monitorID")
-        if (monitorId.isNullOrEmpty()) {
-            throw IllegalArgumentException("You must provide a monitor id.")
+        require(!monitorId.isNullOrEmpty()) { "Missing monitor id." }
+        val alertIds = getAlertIds(request.contentParser())
+        require(alertIds.isNotEmpty()) { "You must provide at least one alert id." }
+        val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
+
+        return RestChannelConsumer { channel ->
+            AcknowledgeHandler(client, channel, monitorId, alertIds, refreshPolicy).start()
         }
-        var alertIds = getAlertIds(request.xContentRegistry, request.content())
-        if (alertIds.isEmpty()) {
-            throw IllegalArgumentException("You must provide at least one alert id.")
-        }
-        logger.info("Acknowledging monitor: $monitorId, alerts: $alertIds")
-        var queryBuilder = QueryBuilders.boolQuery()
-                .filter(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitorId))
-                .filter(QueryBuilders.termsQuery("_id", alertIds))
-        var searchRequest = SearchRequest()
-                .indices(AlertIndices.ALL_INDEX_PATTERN)
-                .types(Alert.ALERT_TYPE)
-                .routing(monitorId)
-                .source(SearchSourceBuilder().query(queryBuilder).timeout(REQUEST_TIMEOUT.get(settings)))
-        val refreshPolicy = if (request.hasParam(REFRESH)) {
-            WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
-        } else {
-            WriteRequest.RefreshPolicy.IMMEDIATE
-        }
-        return RestChannelConsumer { channel -> client.search(searchRequest, searchAlertResponse(channel, client, alertIds, refreshPolicy)) }
     }
 
-    /**
-     * Async response to the search request. Return a list of the acknowledged alerts.
-     */
-    private fun searchAlertResponse(channel: RestChannel, client: NodeClient, alertIds: List<String>, refreshPolicy: WriteRequest.RefreshPolicy): RestResponseListener<SearchResponse> {
-        return object: RestResponseListener<SearchResponse>(channel) {
-            @Throws(Exception::class)
-            override fun buildResponse(response: SearchResponse): RestResponse {
-                if (response.isTimedOut) {
-                    return BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString())
+    inner class AcknowledgeHandler(client: NodeClient, channel: RestChannel, private val monitorId: String,
+                                   private val alertIds: List<String>, private val refreshPolicy: WriteRequest.RefreshPolicy?) :
+            AsyncActionHandler(client, channel) {
+
+        val alerts = mutableMapOf<String, Alert>()
+
+        fun start() = findActiveAlerts()
+
+        private fun findActiveAlerts() {
+            val queryBuilder = QueryBuilders.boolQuery()
+                    .filter(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitorId))
+                    .filter(QueryBuilders.termsQuery("_id", alertIds))
+            val searchRequest = SearchRequest()
+                    .indices(AlertIndices.ALERT_INDEX)
+                    .types(Alert.ALERT_TYPE)
+                    .routing(monitorId)
+                    .source(SearchSourceBuilder().query(queryBuilder).version(true))
+
+            client.search(searchRequest, ActionListener.wrap(::onSearchResponse, ::onFailure))
+        }
+
+        private fun onSearchResponse(response: SearchResponse) {
+            val updateRequests = response.hits.flatMap { hit ->
+                val xcp = ElasticAPI.INSTANCE.jsonParser(channel.request().xContentRegistry, hit.sourceRef)
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                val alert = Alert.parse(xcp, hit.id, hit.version)
+                alerts[alert.id] = alert
+                if (alert.state == ACTIVE) {
+                    listOf(UpdateRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, hit.id)
+                            .routing(monitorId)
+                            .version(hit.version)
+                            .doc(XContentFactory.jsonBuilder().startObject()
+                                    .field(Alert.STATE_FIELD, ACKNOWLEDGED.toString())
+                                    .endObject()))
+                } else {
+                    emptyList()
                 }
-                var acknowledgedAlerts = mutableListOf<Alert>()
-                var failedAlerts = mutableListOf<Alert>()
-                for (hit in response.hits) {
-                    var xcp = ElasticAPI.INSTANCE.jsonParser(channel.request().xContentRegistry, hit.sourceRef)
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-                    val alert = Alert.parse(xcp, hit.id, hit.version)
-                    if (alert.state == Alert.State.ACTIVE) {
-                        val acknowledgedAlert = alert.copy(state = Alert.State.ACKNOWLEDGED, acknowledgedTime = Instant.now())
-                        val indexRequest = IndexRequest(AlertIndices.ALERT_INDEX, Alert.ALERT_TYPE, hit.id)
-                                .source(acknowledgedAlert.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
-                                .routing(acknowledgedAlert.monitorId)
-                        indexRequest.refreshPolicy = refreshPolicy
-                        val indexResponse = client.index(indexRequest).actionGet(REQUEST_TIMEOUT.get(settings))
-                        if (indexResponse.status() != RestStatus.OK) {
-                            failedAlerts.add(alert)
-                        } else {
-                            acknowledgedAlerts.add(alert)
-                        }
-                    } else {
-                        failedAlerts.add(alert)
-                    }
-                }
-                var acknowledgedIds = mutableListOf<String>()
-                acknowledgedAlerts.forEach { acknowledgedIds.add(it.id) }
-                var failedIds = mutableListOf<String>()
-                failedAlerts.forEach { failedIds.add(it.id) }
-                var notFound = alertIds.minus(acknowledgedIds).minus(failedIds)
-                return BytesRestResponse(RestStatus.OK, responseBuilder(channel.newBuilder(), acknowledgedAlerts, failedAlerts, notFound))
             }
+
+            logger.info("Acknowledging monitor: $monitorId, alerts: ${updateRequests.map { it.id() }}")
+            val request = BulkRequest().add(updateRequests).setRefreshPolicy(refreshPolicy)
+            client.bulk(request, ActionListener.wrap(::onBulkResponse, ::onFailure))
+        }
+
+        private fun onBulkResponse(response: BulkResponse) {
+            val missing = alertIds.toMutableSet()
+            val acknowledged = mutableListOf<Alert>()
+            val failed = mutableListOf<Alert>()
+            // First handle all alerts that aren't currently ACTIVE. These can't be acknowledged.
+            alerts.values.forEach {
+                if (it.state != ACTIVE) {
+                    missing.remove(it.id)
+                    failed.add(it)
+                }
+            }
+            // Now handle all alerts we tried to acknowledge...
+            response.items.forEach { item ->
+                missing.remove(item.id)
+                if (item.isFailed) {
+                    failed.add(alerts[item.id]!!)
+                } else {
+                    acknowledged.add(alerts[item.id]!!)
+                }
+            }
+
+            channel.sendResponse(BytesRestResponse(RestStatus.OK,
+                    responseBuilder(channel.newBuilder(), acknowledged.toList(), failed.toList(), missing.toList())))
         }
     }
 
     /**
-     * Parse the [contentRef] provided by the request content and return a list of the alert ids
+     * Parse the request content and return a list of the alert ids to acknowledge
      */
-    private fun getAlertIds(registry: NamedXContentRegistry ,contentRef: BytesReference): List<String> {
-        var ids = mutableListOf<String>()
-        var xcp = ElasticAPI.INSTANCE.jsonParser(registry, contentRef)
+    private fun getAlertIds(xcp: XContentParser): List<String> {
+        val ids = mutableListOf<String>()
         ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
             val fieldName = xcp.currentName()
@@ -142,7 +157,8 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
     /**
      * Build the response containing the acknowledged alerts and the failed to acknowledge alerts.
      */
-    private fun responseBuilder(builder: XContentBuilder, acknowledgedAlerts: List<Alert>, failedAlerts: List<Alert>, missing: List<String>): XContentBuilder {
+    private fun responseBuilder(builder: XContentBuilder, acknowledgedAlerts: List<Alert>, failedAlerts: List<Alert>,
+                                missing: List<String>): XContentBuilder {
         builder.startObject().startArray("success")
         acknowledgedAlerts.forEach { builder.value(it.id) }
         builder.endArray().startArray("failed")
@@ -154,12 +170,11 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
     private fun buildFailedAlertAcknowledgeObject(builder: XContentBuilder, failedAlert: Alert) {
         builder.startObject()
                 .startObject(failedAlert.id)
-        var reason = ""
-        when (failedAlert.state) {
-            Alert.State.ERROR -> { reason += "Alert is in an error state and can not be acknowledged." }
-            Alert.State.COMPLETED -> { reason += "Alert has already completed and can not be acknowledged." }
-            Alert.State.ACKNOWLEDGED -> { reason += "Alert has already been acknowledged." }
-            else -> { reason += "Alert state unknown and can not be acknowledged" }
+        val reason = when (failedAlert.state) {
+            ERROR -> "Alert is in an error state and can not be acknowledged."
+            COMPLETED -> "Alert has already completed and can not be acknowledged."
+            ACKNOWLEDGED -> "Alert has already been acknowledged."
+            else -> "Alert state unknown and can not be acknowledged"
         }
         builder.field("failed_reason", reason)
                 .endObject()
@@ -169,7 +184,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
     private fun buildMissingAlertAcknowledgeObject(builder: XContentBuilder, alertID: String) {
         builder.startObject()
                 .startObject(alertID)
-                .field("failed_reason", "Alert does not exist.")
+                .field("failed_reason", "Alert: $alertID does not exist (it may have already completed).")
                 .endObject()
                 .endObject()
     }
