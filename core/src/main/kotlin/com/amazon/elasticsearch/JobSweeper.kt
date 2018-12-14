@@ -73,36 +73,47 @@ class JobSweeper(private val settings: Settings,
 
     private val sweptJobs = ConcurrentHashMap<ShardId, ConcurrentHashMap<JobId, JobVersion>>()
 
-    private val sweepPeriod = SWEEP_PERIOD.get(settings)
-
     private var scheduledFullSweep: Scheduler.Cancellable? = null
 
     @Volatile private var lastFullSweepTimeMillis = threadPool.relativeTimeInMillis()
 
-    private val SWEEP_PAGE_MAX_SIZE = SWEEP_PAGE_SIZE.get(settings)
-    private val SWEEP_SEARCH_TIMEOUT = REQUEST_TIMEOUT.get(settings)
-    private val SWEEP_SEARCH_BACKOFF = BackoffPolicy.exponentialBackoff(
-            SWEEP_BACKOFF_MILLIS.get(settings),
-            SWEEP_BACKOFF_RETRY_COUNT.get(settings))
+
+    @Volatile private var sweeperEnabled: Boolean?  = null
+    @Volatile private var sweepPeriod =  SWEEP_PERIOD.get(settings)
+    @Volatile private var sweepPageMaxSize = SWEEP_PAGE_SIZE.get(settings)
+    @Volatile private var sweepSearchTimeout = REQUEST_TIMEOUT.get(settings)
+    @Volatile private var sweepSearchBackoffMillis = SWEEP_BACKOFF_MILLIS.get(settings)
+    @Volatile private var sweepSearchBackoffRetryCount = SWEEP_BACKOFF_RETRY_COUNT.get(settings)
+    @Volatile private var sweepSearchBackoff = BackoffPolicy.exponentialBackoff(
+            sweepSearchBackoffMillis, sweepSearchBackoffRetryCount)
 
     init {
         clusterService.addListener(this)
         clusterService.addLifecycleListener(this)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_PERIOD) {
+            sweepPeriod = it
+            // if sweep period change, restart background sweep with new sweep period
+            logger.debug("Reinitializing background full sweep with period: ${sweepPeriod.minutes()}")
+            initBackgroundSweep()
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_PAGE_SIZE) {
+            sweepPageMaxSize = it
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) {
+            sweepSearchTimeout = it
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_BACKOFF_MILLIS) {
+            sweepSearchBackoffMillis = it
+            sweepSearchBackoff = BackoffPolicy.exponentialBackoff(it, sweepSearchBackoffRetryCount)
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_BACKOFF_RETRY_COUNT) {
+            sweepSearchBackoffRetryCount = it
+            sweepSearchBackoff = BackoffPolicy.exponentialBackoff(sweepSearchBackoffMillis, it)
+        }
     }
 
     override fun afterStart() {
-        // Setup an anti-entropy/self-healing background sweep, in case a sweep that was triggered by an event fails.
-        val scheduledSweep = Runnable {
-            val elapsedTime = TimeValue.timeValueMillis(threadPool.relativeTimeInMillis() - lastFullSweepTimeMillis)
-            // Rate limit to at most one full sweep per sweep period
-            if (elapsedTime >= sweepPeriod) {
-                fullSweepExecutor.submit {
-                    logger.debug("Performing background sweep of scheduled jobs.")
-                    sweepAllShards()
-                }
-            }
-        }
-        scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, ThreadPool.Names.SAME)
+        initBackgroundSweep()
     }
 
     override fun beforeStop() {
@@ -122,6 +133,9 @@ class JobSweeper(private val settings: Settings,
      * we perform the sweep in the background in a single threaded executor [fullSweepExecutor].
      */
     override fun clusterChanged(event: ClusterChangedEvent) {
+        if (!isSweepingEnabled())
+             return
+
         if (!event.indexRoutingTableChanged(ScheduledJob.SCHEDULED_JOBS_INDEX)) {
             return
         }
@@ -139,6 +153,9 @@ class JobSweeper(private val settings: Settings,
      * of jobs are not scheduled.
      */
     override fun postIndex(shardId: ShardId, index: Engine.Index, result: Engine.IndexResult) {
+        if (!isSweepingEnabled())
+            return
+
         if (ElasticAPI.INSTANCE.hasWriteFailed(result)) {
             val shardJobs = sweptJobs[shardId] ?: emptyMap<JobId, JobVersion>()
             val currentVersion = shardJobs[index.id()] ?: Versions.NOT_FOUND
@@ -161,6 +178,9 @@ class JobSweeper(private val settings: Settings,
      * using optimistic concurrency control to ensure that stale versions of jobs are not scheduled.
      */
     override fun postDelete(shardId: ShardId, delete: Engine.Delete, result: Engine.DeleteResult) {
+        if (!isSweepingEnabled())
+            return
+
         if (ElasticAPI.INSTANCE.hasWriteFailed(result)) {
             val shardJobs = sweptJobs[shardId] ?: emptyMap<JobId, JobVersion>()
             val currentVersion = shardJobs[delete.id()] ?: Versions.NOT_FOUND
@@ -172,6 +192,48 @@ class JobSweeper(private val settings: Settings,
         if (scheduler.scheduledJobs().contains(delete.id())) {
             sweep(shardId, delete.id(), result.version, null)
         }
+    }
+
+    fun enable() {
+        // initialize background sweep
+        initBackgroundSweep()
+        // set sweeperEnabled flag to true to make the listeners aware of this setting
+        sweeperEnabled = true
+    }
+
+    fun disable() {
+        // cancel background sweep
+        scheduledFullSweep?.cancel()
+        // deschedule existing jobs on this node
+        logger.info("Descheduling all jobs as sweeping is disabled")
+        scheduler.deschedule(scheduler.scheduledJobs())
+        // set sweeperEnabled flag to false to make the listeners aware of this setting
+        sweeperEnabled = false
+    }
+
+    private fun isSweepingEnabled(): Boolean {
+        // Although it is a single link check, keeping it as a separate function, so we
+        // can abstract out logic of finding out whether to proceed or not
+        return sweeperEnabled == true
+    }
+
+    private fun initBackgroundSweep() {
+        // cancel existing background thread if present
+        scheduledFullSweep?.cancel()
+
+        // Setup an anti-entropy/self-healing background sweep, in case a sweep that was triggered by an event fails.
+        val scheduledSweep = Runnable {
+            val elapsedTime = TimeValue.timeValueMillis(threadPool.relativeTimeInMillis() - lastFullSweepTimeMillis)
+
+            // Rate limit to at most one full sweep per sweep period
+            if (elapsedTime >= sweepPeriod) {
+                fullSweepExecutor.submit {
+                    logger.debug("Performing background sweep of scheduled jobs.")
+                    sweepAllShards()
+                }
+            }
+        }
+        scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, ThreadPool.Names.SAME)
     }
 
     private fun sweepAllShards() {
@@ -234,12 +296,11 @@ class JobSweeper(private val settings: Settings,
                             //TODO: Remove this after AESAlerting-85
                             .sort(FieldSortBuilder("_id").unmappedType("keyword").missing("_last"))
                             .searchAfter(arrayOf(searchAfter))
-                            .size(SWEEP_PAGE_MAX_SIZE)
+                            .size(sweepPageMaxSize)
                             .query(QueryBuilders.matchAllQuery()))
 
-
-            val response = SWEEP_SEARCH_BACKOFF.retry {
-                client.search(jobSearchRequest).actionGet(SWEEP_SEARCH_TIMEOUT)
+            val response = sweepSearchBackoff.retry {
+                client.search(jobSearchRequest).actionGet(sweepSearchTimeout)
             }
             if (response.status() != RestStatus.OK) {
                 logger.error("Error sweeping shard $shardId.", response.firstFailureOrNull())
@@ -288,6 +349,9 @@ class JobSweeper(private val settings: Settings,
     }
 
     fun getJobSweeperMetrics(): JobSweeperMetrics {
+        if(!isSweepingEnabled()) {
+            return JobSweeperMetrics(-1, true)
+        }
         val bufferMillis = 5 * 1000
         val lastFullSweepTimeMillis = threadPool.relativeTimeInMillis() - lastFullSweepTimeMillis
         return JobSweeperMetrics(lastFullSweepTimeMillis,

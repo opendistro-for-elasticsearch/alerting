@@ -125,6 +125,9 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices)
         scheduler = JobScheduler(threadPool, runner)
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(MonitoringSettings.MONITORING_ENABLED) { enabled ->
+            if(!enabled) sweeper.disable() else sweeper.enable()
+        }
         scheduledJobIndices = ScheduledJobIndices(client.admin(), settings, clusterService)
         this.threadPool = threadPool
         return listOf(sweeper, scheduler, runner)
