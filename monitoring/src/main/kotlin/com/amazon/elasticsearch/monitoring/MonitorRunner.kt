@@ -13,6 +13,11 @@ import com.amazon.elasticsearch.monitoring.alerts.AlertError
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.ActionRunResult
 import com.amazon.elasticsearch.monitoring.model.Alert
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ACKNOWLEDGED
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ACTIVE
+import com.amazon.elasticsearch.monitoring.model.Alert.State.COMPLETED
+import com.amazon.elasticsearch.monitoring.model.Alert.State.DELETED
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ERROR
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.MonitorRunResult
 import com.amazon.elasticsearch.monitoring.model.TestAction
@@ -129,8 +134,7 @@ class MonitorRunner(private val settings: Settings,
             val triggerResult = runTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
-            // TODO: Add time based rate limiting
-            if (triggerResult.triggered && currentAlert?.state != Alert.State.ACKNOWLEDGED) {
+            if (isTriggerActionable(triggerCtx, triggerResult)) {
                 val actionCtx = triggerCtx.copy(error = monitorResult.error ?: triggerResult.error)
                 for (action in trigger.actions) {
                     triggerResult.actionResults[action.name] = runAction(action, actionCtx, dryrun)
@@ -151,11 +155,16 @@ class MonitorRunner(private val settings: Settings,
 
     private fun currentTime() = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
 
-    private fun composeAlert(monitor: Monitor, trigger: Trigger, alert: Alert?, triggered: Boolean, errorMessage: String?): Alert? {
+    private fun composeAlert(monitor: Monitor, trigger: Trigger, alert: Alert?, triggered: Boolean,
+                             errorMessage: String?): Alert? {
         val currentTime = currentTime()
-        if (!triggered) return alert?.copy(state = Alert.State.COMPLETED, endTime = currentTime, errorMessage = null)
-        if (alert?.isAcknowledged() == true) return null
-        val alertState = if (errorMessage == null) Alert.State.ACTIVE else Alert.State.ERROR
+        if (errorMessage == null && !triggered) {
+            return alert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null)
+        } else if (errorMessage == null && alert?.isAcknowledged() == true) {
+            return null
+        }
+
+        val alertState = if (errorMessage == null) ACTIVE else ERROR
         val errorHistory = alert?.errorHistory?.toMutableList() ?: mutableListOf()
         errorMessage?.let { errorHistory.add(0, AlertError(currentTime, errorMessage)) }
         return alert?.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = errorMessage, errorHistory = errorHistory.take(10))
@@ -190,15 +199,15 @@ class MonitorRunner(private val settings: Settings,
     }
 
     private fun runTrigger(monitor: Monitor, trigger: Trigger, ctx: TriggerExecutionContext) : TriggerRunResult {
-        try {
+        return try {
             val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
                     .newInstance(trigger.condition.params)
                     .execute(ctx)
-            return TriggerRunResult(trigger.name, triggered, null)
+            TriggerRunResult(trigger.name, triggered, null)
         } catch (e: Exception) {
             logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
             // if the script fails we need to send an alert so set triggered = true
-            return TriggerRunResult(trigger.name, true, e)
+            TriggerRunResult(trigger.name, true, e)
         }
     }
 
@@ -243,16 +252,16 @@ class MonitorRunner(private val settings: Settings,
             // back we're ok if that acknowledgement is lost. It's easier to get the user to retry than for the runner to
             // spend time reloading the alert and writing it back.
             when (alert.state) {
-                Alert.State.ACTIVE, Alert.State.ERROR -> {
+                ACTIVE, ERROR -> {
                     listOf<DocWriteRequest<*>>(IndexRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE)
                             .routing(alert.monitorId)
                             .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
                             .id(if (alert.id != Alert.NO_ID) alert.id else null))
                 }
-                Alert.State.ACKNOWLEDGED, Alert.State.DELETED -> {
+                ACKNOWLEDGED, DELETED -> {
                     throw IllegalStateException("Unexpected attempt to save ${alert.state} alert: $alert")
                 }
-                Alert.State.COMPLETED -> {
+                COMPLETED -> {
                     listOf<DocWriteRequest<*>>(
                             DeleteRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, alert.id)
                                     .routing(alert.monitorId),
@@ -290,6 +299,12 @@ class MonitorRunner(private val settings: Settings,
         for (it in failedResponses) {
             logger.error("Failed to write alert: ${it.id}", it.failure.cause)
         }
+    }
+
+    private fun isTriggerActionable(ctx: TriggerExecutionContext, result: TriggerRunResult) : Boolean {
+        // Suppress actions if the current alert is acknowledged and there are no errors.
+        val suppress = ctx.alert?.state == ACKNOWLEDGED && result.error == null && ctx.error == null
+        return result.triggered && !suppress
     }
 
     private fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean) : ActionRunResult {

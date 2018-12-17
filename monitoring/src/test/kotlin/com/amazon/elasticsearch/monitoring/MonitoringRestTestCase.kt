@@ -147,6 +147,12 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         return response
     }
 
+    protected fun deleteIndex(index: String) : Response {
+        val response = adminClient().performRequest("DELETE", "/$index")
+        assertEquals("Unable to delete index", RestStatus.OK, response.restStatus())
+        return response
+    }
+
     protected fun executeMonitor(monitorId: String, params: Map<String, String> = mapOf()) : Response =
             client().performRequest("POST", "/_awses/monitors/$monitorId/_execute", params)
 

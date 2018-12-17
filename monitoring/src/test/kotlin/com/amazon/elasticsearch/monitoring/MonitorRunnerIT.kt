@@ -6,8 +6,14 @@ package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.alerts.AlertError
+import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ACKNOWLEDGED
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ACTIVE
+import com.amazon.elasticsearch.monitoring.model.Alert.State.COMPLETED
+import com.amazon.elasticsearch.monitoring.model.Alert.State.ERROR
 import com.amazon.elasticsearch.monitoring.model.Monitor
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
@@ -54,6 +60,102 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
 
         val alerts = searchAlerts(monitor)
         assertEquals("Alert saved for test monitor", 0, alerts.size)
+    }
+
+    fun `test active alert is updated on each run`() {
+        val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+
+        executeMonitor(monitor.id)
+        val firstRunAlert = searchAlerts(monitor).single()
+        verifyAlert(firstRunAlert, monitor)
+        // Runner uses ThreadPool.CachedTimeThread thread which only updates once every 200 ms. Wait a bit to
+        // see lastNotificationTime change.
+        Thread.sleep(200)
+        executeMonitor(monitor.id)
+        val secondRunAlert = searchAlerts(monitor).single()
+        verifyAlert(secondRunAlert, monitor)
+
+        assertEquals("New alert was created, instead of updating existing alert.", firstRunAlert.id, secondRunAlert.id)
+        assertEquals("Start time shouldn't change", firstRunAlert.startTime, secondRunAlert.startTime)
+        assertNotEquals("Last notification should be different.",
+                firstRunAlert.lastNotificationTime, secondRunAlert.lastNotificationTime)
+    }
+
+    fun `test execute monitor input error`() {
+        // use a non-existent index to trigger an input error
+        val input = SearchInput(indices = listOf("foo"), query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input),
+                triggers = listOf(randomTrigger(condition = NEVER_RUN))))
+
+        val response = executeMonitor(monitor.id)
+
+        val output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        assertTrue("Missing monitor error message", (output["error"] as String).isNotEmpty())
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, ERROR)
+    }
+
+    fun `test acknowledged alert does not suppress subsequent errors`() {
+        createIndex("foo", Settings.EMPTY)
+        val input = SearchInput(indices = listOf("foo"), query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input),
+                triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+
+        var response = executeMonitor(monitor.id)
+
+        var output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        assertTrue("Unexpected monitor error message", (output["error"] as String?).isNullOrEmpty())
+        val activeAlert = searchAlerts(monitor).single()
+        verifyAlert(activeAlert, monitor)
+
+        // Now acknowledge the alert and delete the index to cause the next run of the monitor to fail...
+        acknowledgeAlerts(monitor, activeAlert)
+        deleteIndex("foo")
+        response = executeMonitor(monitor.id)
+
+        output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        val errorAlert = searchAlerts(monitor).single { it.state == ERROR }
+        verifyAlert(errorAlert, monitor, ERROR)
+    }
+
+    fun `test acknowledged alert is not updated unnecessarily`() {
+        val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+        executeMonitor(monitor.id)
+        acknowledgeAlerts(monitor, searchAlerts(monitor).single())
+        val acknowledgedAlert = searchAlerts(monitor).single()
+        verifyAlert(acknowledgedAlert, monitor, ACKNOWLEDGED)
+
+        // Runner uses ThreadPool.CachedTimeThread thread which only updates once every 200 ms. Wait a bit to
+        // let lastNotificationTime change.  W/o this sleep the test can result in a false negative.
+        Thread.sleep(200)
+        val response = executeMonitor(monitor.id)
+
+        val output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        val currentAlert = searchAlerts(monitor).single()
+        assertEquals("Acknowledged alert was updated when nothing changed", currentAlert, acknowledgedAlert)
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            assertTrue("Action run when alert is acknowledged.", triggerResult.objectMap("action_results").isEmpty())
+        }
+    }
+
+    fun `test alert completion`() {
+        val trigger = randomTrigger(condition = Script("_ctx.alert == null"))
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
+
+        executeMonitor(monitor.id)
+        val activeAlert = searchAlerts(monitor).single()
+        verifyAlert(activeAlert, monitor)
+
+        executeMonitor(monitor.id)
+        assertTrue("There's still an active alert", searchAlerts(monitor, AlertIndices.ALERT_INDEX).isEmpty())
+        val completedAlert = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN).single()
+        verifyAlert(completedAlert, monitor, COMPLETED)
     }
 
     fun `test execute monitor script error`() {
@@ -175,7 +277,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
 
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
-        verifyAlert(alerts.single(), monitor, Alert.State.ERROR)
+        verifyAlert(alerts.single(), monitor, ERROR)
     }
 
     fun `test execute monitor adds to alert error history`() {
@@ -185,7 +287,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
         val listOfFiveErrorMessages = (1..5).map { i -> AlertError(timestamp = Instant.now(), message = "error message $i") }
-        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfFiveErrorMessages,
+        val activeAlert = createAlert(randomAlert(monitor).copy(state = ACTIVE, errorHistory = listOfFiveErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
         val response = executeMonitor(monitor.id)
@@ -209,7 +311,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
         val listOfTenErrorMessages = (1..10).map { i -> AlertError(timestamp = Instant.now(),message = "error message $i") }
-        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, errorHistory = listOfTenErrorMessages,
+        val activeAlert = createAlert(randomAlert(monitor).copy(state = ACTIVE, errorHistory = listOfTenErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
 
         val response = executeMonitor(monitor.id)
@@ -236,7 +338,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
 
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
-        verifyAlert(alerts.single(), monitor, Alert.State.ACTIVE)
+        verifyAlert(alerts.single(), monitor, ACTIVE)
     }
 
     fun `test execute monitor with bad search`() {
@@ -259,7 +361,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         assertEquals("failed dryrun", RestStatus.OK, response.restStatus())
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
-        verifyAlert(alerts.single(), monitor, Alert.State.ACTIVE)
+        verifyAlert(alerts.single(), monitor, ACTIVE)
     }
 
     fun `test execute monitor with already active alert`() {
@@ -270,32 +372,37 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         assertEquals("failed dryrun", RestStatus.OK, firstExecuteResponse.restStatus())
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
-        verifyAlert(alerts.single(), monitor, Alert.State.ACTIVE)
+        verifyAlert(alerts.single(), monitor, ACTIVE)
 
         val secondExecuteReponse = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
 
         assertEquals("failed dryrun", RestStatus.OK, firstExecuteResponse.restStatus())
         val newAlerts = searchAlerts(monitor)
         assertEquals("Second alert not saved", 1, newAlerts.size)
-        verifyAlert(newAlerts.single(), monitor, Alert.State.ACTIVE)
+        verifyAlert(newAlerts.single(), monitor, ACTIVE)
     }
 
-    private fun verifyAlert(alert: Alert, monitor: Monitor, expectedState: Alert.State = Alert.State.ACTIVE) {
+    private fun verifyAlert(alert: Alert, monitor: Monitor, expectedState: Alert.State = ACTIVE) {
         assertNotNull(alert.id)
         assertNotNull(alert.startTime)
         assertNotNull(alert.lastNotificationTime)
         assertEquals("Alert in wrong state", expectedState, alert.state)
-        if (expectedState == Alert.State.ERROR) {
+        if (expectedState == ERROR) {
             assertNotNull("Missing error message", alert.errorMessage)
         } else {
             assertNull("Unexpected error message", alert.errorMessage)
+        }
+        if (expectedState == COMPLETED) {
+            assertNotNull("End time missing for completed alert.", alert.endTime)
+        } else {
+            assertNull("End time set for active alert", alert.endTime)
         }
         assertEquals(monitor.id, alert.monitorId)
         assertEquals(monitor.name, alert.monitorName)
         assertEquals(monitor.version, alert.monitorVersion)
 
         // assert trigger exists for alert
-        val trigger = monitor.triggers.filter { it.id == alert.triggerId }.single()
+        val trigger = monitor.triggers.single { it.id == alert.triggerId }
         assertEquals(trigger.name, alert.triggerName)
     }
 
