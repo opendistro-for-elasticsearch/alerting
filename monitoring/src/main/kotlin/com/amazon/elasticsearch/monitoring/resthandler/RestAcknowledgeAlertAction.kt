@@ -8,6 +8,7 @@ import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
@@ -66,14 +67,18 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                 .types(Alert.ALERT_TYPE)
                 .routing(monitorId)
                 .source(SearchSourceBuilder().query(queryBuilder).timeout(REQUEST_TIMEOUT.get(settings)))
-        val refreshPolicy = if (request.hasParam(REFRESH)) request.param(REFRESH) else null
+        val refreshPolicy = if (request.hasParam(REFRESH)) {
+            WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
+        } else {
+            WriteRequest.RefreshPolicy.IMMEDIATE
+        }
         return RestChannelConsumer { channel -> client.search(searchRequest, searchAlertResponse(channel, client, alertIds, refreshPolicy)) }
     }
 
     /**
      * Async response to the search request. Return a list of the acknowledged alerts.
      */
-    private fun searchAlertResponse(channel: RestChannel, client: NodeClient, alertIds: List<String>, refreshPolicy: String? = null): RestResponseListener<SearchResponse> {
+    private fun searchAlertResponse(channel: RestChannel, client: NodeClient, alertIds: List<String>, refreshPolicy: WriteRequest.RefreshPolicy): RestResponseListener<SearchResponse> {
         return object: RestResponseListener<SearchResponse>(channel) {
             @Throws(Exception::class)
             override fun buildResponse(response: SearchResponse): RestResponse {
@@ -91,7 +96,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                         val indexRequest = IndexRequest(AlertIndices.ALERT_INDEX, Alert.ALERT_TYPE, hit.id)
                                 .source(acknowledgedAlert.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
                                 .routing(acknowledgedAlert.monitorId)
-                        refreshPolicy?.let { indexRequest.setRefreshPolicy(it) }
+                        indexRequest.refreshPolicy = refreshPolicy
                         val indexResponse = client.index(indexRequest).actionGet(REQUEST_TIMEOUT.get(settings))
                         if (indexResponse.status() != RestStatus.OK) {
                             failedAlerts.add(alert)

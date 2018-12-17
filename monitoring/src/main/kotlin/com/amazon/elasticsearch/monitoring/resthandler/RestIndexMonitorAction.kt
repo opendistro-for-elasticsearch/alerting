@@ -35,6 +35,7 @@ import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.elasticsearch.monitoring.util.REFRESH
 import com.amazon.elasticsearch.monitoring.util._ID
 import com.amazon.elasticsearch.monitoring.util._VERSION
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.rest.RestRequest.Method.POST
@@ -74,8 +75,10 @@ class RestIndexMonitorAction(settings: Settings, controller: RestController, job
         if (request.method() == PUT) {
             indexRequest.id(id).version(RestActions.parseVersion(request))
         }
-        if (request.hasParam(REFRESH)){
-            indexRequest.setRefreshPolicy(request.param(REFRESH))
+        indexRequest.refreshPolicy = if (request.hasParam(REFRESH)) {
+            WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
+        } else {
+            WriteRequest.RefreshPolicy.IMMEDIATE
         }
         indexRequest.source(monitor.toXContentWithType(builder))
         return RestChannelConsumer { channel ->
