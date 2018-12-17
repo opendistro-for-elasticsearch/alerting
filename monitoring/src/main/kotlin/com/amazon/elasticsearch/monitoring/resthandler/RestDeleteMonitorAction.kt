@@ -56,9 +56,6 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val monitorId = request.param("monitorID")
-        if (monitorId.isNullOrEmpty()) {
-            throw IllegalArgumentException("missing monitor id to delete")
-        }
 
         return RestChannelConsumer { channel ->
             if (alertIndices.isInitialized()) {

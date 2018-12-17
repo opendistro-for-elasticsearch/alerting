@@ -9,6 +9,7 @@ import org.elasticsearch.common.util.concurrent.EsExecutors
 import org.elasticsearch.threadpool.ExecutorBuilder
 import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
+import org.junit.Before
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -19,17 +20,20 @@ import kotlin.test.assertTrue
 
 class JobSchedulerTest {
 
-    val testSettings = Settings.builder()
-            .put("node.name", "node-0")
-            .build()
+    private var testSettings: Settings = Settings.builder().put("node.name", "node-0").build()
+    private val testThreadPool = ThreadPool(testSettings)
+    private var jobRunner: MockJobRunner = MockJobRunner()
+    private var jobScheduler: JobScheduler = JobScheduler(ThreadPool(testSettings), jobRunner)
 
-    val testThreadPool = ThreadPool(testSettings)
+    @Before
+    fun `setup`() {
+        jobRunner = MockJobRunner()
+        jobScheduler = JobScheduler(ThreadPool(testSettings), jobRunner)
+    }
 
     @Test
     fun `schedule and deschedule`() {
-        val jobRunner = MockJobRunner()
-        val jobScheduler = JobScheduler(testThreadPool, jobRunner)
-        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, IntervalSchedule(1, ChronoUnit.MINUTES, Instant.now()), Instant.now(), Instant.now())
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, IntervalSchedule(1, ChronoUnit.MINUTES), Instant.now(), Instant.now())
 
         assertTrue(jobScheduler.schedule(mockScheduledJob))
 
@@ -66,7 +70,7 @@ class JobSchedulerTest {
     }
 
     @Test
-    fun `deschedule none existing schedule`() {
+    fun `deschedule non existing schedule`() {
         val cronExpression = "0/5 * * * *"
         val jobRunner = MockJobRunner()
         val jobScheduler = JobScheduler(testThreadPool, jobRunner)
@@ -80,5 +84,23 @@ class JobSchedulerTest {
         assertTrue(jobScheduler.deschedule("mockScheduledJob-invalid"), "Descheduling should be true.")
         assertTrue(jobScheduler.deschedule("mockScheduledJob-id"), "Descheduling should be true.")
     }
+
+    @Test
+    fun `schedule multiple jobs`() {
+        val cronExpression = "0/5 * * * *"
+        val mockScheduledJob1 = MockScheduledJob("mockScheduledJob-1", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now(), Instant.now())
+        val mockScheduledJob2 = MockScheduledJob("mockScheduledJob-2", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now(), Instant.now())
+
+        assertTrue(jobScheduler.schedule(mockScheduledJob1, mockScheduledJob2).isEmpty())
+    }
+
+    @Test
+    fun `run Job`() {
+        val cronExpression = "0/5 * * * *"
+        val mockScheduledJob = MockScheduledJob("mockScheduledJob-id", 1L, "mockScheduledJob-name", "MockScheduledJob", true, CronSchedule(cronExpression, ZoneId.of("UTC")), Instant.now(), Instant.now())
+
+        jobRunner.runJob(mockScheduledJob, Instant.now(), Instant.now())
+    }
+
 }
 

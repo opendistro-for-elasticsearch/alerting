@@ -9,6 +9,7 @@ import com.amazon.elasticsearch.monitoring.alerts.AlertError
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
@@ -236,6 +237,47 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
         verifyAlert(alerts.single(), monitor, Alert.State.ACTIVE)
+    }
+
+    fun `test execute monitor with bad search`() {
+        val query = QueryBuilders.matchAllQuery()
+        val input = SearchInput(indices = listOf("_#*IllegalIndexCharacters"), query = SearchSourceBuilder().query(query))
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+
+        val response = executeMonitor(monitor.id)
+
+        val output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        assertTrue("Missing error message from a bad query", (output["error"] as String).isNotEmpty())
+    }
+
+    fun `test execute monitor non-dryrun`() {
+        val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = listOf(randomAction())))))
+
+        val response = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
+
+        assertEquals("failed dryrun", RestStatus.OK, response.restStatus())
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, Alert.State.ACTIVE)
+    }
+
+    fun `test execute monitor with already active alert`() {
+        val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = listOf(randomAction())))))
+
+        val firstExecuteResponse = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
+
+        assertEquals("failed dryrun", RestStatus.OK, firstExecuteResponse.restStatus())
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, Alert.State.ACTIVE)
+
+        val secondExecuteReponse = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
+
+        assertEquals("failed dryrun", RestStatus.OK, firstExecuteResponse.restStatus())
+        val newAlerts = searchAlerts(monitor)
+        assertEquals("Second alert not saved", 1, newAlerts.size)
+        verifyAlert(newAlerts.single(), monitor, Alert.State.ACTIVE)
     }
 
     private fun verifyAlert(alert: Alert, monitor: Monitor, expectedState: Alert.State = Alert.State.ACTIVE) {

@@ -144,9 +144,9 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
     }
 
     fun asTemplateArg(): Map<String, Any?> {
-        return mapOf("state" to state.toString(),
-                "errorMessage" to errorMessage,
-                "acknowledgedTime" to acknowledgedTime?.toEpochMilli(),
-                "lastNotificationTime" to lastNotificationTime?.toEpochMilli())
+        return mapOf(STATE_FIELD to state.toString(),
+                ERROR_MESSAGE_FIELD to errorMessage,
+                ACKNOWLEDGED_TIME_FIELD to acknowledgedTime?.toEpochMilli(),
+                LAST_NOTIFICATION_TIME_FIELD to lastNotificationTime?.toEpochMilli())
     }
 }

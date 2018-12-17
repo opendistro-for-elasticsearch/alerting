@@ -19,6 +19,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -215,5 +216,21 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         } else {
             super.restClientSettings()
         }
+    }
+
+    fun RestClient.getClusterSettings(settings: Map<String, String>) : Map<String, Any> {
+        val response =  this.performRequest("GET", "_cluster/settings", settings)
+        assertEquals(RestStatus.OK, response.restStatus())
+        return response.asMap();
+    }
+
+    fun Map<String, Any>.aesSettings(): Map<String, Any>? {
+        val map = this as Map<String, Map<String, Map<String, Map<String, Any>>>>
+        return map["defaults"]?.get("aes")?.get("monitoring")
+    }
+
+    fun Map<String, Any>.stringMap(key: String): Map<String, Any>? {
+        val map = this as Map<String, Map<String, Any>>
+        return map[key]
     }
 }

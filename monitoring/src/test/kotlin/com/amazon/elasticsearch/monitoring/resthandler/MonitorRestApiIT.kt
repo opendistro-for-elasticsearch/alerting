@@ -13,14 +13,18 @@ import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor
+import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.util.ElasticAPI
+import com.amazon.elasticsearch.util.string
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
+import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -342,5 +346,78 @@ class MonitorRestApiIT : MonitoringRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals(RestStatus.CONFLICT, e.response.restStatus())
         }
+    }
+
+    fun `test disable monitoring`() {
+        val aesSettings = client().getClusterSettings(mapOf("include_defaults" to "true")).aesSettings()
+        assertEquals("Monitoring not enabled", "true", aesSettings?.get("enabled"))
+
+        val updateResponse = client().performRequest("POST", "_awses/monitors/settings",
+                emptyMap(),
+                StringEntity(jsonBuilder().startObject().field(MonitoringSettings.MONITORING_ENABLED.key, false).endObject().string(), ContentType.APPLICATION_JSON))
+        val responseMap = updateResponse.asMap().stringMap("persistent")?.stringMap("aes")?.stringMap("monitoring")
+        assertEquals("Setting was not updated in response call.", "false", responseMap?.get("enabled"))
+
+        val newSettings = client().getClusterSettings(mapOf("include_defaults" to "true")).stringMap("persistent")?.stringMap("aes")?.stringMap("monitoring")
+        assertEquals("Setting was not updated.", "false", newSettings?.get("enabled"))
+    }
+
+    @Throws(Exception::class)
+    fun `test disable monitoring with non boolean`() {
+        val currentSettings = client().getClusterSettings(mapOf("include_defaults" to "true")).aesSettings()
+        assertEquals("Monitoring not enabled", "true", currentSettings?.get("enabled"))
+
+        try {
+            val updateResponse = client().performRequest("POST", "_awses/monitors/settings",
+                    emptyMap(),
+                    StringEntity(jsonBuilder().startObject().field(MonitoringSettings.MONITORING_ENABLED.key, "foobarbaz").endObject().string(), ContentType.APPLICATION_JSON))
+            fail("Settings request should have failed.")
+        } catch (e: ResponseException) {
+            assertEquals("Failed", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test disable monitoring with wrong key`() {
+        val currentSettings = client().getClusterSettings(mapOf("include_defaults" to "true")).aesSettings()
+        assertEquals("Monitoring not enabled", "true", currentSettings?.get("enabled"))
+
+        try {
+            val updateResponse = client().performRequest("POST", "_awses/monitors/settings",
+                    emptyMap(),
+                    StringEntity(jsonBuilder().startObject().field("foo.bar", "baz").endObject().string(), ContentType.APPLICATION_JSON))
+            fail("Settings request should have failed.")
+        } catch (e: ResponseException) {
+            assertEquals("Failed", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    fun `test monitor stats no jobs`() {
+        val monitorStatsResponse = client().performRequest("GET", "/_awses/_monitors/stats")
+        var responseMap = createParser(XContentType.JSON.xContent(), monitorStatsResponse.entity.content).map()
+        assertEquals("Cluster name is incorrect", responseMap["cluster_name"], "monitoring_integTestCluster")
+        assertEquals("Scheduled job index exists but there are no scheduled jobs.",false, responseMap["scheduled_job_index_exists"])
+        val _nodes = responseMap["_nodes"] as Map<String, Int>
+        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
+        assertEquals("More than one successful node", 1, _nodes["successful"])
+    }
+
+    fun `test monitor stats jobs`() {
+        val monitor = createRandomMonitor(refresh = true)
+
+        val monitorStatsResponse = client().performRequest("GET", "/_awses/_monitors/stats")
+        var responseMap = createParser(XContentType.JSON.xContent(), monitorStatsResponse.entity.content).map()
+        assertEquals("Cluster name is incorrect", responseMap["cluster_name"], "monitoring_integTestCluster")
+        assertEquals("Scheduled job index does not exist", true, responseMap["scheduled_job_index_exists"])
+        assertEquals("Scheduled job index is not yellow", responseMap["scheduled_job_index_status"], "yellow")
+        assertEquals("Node is not on schedule", responseMap["nodes_on_schedule"], 1)
+
+        val _nodes = responseMap["_nodes"] as Map<String, Int>
+        assertEquals("Incorrect number of nodes", _nodes["total"], 1)
+        assertEquals("Failed nodes found during monitor stats call", _nodes["failed"], 0)
+        assertEquals("More than one successful node", _nodes["successful"], 1)
+
+        val nodes = responseMap["nodes"] as Map<String, Map<String, Any>>
     }
 }
