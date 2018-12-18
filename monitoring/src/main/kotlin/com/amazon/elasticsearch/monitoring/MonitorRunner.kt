@@ -141,8 +141,7 @@ class MonitorRunner(private val settings: Settings,
                 }
             }
 
-            val updatedAlert = composeAlert(monitor, trigger, currentAlert, triggerResult.triggered,
-                    monitorResult.alertError() ?: triggerResult.alertError())
+            val updatedAlert = composeAlert(triggerCtx, triggerResult, monitorResult.alertError() ?: triggerResult.alertError())
             if (updatedAlert != null) updatedAlerts += updatedAlert
         }
 
@@ -155,20 +154,26 @@ class MonitorRunner(private val settings: Settings,
 
     private fun currentTime() = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
 
-    private fun composeAlert(monitor: Monitor, trigger: Trigger, alert: Alert?, triggered: Boolean,
-                             errorMessage: String?): Alert? {
+    private fun composeAlert(ctx: TriggerExecutionContext, result: TriggerRunResult, alertError: AlertError?): Alert? {
         val currentTime = currentTime()
-        if (errorMessage == null && !triggered) {
-            return alert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null)
-        } else if (errorMessage == null && alert?.isAcknowledged() == true) {
-            return null
+        val currentAlert = ctx.alert
+        // Merge the alert's error message to the current alert's history
+        val updatedHistory = currentAlert?.errorHistory.update(alertError)
+        return if (alertError == null && !result.triggered) {
+            currentAlert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null,
+                    errorHistory = updatedHistory)
+        } else if (alertError == null && currentAlert?.isAcknowledged() == true) {
+            null
+        } else if (currentAlert != null) {
+            val alertState = if (alertError == null) ACTIVE else ERROR
+            currentAlert.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = alertError?.message,
+                    errorHistory = updatedHistory)
+        } else {
+            val alertState = if (alertError == null) ACTIVE else ERROR
+            Alert(monitor = ctx.monitor, trigger = ctx.trigger, startTime = currentTime,
+                    lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
+                    errorHistory = updatedHistory)
         }
-
-        val alertState = if (errorMessage == null) ACTIVE else ERROR
-        val errorHistory = alert?.errorHistory?.toMutableList() ?: mutableListOf()
-        errorMessage?.let { errorHistory.add(0, AlertError(currentTime, errorMessage)) }
-        return alert?.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = errorMessage, errorHistory = errorHistory.take(10))
-                ?: Alert(monitor, trigger, currentTime, currentTime, alertState, errorMessage, errorHistory)
     }
 
     private fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): List<Map<String, Any>> {
@@ -348,5 +353,15 @@ class MonitorRunner(private val settings: Settings,
                 .newInstance(messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
                 .execute()
         return actionOutput.toMap()
+    }
+
+    private fun List<AlertError>?.update(alertError: AlertError?) : List<AlertError> {
+        return when {
+            this == null && alertError == null -> emptyList()
+            this != null && alertError == null -> this
+            this == null && alertError != null -> listOf(alertError)
+            this != null && alertError != null -> (listOf(alertError) + this).take(10)
+            else -> throw IllegalStateException("Unreachable code reached!")
+        }
     }
 }

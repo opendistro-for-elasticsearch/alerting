@@ -301,7 +301,31 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
                 assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
             }
         }
-        assertEquals("Wrong number of error messages in history",6, updatedAlert.errorHistory.size)
+        assertEquals("Wrong number of error messages in history", 6, updatedAlert.errorHistory.size)
+    }
+
+    fun `test latest error is not lost when alert is completed`() {
+        // Creates an active alert the first time it's run and completes it the second time the monitor is run.
+        val trigger = randomTrigger(condition = Script("""
+            if (_ctx.alert == null) {
+                throw new RuntimeException("foo");
+            } else {
+                return false;
+            }
+        """.trimIndent()))
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
+
+        executeMonitor(monitor.id)
+        val errorAlert = searchAlerts(monitor).single()
+        verifyAlert(errorAlert, monitor, ERROR)
+        executeMonitor(monitor.id)
+        val completedAlert = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN).single()
+        verifyAlert(completedAlert, monitor, COMPLETED)
+
+        assertNull("Completed alert still has error message.", completedAlert.errorMessage)
+        assertTrue("Missing error history.", completedAlert.errorHistory.isNotEmpty())
+        val latestError = completedAlert.errorHistory.single().message
+        assertTrue("Latest error is missing from history.", latestError.contains("RuntimeException(\"foo\")"))
     }
 
     fun `test execute monitor limits alert error history to 10 error messages`() {

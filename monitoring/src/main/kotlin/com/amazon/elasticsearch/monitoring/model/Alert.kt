@@ -31,10 +31,10 @@ data class Alert(val id: String = NO_ID, val version: Long = NO_VERSION, val mon
     }
 
     constructor(monitor: Monitor, trigger: Trigger, startTime: Instant, lastNotificationTime: Instant?,
-                state: State = State.ACTIVE, errorMessage: String? = null, alertErrors: List<AlertError> = mutableListOf())
+                state: State = State.ACTIVE, errorMessage: String? = null, errorHistory: List<AlertError> = mutableListOf())
             : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
             triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
-            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = alertErrors,
+            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
             severity = trigger.severity)
 
     enum class State {

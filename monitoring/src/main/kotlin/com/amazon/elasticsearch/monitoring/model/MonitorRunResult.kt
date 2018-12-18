@@ -4,6 +4,7 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
+import com.amazon.elasticsearch.monitoring.alerts.AlertError
 import com.amazon.elasticsearch.util.optionalTimeField
 import com.amazon.elasticsearch.util.stackTraceString
 import org.elasticsearch.common.xcontent.ToXContent
@@ -25,7 +26,13 @@ data class MonitorRunResult(val monitorName: String, val periodStart: Instant, v
     }
 
     /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
-    fun alertError() : String? = error?.stackTraceString()
+    fun alertError() : AlertError? {
+        return if (error != null) {
+            AlertError(Instant.now(), "Error fetching inputs: \n" + error.stackTraceString())
+        } else {
+            null
+        }
+    }
 }
 
 data class TriggerRunResult(val triggerName: String, val triggered: Boolean, val error: Exception? = null,
@@ -41,10 +48,12 @@ data class TriggerRunResult(val triggerName: String, val triggered: Boolean, val
     }
 
     /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
-    fun alertError() : String? {
-        if (error != null) return error.stackTraceString()
+    fun alertError() : AlertError? {
+        if (error != null) return AlertError(Instant.now(), "Error evaluating trigger: \n" + error.stackTraceString())
         for (actionResult in actionResults.values) {
-            if (actionResult.error != null) return actionResult.error.stackTraceString()
+            if (actionResult.error != null) {
+                return AlertError(Instant.now(), "Error running action: \n" + actionResult.error.stackTraceString())
+            }
         }
         return null
     }
