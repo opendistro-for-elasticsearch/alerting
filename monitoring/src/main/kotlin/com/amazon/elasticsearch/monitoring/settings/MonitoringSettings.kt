@@ -11,7 +11,7 @@ class MonitoringSettings {
     companion object {
         val MONITORING_ENABLED = Setting.boolSetting(
                 "aes.monitoring.enabled",
-                true,
+                false,
                 Setting.Property.NodeScope, Setting.Property.Dynamic)
         val INPUT_TIMEOUT = Setting.positiveTimeSetting(
                 "aes.monitoring.input_timeout",
