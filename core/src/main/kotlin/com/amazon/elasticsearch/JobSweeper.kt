@@ -78,7 +78,7 @@ class JobSweeper(private val settings: Settings,
     @Volatile private var lastFullSweepTimeNano = System.nanoTime()
 
 
-    @Volatile private var sweeperEnabled: Boolean?  = null
+    @Volatile private var sweeperEnabled: Boolean?  = clusterService.clusterSettings.get("aes.monitoring.enabled").get(settings) as Boolean
     @Volatile private var sweepPeriod =  SWEEP_PERIOD.get(settings)
     @Volatile private var sweepPageMaxSize = SWEEP_PAGE_SIZE.get(settings)
     @Volatile private var sweepSearchTimeout = REQUEST_TIMEOUT.get(settings)
