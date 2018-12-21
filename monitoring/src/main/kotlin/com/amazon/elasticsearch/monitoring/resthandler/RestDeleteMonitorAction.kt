@@ -7,6 +7,7 @@ import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.monitoring.MonitoringPlugin
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
+import com.amazon.elasticsearch.monitoring.util.REFRESH
 import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BulkRequest
@@ -15,6 +16,8 @@ import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
@@ -56,19 +59,22 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val monitorId = request.param("monitorID")
+        val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
 
         return RestChannelConsumer { channel ->
             if (alertIndices.isInitialized()) {
-                MoveAlertsHandler(client, channel, monitorId).start()
+                MoveAlertsHandler(client, channel, monitorId, refreshPolicy).start()
             } else {
                 val deleteMonitorRequest =
                         DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
+                                .setRefreshPolicy(refreshPolicy)
                 client.delete(deleteMonitorRequest, RestStatusToXContentListener(channel))
             }
         }
     }
 
-    inner class MoveAlertsHandler(client: NodeClient, channel: RestChannel, private val monitorId: String) :
+    inner class MoveAlertsHandler(client: NodeClient, channel: RestChannel, private val monitorId: String,
+                                  private val refreshPolicy: WriteRequest.RefreshPolicy) :
             AsyncActionHandler(client, channel) {
 
         @Volatile private var failureMessage: String? = null
@@ -131,6 +137,7 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
             }
 
             val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
+                    .setRefreshPolicy(refreshPolicy)
             client.delete(deleteRequest, RestStatusToXContentListener(channel))
         }
 
