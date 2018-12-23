@@ -398,9 +398,9 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         assertEquals("Alert not saved", 1, alerts.size)
         verifyAlert(alerts.single(), monitor, ACTIVE)
 
-        val secondExecuteReponse = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
+        val secondExecuteResponse = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
 
-        assertEquals("failed dryrun", RestStatus.OK, secondExecuteReponse.restStatus())
+        assertEquals("failed dryrun", RestStatus.OK, secondExecuteResponse.restStatus())
         val newAlerts = searchAlerts(monitor)
         assertEquals("Second alert not saved", 1, newAlerts.size)
         verifyAlert(newAlerts.single(), monitor, ACTIVE)

@@ -158,7 +158,7 @@ class ScheduleTest: XContentTestBase {
 
         val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 60L, "Excepted 60 seconds but was ${nextTimeToExecute!!.seconds}")
+        assertTrue(nextTimeToExecute!!.seconds == 60L, "Excepted 60 seconds but was ${nextTimeToExecute.seconds}")
     }
 
     @Test
@@ -169,7 +169,7 @@ class ScheduleTest: XContentTestBase {
 
         val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 98L, "Excepted 98 seconds but was ${nextTimeToExecute!!.seconds}")
+        assertTrue(nextTimeToExecute!!.seconds == 98L, "Excepted 98 seconds but was ${nextTimeToExecute.seconds}")
     }
 
     @Test
@@ -202,7 +202,7 @@ class ScheduleTest: XContentTestBase {
 
         val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 28L, "Excepted 28 seconds but was ${nextTimeToExecute!!.seconds}")
+        assertTrue(nextTimeToExecute!!.seconds == 28L, "Excepted 28 seconds but was ${nextTimeToExecute.seconds}")
 
         return intervalSchedule
     }

@@ -4,15 +4,14 @@
 
 package com.amazon.elasticsearch.monitoring.resthandler;
 
-import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import com.amazon.elasticsearch.model.ScheduledJob;
+import com.amazon.elasticsearch.monitoring.MonitoringPlugin;
 import com.amazon.elasticsearch.monitoring.model.Monitor;
 import com.amazon.elasticsearch.monitoring.util.RestHandlerUtilsKt;
 import com.amazon.elasticsearch.util.ElasticAPI;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.node.NodeClient;
-import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;

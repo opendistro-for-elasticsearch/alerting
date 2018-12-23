@@ -1,8 +1,0 @@
-apply plugin: 'java'
-apply plugin: 'org.jetbrains.kotlin.jvm'
-
-dependencies {
-    // This should always compile against 6.3 version and not ${es_version}
-    compileOnly "org.elasticsearch:elasticsearch:${aes_63_version}"
-    compile project(':elastic-api')
-}

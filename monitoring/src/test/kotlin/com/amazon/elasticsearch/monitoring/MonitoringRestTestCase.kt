@@ -10,11 +10,12 @@ import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.TestAction
+import com.amazon.elasticsearch.test.makeRequest
 import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.string
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
-import org.apache.http.entity.ContentType
+import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
@@ -53,7 +54,9 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     }
 
     protected fun createMonitor(monitor: Monitor, refresh: Boolean = true) : Monitor {
-        val response = client().performRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(), monitor.toHttpEntity())
+
+        val response = client().makeRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(),
+                monitor.toHttpEntity())
         assertEquals("Unable to create a new monitor", RestStatus.CREATED, response.restStatus())
 
         val monitorJson = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
@@ -61,7 +64,8 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     }
 
     protected fun createAlert(alert: Alert): Alert {
-        val response = client().performRequest("POST", "/.aes-alerts/_doc?refresh=true&routing=${alert.monitorId}", emptyMap(), alert.toHttpEntity())
+        val response = client().makeRequest("POST", "/.aes-alerts/_doc?refresh=true&routing=${alert.monitorId}",
+                emptyMap(), alert.toHttpEntity())
         assertEquals("Unable to create a new alert", RestStatus.CREATED, response.restStatus())
 
         val alertJson = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, response.entity.content).map()
@@ -78,14 +82,14 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     }
 
     protected fun updateMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
-        val response = client().performRequest("PUT", "${monitor.relativeUrl()}?refresh=$refresh",
+        val response = client().makeRequest("PUT", "${monitor.relativeUrl()}?refresh=$refresh",
                 emptyMap(), monitor.toHttpEntity())
         assertEquals("Unable to update a monitor", RestStatus.OK, response.restStatus())
         return getMonitor(monitorId = monitor.id)
     }
 
     protected fun getMonitor(monitorId: String, header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")): Monitor {
-        val response = client().performRequest("GET", "_awses/monitors/$monitorId", header)
+        val response = client().makeRequest("GET", "_awses/monitors/$monitorId", null, header)
         assertEquals("Unable to get monitor $monitorId", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
@@ -117,8 +121,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
                   "query" : { "term" : { "${Alert.MONITOR_ID_FIELD}" : "${monitor.id}" } }
                 }
                 """.trimIndent()
-        val httpResponse = client().performRequest("GET", "/$indices/_search", searchParams,
-                StringEntity(request, ContentType.APPLICATION_JSON))
+        val httpResponse = client().makeRequest("GET", "/$indices/_search", searchParams, StringEntity(request, APPLICATION_JSON))
         assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
 
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, httpResponse.entity.content))
@@ -133,36 +136,36 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
                 .array("alerts", *alerts.map { it.id }.toTypedArray())
                 .endObject()
                 .string()
-                .let { StringEntity(it, ContentType.APPLICATION_JSON) }
+                .let { StringEntity(it, APPLICATION_JSON) }
 
-        val response = client().performRequest("POST", "${monitor.relativeUrl()}/_acknowledge/alerts?refresh=true",
+        val response = client().makeRequest("POST", "${monitor.relativeUrl()}/_acknowledge/alerts?refresh=true",
                 emptyMap(), request)
         assertEquals("Acknowledge call failed.", RestStatus.OK, response.restStatus())
         return response
     }
 
     protected fun refreshIndex(index: String): Response {
-        val response = client().performRequest("POST", "/$index/_refresh")
+        val response = client().makeRequest("POST", "/$index/_refresh")
         assertEquals("Unable to refresh index", RestStatus.OK, response.restStatus())
         return response
     }
 
     protected fun deleteIndex(index: String) : Response {
-        val response = adminClient().performRequest("DELETE", "/$index")
+        val response = adminClient().makeRequest("DELETE", "/$index")
         assertEquals("Unable to delete index", RestStatus.OK, response.restStatus())
         return response
     }
 
     protected fun executeMonitor(monitorId: String, params: Map<String, String> = mapOf()) : Response =
-            client().performRequest("POST", "/_awses/monitors/$monitorId/_execute", params)
+            client().makeRequest("POST", "/_awses/monitors/$monitorId/_execute", params)
 
     protected fun executeMonitor(monitor: Monitor, params: Map<String, String> = mapOf()) : Response =
-            client().performRequest("POST", "/_awses/monitors/_execute", params, monitor.toHttpEntity())
+            client().makeRequest("POST", "/_awses/monitors/_execute", params, monitor.toHttpEntity())
 
     protected fun indexDoc(index: String, id: String, doc: String, refresh: Boolean = true) : Response {
-        val requestBody = StringEntity(doc, ContentType.APPLICATION_JSON)
+        val requestBody = StringEntity(doc, APPLICATION_JSON)
         val params = if (refresh) mapOf("refresh" to "true") else mapOf()
-        val response = client().performRequest("PUT", "$index/_doc/$id", params, requestBody)
+        val response = client().makeRequest("PUT", "$index/_doc/$id", params, requestBody)
         assertTrue("Unable to index doc: '${doc.take(15)}...' to index: '$index'",
                 listOf(RestStatus.OK, RestStatus.CREATED).contains(response.restStatus()))
         return response
@@ -185,7 +188,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
         val encodedHistoryIndex = URLEncoder.encode(AlertIndices.HISTORY_INDEX_PATTERN, Charsets.UTF_8.toString())
         createIndex(AlertIndices.ALERT_INDEX, Settings.EMPTY, mappingHack)
         createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack)
-        client().performRequest("PUT", "/$encodedHistoryIndex/_alias/${AlertIndices.HISTORY_WRITE_INDEX}")
+        client().makeRequest("PUT", "/$encodedHistoryIndex/_alias/${AlertIndices.HISTORY_WRITE_INDEX}")
     }
 
     protected fun Response.restStatus() : RestStatus {
@@ -193,7 +196,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     }
 
     protected fun Monitor.toHttpEntity() : HttpEntity {
-        return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
+        return StringEntity(toJsonString(), APPLICATION_JSON)
     }
 
     private fun Monitor.toJsonString(): String {
@@ -202,7 +205,7 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     }
 
     private fun Alert.toHttpEntity(): HttpEntity {
-        return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
+        return StringEntity(toJsonString(), APPLICATION_JSON)
     }
 
     private fun Alert.toJsonString(): String {
@@ -225,16 +228,18 @@ abstract class MonitoringRestTestCase : ESRestTestCase() {
     }
 
     fun RestClient.getClusterSettings(settings: Map<String, String>) : Map<String, Any> {
-        val response =  this.performRequest("GET", "_cluster/settings", settings)
+        val response =  this.makeRequest("GET", "_cluster/settings", settings)
         assertEquals(RestStatus.OK, response.restStatus())
-        return response.asMap();
+        return response.asMap()
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun Map<String, Any>.aesSettings(): Map<String, Any>? {
         val map = this as Map<String, Map<String, Map<String, Map<String, Any>>>>
         return map["defaults"]?.get("aes")?.get("monitoring")
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun Map<String, Any>.stringMap(key: String): Map<String, Any>? {
         val map = this as Map<String, Map<String, Any>>
         return map[key]

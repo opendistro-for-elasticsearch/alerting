@@ -6,24 +6,7 @@ dependencies {
     compile "com.amazonaws:aws-java-sdk-core:${aws_version}"
     compile "com.amazonaws:aws-java-sdk-sns:${aws_version}"
     compile "com.amazonaws:aws-java-sdk-sts:${aws_version}"
-    compile("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.8.10") {
-        force = true
-    }
-    compile("joda-time:joda-time:2.9.9") {
-        force = true
-    }
-    compile("com.fasterxml.jackson.core:jackson-core:2.8.10") {
-        force = true
-    }
-    compile("commons-logging:commons-logging:1.1.3") {
-        force = true
-    }
-    compile("org.apache.httpcomponents:httpcore:4.4.5") {
-        force = true
-    }
-    compile("commons-codec:commons-codec:1.10") {
-        force = true
-    }
+
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.powermock:powermock-api-easymock:1.7.4"
     testImplementation "org.easymock:easymock:4.0.1"

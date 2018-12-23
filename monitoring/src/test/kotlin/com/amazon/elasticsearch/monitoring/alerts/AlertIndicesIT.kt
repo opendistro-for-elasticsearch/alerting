@@ -10,6 +10,7 @@ import com.amazon.elasticsearch.monitoring.randomMonitor
 import com.amazon.elasticsearch.monitoring.randomTrigger
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.monitoring.toJsonString
+import com.amazon.elasticsearch.test.makeRequest
 import com.amazon.elasticsearch.util.ElasticAPI
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
@@ -95,7 +96,7 @@ class AlertIndicesIT : ESIntegTestCase() {
         val trigger = randomTrigger().copy(condition = Script("return true"))
         val monitor = randomMonitor().copy(triggers = listOf(trigger))
 
-        val response = getRestClient().performRequest("POST", "/_awses/monitors/_execute",
+        val response = getRestClient().makeRequest("POST", "/_awses/monitors/_execute",
                 mapOf("dryrun" to "true"), StringEntity(monitor.toJsonString(), ContentType.APPLICATION_JSON))
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
         val output = xcp.map()
@@ -122,7 +123,7 @@ class AlertIndicesIT : ESIntegTestCase() {
     // APIs only RestClient. If we ever have more tests that are subclasses of ESIntegTestCase we should factor these
     // out so they're shared. But given that ESIntegTestCase is going to be deprecated soon we shouldn't have those.
     private fun createMonitor(monitor: Monitor, refresh: Boolean = true) : Monitor {
-        val response = getRestClient().performRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(),
+        val response = getRestClient().makeRequest("POST", "/_awses/monitors?refresh=$refresh", emptyMap(),
                 StringEntity(monitor.toJsonString(), ContentType.APPLICATION_JSON))
         val responseStatus = RestStatus.fromCode(response.statusLine.statusCode)
         assertEquals("Unable to create a new monitor", RestStatus.CREATED, responseStatus)

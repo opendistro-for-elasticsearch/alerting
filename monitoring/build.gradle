@@ -18,8 +18,26 @@ esplugin {
     extendedPlugins = ['lang-painless']
 }
 
+// Prefer elastic bundled versions for conflicts (primarily with AWS SDK).  We need to specify these manually because 
+// esplugin sets ResolutionStrategy.failOnVersionConflict. Luckily it is also nice enough to expose (most of) the 
+// versions it uses in ext.versions.
+
+// Handle case where older versions of esplugin doesn't expose the joda time version it uses 
+if (es_mv in ['6.2', '6.3']) versions << ['joda': '2.9.9']
+configurations.all {
+    if (it.state != Configuration.State.UNRESOLVED) return
+    resolutionStrategy {
+        force "joda-time:joda-time:${versions.joda}"
+        force "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+        force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${versions.jackson}"
+        force "commons-logging:commons-logging:${versions.commonslogging}"
+        force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
+        force "commons-codec:commons-codec:${versions.commonscodec}"
+    }
+}
+
 dependencies {
-    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${es_version}"
+    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
 
     // Elasticsearch Nanny state
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
@@ -29,9 +47,8 @@ dependencies {
     compile project(":core")
     compile project(":notification")
     compile project(':elastic-api')
-    // Elastic API version specific code
-    runtime project(elasticApiImplProject)
 
+    testCompile project(path: ':elastic-api', configuration: 'testOutput')
     // This needs to be declared manually as the offline dependencies task does not pick this up automatically for some reason
     checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
 }
@@ -70,7 +87,6 @@ def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
 
 test {
-    testClassesDir = compileTestKotlin.destinationDir
     systemProperty 'tests.security.manager', 'false'
 }
 
@@ -81,14 +97,16 @@ integTestRunner {
     // requests. The 'doFirst' delays reading the debug setting on the cluster till execution time.
     doFirst { systemProperty 'cluster.debug', integTestCluster.debug }
 
-    // TODO: Figure out how to have the runner execute both java and kotlin test classes which are present in
-    // different output dirs.  Right now we only have kotlin tests.
-    testClassesDir = compileTestKotlin.destinationDir
-
     // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
         jvmArg '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
+}
+
+// ES >= 6.5 automatically picks up both java and kotlin tests: https://github.com/elastic/elasticsearch/issues/30354
+// For the others we just use the kotlin tests. 
+if (es_mv < '6.5') {
+    test.testClassesDir = integTestRunner.testClassesDir = compileTestKotlin.destinationDir
 }
 
 integTestCluster {

@@ -58,7 +58,7 @@ class AlertIndices(private val settings : Settings, private val client: IndicesA
 
         @JvmStatic
         fun alertMapping() =
-                javaClass.getResource("alert_mapping.json").readText()
+                AlertIndices::class.java.getResource("alert_mapping.json").readText()
     }
 
     val HISTORY_INDEX_MAX_DOCS_SETTING = MonitoringSettings.ALERT_HISTORY_MAX_DOCS.get(settings)

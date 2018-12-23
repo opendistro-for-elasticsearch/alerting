@@ -16,7 +16,7 @@ data class AlertError(val timestamp: Instant, val message: String): ToXContent {
         const val TIMESTAMP_FIELD = "timestamp"
         const val MESSAGE_FIELD = "message"
 
-        @JvmStatic @JvmOverloads
+        @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): AlertError {
 

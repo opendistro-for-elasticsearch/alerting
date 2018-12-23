@@ -1,7 +1,40 @@
 apply plugin: 'java'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 
+// Elastic API version specific code for both ES server api and ES test framework API.
+// Add a dependency on project(':elastic-api') to compile configuration and a dependency on 
+// project(path: ':elastic-api', configuration: 'testOutput') to the testCompile configuration.
+def versionDir = ['6.5': 'es65', '6.3': 'es63', '6.2': 'es62'][es_mv]
+assert versionDir != null : "Can't find elastic-api adapter for ES version $es_mv"
+sourceSets {
+    main {
+        java.srcDir "$versionDir/main/java/"
+        kotlin.srcDir "$versionDir/main/kotlin"
+        resources.srcDir "$versionDir/main/resources"
+    }
+    test {
+        java.srcDir "$versionDir/test/java"
+        kotlin.srcDir "$versionDir/test/kotlin"
+        resources.srcDir "$versionDir/test/resources"
+    }
+}
+
+configurations {
+    testOutput.extendsFrom testCompile
+}
+
+task testJar(type: Jar) {
+    from sourceSets.test.output
+    classifier = 'test'
+}
+
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+
+    testCompile "org.elasticsearch.test:framework:${es_version}"
+}
+
+artifacts {
+    testOutput testJar
 }
