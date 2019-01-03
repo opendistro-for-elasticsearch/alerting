@@ -400,10 +400,19 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
 
         val secondExecuteReponse = executeMonitor(monitor.id, mapOf("dryrun" to "false"))
 
-        assertEquals("failed dryrun", RestStatus.OK, firstExecuteResponse.restStatus())
+        assertEquals("failed dryrun", RestStatus.OK, secondExecuteReponse.restStatus())
         val newAlerts = searchAlerts(monitor)
         assertEquals("Second alert not saved", 1, newAlerts.size)
         verifyAlert(newAlerts.single(), monitor, ACTIVE)
+    }
+
+    fun `test delete monitor with no alerts after alert indices is initialized`() {
+        putAlertMappings()
+
+        val newMonitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = NEVER_RUN, actions = listOf(randomAction())))))
+        val deleteNewMonitorResponse = client().performRequest("DELETE", "_awses/monitors/${newMonitor.id}")
+
+        assertEquals("Delete request not successful", RestStatus.OK, deleteNewMonitorResponse.restStatus())
     }
 
     private fun verifyAlert(alert: Alert, monitor: Monitor, expectedState: Alert.State = ACTIVE) {

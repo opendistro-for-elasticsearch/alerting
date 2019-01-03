@@ -65,10 +65,7 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
             if (alertIndices.isInitialized()) {
                 MoveAlertsHandler(client, channel, monitorId, refreshPolicy).start()
             } else {
-                val deleteMonitorRequest =
-                        DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
-                                .setRefreshPolicy(refreshPolicy)
-                client.delete(deleteMonitorRequest, RestStatusToXContentListener(channel))
+                deleteMonitor(client, monitorId, channel, refreshPolicy)
             }
         }
     }
@@ -96,6 +93,10 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
         }
 
         private fun onSearchResponse(response: SearchResponse) {
+            // If no alerts are found, simply delete the monitor
+            if (response.hits.totalHits == 0L) {
+                return deleteMonitor(client, monitorId, channel, refreshPolicy)
+            }
             val indexRequests = response.hits.map { hit ->
                 IndexRequest(AlertIndices.HISTORY_WRITE_INDEX, AlertIndices.MAPPING_TYPE)
                         .routing(monitorId)
@@ -135,10 +136,7 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
                 channel.sendResponse(BytesRestResponse(failureStatus, failureMessage))
                 return
             }
-
-            val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
-                    .setRefreshPolicy(refreshPolicy)
-            client.delete(deleteRequest, RestStatusToXContentListener(channel))
+            deleteMonitor(client, monitorId, channel, refreshPolicy)
         }
 
         private fun alertContentParser(bytesReference: BytesReference): XContentParser {
@@ -146,5 +144,11 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController, pr
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return xcp
         }
+    }
+
+    private fun deleteMonitor(client: NodeClient, monitorId: String, channel: RestChannel, refreshPolicy: RefreshPolicy) {
+        val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
+                .setRefreshPolicy(refreshPolicy)
+        client.delete(deleteRequest, RestStatusToXContentListener(channel))
     }
 }
