@@ -1,5 +1,6 @@
 package com.amazon.elasticsearch.schedule
 
+import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -32,7 +33,7 @@ class JobSchedulerMetrics : ToXContentFragment, Writeable {
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        if (lastExecutionTime != null) builder.field("last_execution_time", Instant.ofEpochMilli(lastExecutionTime).toString())
+        if (lastExecutionTime != null) ElasticAPI.INSTANCE.timeField(builder, "last_execution_time",  Instant.ofEpochMilli(lastExecutionTime))
         builder.field("running_on_time", runningOnTime)
         return builder
     }
