@@ -3,13 +3,11 @@ package com.amazon.elasticsearch.notification.credentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.amazonaws.util.EC2MetadataUtils;
-import jdk.nashorn.api.tree.CatchTree;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.logging.Loggers;
 
 /**
@@ -18,6 +16,8 @@ import org.elasticsearch.common.logging.Loggers;
 public class ExpirableCredentialsProviderFactory implements CredentialsProviderFactory {
 
     private static final String STS_ENDPOINT_PREFIX = "sts";
+    private static final String ZHY = "cn-northwest-1";
+    private static final String BJS = "cn-north-1";
 
     public ExpirableCredentialsProviderFactory(InternalAuthCredentialsClient internalAuthCredentialsClient) {
         this.internalAuthCredentialsClient = internalAuthCredentialsClient;
@@ -82,12 +82,18 @@ public class ExpirableCredentialsProviderFactory implements CredentialsProviderF
      * STS global endpoint works for all regions except the isolated ones.
      * Add the region to endpoint mapping if global endpoint is not supported.
      */
-    private AwsClientBuilder.EndpointConfiguration getSTSEndpointConfiguration(String region) {
-        if (region != null) {
+    public AwsClientBuilder.EndpointConfiguration getSTSEndpointConfiguration(String region) {
+        if (!Strings.isEmpty(region)) {
             try {
-                Region awsRegion = RegionUtils.getRegion(region);
-                String stsServiceEndPoint = awsRegion.getServiceEndpoint(STS_ENDPOINT_PREFIX);
-                return new AwsClientBuilder.EndpointConfiguration(stsServiceEndPoint, region);
+                switch (region) {
+                    case ZHY:
+                        return new AwsClientBuilder.EndpointConfiguration("sts.cn-northwest-1.amazonaws.com.cn", region);
+                    case BJS:
+                        return new AwsClientBuilder.EndpointConfiguration("sts.cn-north-1.amazonaws.com.cn", region);
+                    default:
+                        String serviceEndpoint = String.format("%s.%s.amazonaws.com", STS_ENDPOINT_PREFIX, region);
+                        return new AwsClientBuilder.EndpointConfiguration(serviceEndpoint, region);
+                }
             } catch (Exception ex) {
                 logger.error("Error fetching SNS endpoint information. Defaulting to global");
             }
