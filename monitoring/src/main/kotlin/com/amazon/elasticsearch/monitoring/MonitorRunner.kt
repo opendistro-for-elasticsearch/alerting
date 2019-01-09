@@ -18,6 +18,7 @@ import com.amazon.elasticsearch.monitoring.model.Alert.State.ACTIVE
 import com.amazon.elasticsearch.monitoring.model.Alert.State.COMPLETED
 import com.amazon.elasticsearch.monitoring.model.Alert.State.DELETED
 import com.amazon.elasticsearch.monitoring.model.Alert.State.ERROR
+import com.amazon.elasticsearch.monitoring.model.InputRunResults
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.MonitorRunResult
 import com.amazon.elasticsearch.monitoring.model.TestAction
@@ -117,20 +118,13 @@ class MonitorRunner(private val settings: Settings,
             return monitorResult.copy(error = e)
         }
 
-        val results = try {
-            collectInputResults(monitor, periodStart, periodEnd)
-        } catch (e: Exception) {
-            logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
-            monitorResult = monitorResult.copy(error = e)
-            emptyList<Map<String, Any>>()
-        }
+        monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
 
         val updatedAlerts = mutableListOf<Alert>()
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
             val currentAlert = currentAlerts[trigger]
-            val triggerCtx = TriggerExecutionContext(monitor, trigger, results, periodStart, periodEnd, currentAlert,
-                    monitorResult.error)
+            val triggerCtx = TriggerExecutionContext(monitor, trigger, monitorResult, currentAlert)
             val triggerResult = runTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
@@ -176,31 +170,36 @@ class MonitorRunner(private val settings: Settings,
         }
     }
 
-    private fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): List<Map<String, Any>> {
-        val results = mutableListOf<Map<String, Any>>()
-        monitor.inputs.forEach { input ->
-            when (input) {
-                is SearchInput -> {
-                    // TODO: Figure out a way to use SearchTemplateRequest without bringing in the entire TransportClient
-                    val searchParams = mapOf("period_start" to periodStart.toEpochMilli(),
-                            "period_end" to periodEnd.toEpochMilli())
-                    val searchSource = scriptService.compile(Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG,
-                            input.query.toString(), searchParams), TemplateScript.CONTEXT)
-                            .newInstance(searchParams)
-                            .execute()
+    private fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
+        return try {
+            val results = mutableListOf<Map<String, Any>>()
+            monitor.inputs.forEach { input ->
+                when (input) {
+                    is SearchInput -> {
+                        // TODO: Figure out a way to use SearchTemplateRequest without bringing in the entire TransportClient
+                        val searchParams = mapOf("period_start" to periodStart.toEpochMilli(),
+                                "period_end" to periodEnd.toEpochMilli())
+                        val searchSource = scriptService.compile(Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG,
+                                input.query.toString(), searchParams), TemplateScript.CONTEXT)
+                                .newInstance(searchParams)
+                                .execute()
 
-                    val searchRequest = SearchRequest().indices(*input.indices.toTypedArray())
-                    ElasticAPI.INSTANCE.jsonParser(xContentRegistry, searchSource).use {
-                        searchRequest.source(SearchSourceBuilder.fromXContent(it))
+                        val searchRequest = SearchRequest().indices(*input.indices.toTypedArray())
+                        ElasticAPI.INSTANCE.jsonParser(xContentRegistry, searchSource).use {
+                            searchRequest.source(SearchSourceBuilder.fromXContent(it))
+                        }
+                        results += client.search(searchRequest).actionGet(searchTimeout).convertToMap()
                     }
-                    results += client.search(searchRequest).actionGet(searchTimeout).convertToMap()
-                }
-                else -> {
-                    throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
+                    else -> {
+                        throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
+                    }
                 }
             }
+            InputRunResults(results.toList())
+        } catch (e: Exception) {
+            logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
+            InputRunResults(emptyList(), e)
         }
-        return results.toList()
     }
 
     private fun runTrigger(monitor: Monitor, trigger: Trigger, ctx: TriggerExecutionContext) : TriggerRunResult {

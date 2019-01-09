@@ -6,12 +6,17 @@ package com.amazon.elasticsearch.monitoring.script
 
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.monitoring.model.MonitorRunResult
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import java.time.Instant
 
 data class TriggerExecutionContext(val monitor: Monitor, val trigger: Trigger,
                                    val results: List<Map<String, Any>>, val periodStart: Instant,
                                    val periodEnd: Instant, val alert: Alert? = null, val error: Exception? = null) {
+
+    constructor(monitor: Monitor, trigger: Trigger, monitorRunResult: MonitorRunResult, alert: Alert? = null)
+            : this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart,
+            monitorRunResult.periodEnd, alert, monitorRunResult.scriptContextError(trigger))
 
     /**
      * Mustache templates need special permissions to reflectively introspect field names. To avoid doing this we

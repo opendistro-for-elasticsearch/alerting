@@ -47,6 +47,24 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         assertEquals("Alert saved for test monitor", 0, alerts.size)
     }
 
+    fun `test execute monitor returns search result`() {
+        val uniqueName = "unique name"
+        val query = QueryBuilders.termQuery("monitor.name.keyword", uniqueName)
+        val input = SearchInput(indices = listOf("*"), query = SearchSourceBuilder().query(query))
+        val monitor = createMonitor(randomMonitor(name = uniqueName, inputs = listOf(input),
+                triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+
+        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
+
+        val output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        @Suppress("UNCHECKED_CAST")
+        val searchResult = (output.objectMap("input_results")["results"] as List<Map<String, Any>>).first()
+        @Suppress("UNCHECKED_CAST")
+        val total = searchResult.stringMap("hits")?.get("total") as Int
+        assertEquals("Incorrect search result", 1, total)
+    }
+
     fun `test execute monitor not triggered`() {
         val monitor = randomMonitor(triggers = listOf(randomTrigger(condition = NEVER_RUN)))
 
@@ -91,7 +109,9 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
 
         val output = entityAsMap(response)
         assertEquals(monitor.name, output["monitor_name"])
-        assertTrue("Missing monitor error message", (output["error"] as String).isNotEmpty())
+        @Suppress("UNCHECKED_CAST")
+        val inputResults = output.stringMap("input_results")
+        assertTrue("Missing monitor error message", (inputResults?.get("error") as String).isNotEmpty())
 
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
@@ -374,7 +394,9 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
 
         val output = entityAsMap(response)
         assertEquals(monitor.name, output["monitor_name"])
-        assertTrue("Missing error message from a bad query", (output["error"] as String).isNotEmpty())
+        @Suppress("UNCHECKED_CAST")
+        val inputResults = output.stringMap("input_results")
+        assertTrue("Missing error message from a bad query", (inputResults?.get("error") as String).isNotEmpty())
     }
 
     fun `test execute monitor non-dryrun`() {

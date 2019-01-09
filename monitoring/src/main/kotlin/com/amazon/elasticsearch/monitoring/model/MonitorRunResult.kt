@@ -12,7 +12,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import java.time.Instant
 
 data class MonitorRunResult(val monitorName: String, val periodStart: Instant, val periodEnd: Instant,
-                            val error: Exception? = null,
+                            val error: Exception? = null, val inputResults: InputRunResults = InputRunResults(),
                             val triggerResults : Map<String, TriggerRunResult> = mapOf()) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -21,17 +21,32 @@ data class MonitorRunResult(val monitorName: String, val periodStart: Instant, v
                 .optionalTimeField("period_start", periodStart)
                 .optionalTimeField("period_end", periodEnd)
                 .field("error", error?.stackTraceString())
+                .field("input_results", inputResults)
                 .field("trigger_results", triggerResults)
                 .endObject()
     }
 
     /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
     fun alertError() : AlertError? {
-        return if (error != null) {
-            AlertError(Instant.now(), "Error fetching inputs: \n" + error.stackTraceString())
-        } else {
-            null
-        }
+        if (error != null)
+            return AlertError(Instant.now(), "Error running monitor: \n" + error.stackTraceString())
+        if (inputResults.error != null)
+            return AlertError(Instant.now(), "Error fetching inputs: \n" + inputResults.error.stackTraceString())
+        return null
+    }
+
+    fun scriptContextError(trigger: Trigger): Exception? {
+        return error ?: inputResults.error ?: triggerResults[trigger.id]?.error
+    }
+}
+
+data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val error: Exception? = null) : ToXContent {
+
+    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        return builder.startObject()
+                .field("results", results)
+                .field("error", error?.stackTraceString())
+                .endObject()
     }
 }
 
