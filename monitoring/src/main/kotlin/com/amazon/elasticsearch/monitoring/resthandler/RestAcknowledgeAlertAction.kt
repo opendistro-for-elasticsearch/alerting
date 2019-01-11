@@ -8,6 +8,7 @@ import com.amazon.elasticsearch.monitoring.model.Alert.State.COMPLETED
 import com.amazon.elasticsearch.monitoring.model.Alert.State.ERROR
 import com.amazon.elasticsearch.monitoring.util.REFRESH
 import com.amazon.elasticsearch.util.ElasticAPI
+import com.amazon.elasticsearch.util.optionalTimeField
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
@@ -33,6 +34,7 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
+import java.time.Instant
 
 /**
  * This class consists of the REST handler to acknowledge alerts.
@@ -96,6 +98,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                             .version(hit.version)
                             .doc(XContentFactory.jsonBuilder().startObject()
                                     .field(Alert.STATE_FIELD, ACKNOWLEDGED.toString())
+                                    .optionalTimeField(Alert.ACKNOWLEDGED_TIME_FIELD, Instant.now())
                                     .endObject()))
                 } else {
                     emptyList()
