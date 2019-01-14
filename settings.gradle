@@ -1,4 +1,4 @@
-rootProject.name = 'aes-plugins'
+rootProject.name = 'openes-monitoring-plugin'
 include ':monitoring'
 include 'core'
 include ':notification'

@@ -2,12 +2,12 @@ apply plugin: 'java'
 apply plugin: 'jacoco'
 
 dependencies {
-    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    compileOnly "org.openes:elasticsearch:${es_version}"
     compile "com.amazonaws:aws-java-sdk-core:${aws_version}"
     compile "com.amazonaws:aws-java-sdk-sns:${aws_version}"
     compile "com.amazonaws:aws-java-sdk-sts:${aws_version}"
 
-    testImplementation "org.elasticsearch.test:framework:${es_version}"
+    testImplementation "org.openes.test:framework:${es_version}"
     testImplementation "org.powermock:powermock-api-easymock:1.7.4"
     testImplementation "org.easymock:easymock:4.0.1"
 }

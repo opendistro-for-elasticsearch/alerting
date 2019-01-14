@@ -12,10 +12,11 @@ ext {
 }
 
 esplugin {
-    name 'aes-monitoring'
-    description 'Amazon Elasticsearch service monitoring plugin'
+    name 'openes-monitoring'
+    description 'Amazon Open Elasticsearch monitoring plugin'
     classname 'com.amazon.elasticsearch.monitoring.MonitoringPlugin'
     extendedPlugins = ['lang-painless']
+    publishArtifact true
 }
 
 // Prefer elastic bundled versions for conflicts (primarily with AWS SDK).  We need to specify these manually because 
@@ -23,6 +24,7 @@ esplugin {
 // versions it uses in ext.versions.
 
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses 
+// TODO: remove following ES 6.2/6.3 config
 if (es_mv in ['6.2', '6.3']) versions << ['joda': '2.9.9']
 configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
@@ -37,7 +39,7 @@ configurations.all {
 }
 
 dependencies {
-    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
+    compileOnly "org.openes.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
 
     // Elasticsearch Nanny state
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
@@ -95,6 +97,8 @@ integTestRunner {
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
     // Tell the test JVM if the cluster JVM is running under a debugger so that tests can use longer timeouts for
     // requests. The 'doFirst' delays reading the debug setting on the cluster till execution time.
+    // exclude compileTestJava.destinationDir.getPath()
+    testClassesDirs = project.files(compileTestKotlin.destinationDir.getPath())
     doFirst { systemProperty 'cluster.debug', integTestCluster.debug }
 
     // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
@@ -103,11 +107,15 @@ integTestRunner {
     }
 }
 
+/*
 // ES >= 6.5 automatically picks up both java and kotlin tests: https://github.com/elastic/elasticsearch/issues/30354
 // For the others we just use the kotlin tests. 
 if (es_mv < '6.5') {
     test.testClassesDir = integTestRunner.testClassesDir = compileTestKotlin.destinationDir
 }
+*/
+// TODO: clean up
+// integTestRunner.testClassesDirs = compileTestKotlin.destinationDir
 
 integTestCluster {
     distribution = es_distribution
