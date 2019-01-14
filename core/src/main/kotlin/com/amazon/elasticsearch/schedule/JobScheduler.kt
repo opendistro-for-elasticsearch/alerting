@@ -113,7 +113,8 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
         } else {
             logger.info("Descheduling jobId : $id")
             scheduledJobInfo.descheduled = true
-            scheduledJobInfo.previousExecutionTime = null
+            scheduledJobInfo.actualPreviousExecutionTime = null
+            scheduledJobInfo.expectedPreviousExecutionTime = null
             var result = true
             val scheduledFuture = scheduledJobInfo.scheduledFuture
 
@@ -156,8 +157,11 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
             if (scheduledJobInfo.descheduled) {
                 return@Runnable // skip running job if job is marked descheduled.
             }
-            scheduledJobInfo.previousExecutionTime = Instant.now()
-            val (startTime, endTime) = scheduleJob.schedule.getPeriodStartingAt(scheduledJobInfo.previousExecutionTime)
+
+            val (startTime, endTime) = scheduleJob.schedule.getPeriodStartingAt(scheduledJobInfo.expectedPreviousExecutionTime)
+            scheduledJobInfo.expectedPreviousExecutionTime = endTime
+            scheduledJobInfo.actualPreviousExecutionTime = Instant.now()
+
             jobRunner.runJob(scheduleJob, startTime, endTime)
         }
 
@@ -177,7 +181,11 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
 
     fun getJobSchedulerMetric() : List<JobSchedulerMetrics> {
         return scheduledJobIdToInfo.entries.stream()
-                .map { entry -> JobSchedulerMetrics(entry.value.scheduledJobId, entry.value.previousExecutionTime?.toEpochMilli(), entry.value.scheduledJob.schedule.runningOnTime(entry.value.previousExecutionTime)) }
+                .map { entry ->
+                    JobSchedulerMetrics(entry.value.scheduledJobId,
+                            entry.value.actualPreviousExecutionTime?.toEpochMilli(),
+                            entry.value.scheduledJob.schedule.runningOnTime(entry.value.actualPreviousExecutionTime))
+                }
                 .collect(Collectors.toList())
     }
 
@@ -190,6 +198,7 @@ class JobScheduler(private val threadPool : ThreadPool, private val jobRunner : 
     private data class ScheduledJobInfo (val scheduledJobId : String,
                                          val scheduledJob : ScheduledJob,
                                          var descheduled : Boolean = false,
-                                         var previousExecutionTime: Instant? = null,
+                                         var actualPreviousExecutionTime: Instant? = null,
+                                         var expectedPreviousExecutionTime: Instant? = null,
                                          var scheduledFuture : ScheduledFuture<*>? = null)
 }
