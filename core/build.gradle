@@ -3,12 +3,12 @@ apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'jacoco'
 
 dependencies {
-    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    compileOnly "org.openes:elasticsearch:${es_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "com.cronutils:cron-utils:7.0.5"
     compile project(':elastic-api')
 
-    testImplementation "org.elasticsearch.test:framework:${es_version}"
+    testImplementation "org.openes.test:framework:${es_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
     testCompile project(path: ':elastic-api', configuration: 'testOutput')

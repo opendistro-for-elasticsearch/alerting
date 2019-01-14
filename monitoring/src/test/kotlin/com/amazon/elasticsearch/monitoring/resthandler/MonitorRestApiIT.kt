@@ -49,7 +49,7 @@ class MonitorRestApiIT : MonitoringRestTestCase() {
         for (nodeInfo in nodesInfo.values) {
             val plugins = nodeInfo["plugins"] as List<Map<String, Any>>
             for (plugin in plugins) {
-                if (plugin["name"] == "aes-monitoring") {
+                if (plugin["name"] == "openes-monitoring") {
                     return
                 }
             }
