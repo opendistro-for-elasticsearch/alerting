@@ -437,6 +437,35 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         assertEquals("Delete request not successful", RestStatus.OK, deleteNewMonitorResponse.restStatus())
     }
 
+    fun `test update monitor stays on schedule`() {
+        val monitor = createMonitor(randomMonitor(enabled = true))
+
+        updateMonitor(monitor.copy(enabledTime = Instant.now()))
+
+        val retrievedMonitor = getMonitor(monitorId = monitor.id)
+        assertEquals("Monitor enabled time changed.", monitor.enabledTime, retrievedMonitor.enabledTime)
+    }
+
+    fun `test enabled time by disabling and re-enabling monitor`() {
+        val monitor = createMonitor(randomMonitor(enabled = true))
+        assertNotNull("Enabled time is null on a enabled monitor.", getMonitor(monitor.id).enabledTime)
+
+        val disabledMonitor = updateMonitor(randomMonitor(enabled = false).copy(id = monitor.id))
+        assertNull("Enabled time is not null on a disabled monitor.", disabledMonitor.enabledTime)
+
+        val enabledMonitor = updateMonitor(randomMonitor(enabled = true).copy(id = monitor.id))
+        assertNotNull("Enabled time is null on a enabled monitor.", enabledMonitor.enabledTime)
+    }
+
+    fun `test enabled time by providing enabled time`() {
+        val enabledTime = Instant.ofEpochSecond(1538164858L) // This is 2018-09-27 20:00:58 GMT
+        val monitor = createMonitor(randomMonitor(enabled = true, enabledTime = enabledTime))
+
+        val retrievedMonitor = getMonitor(monitorId = monitor.id)
+        assertTrue("Monitor is not enabled", retrievedMonitor.enabled)
+        assertEquals("Enabled times do not match", monitor.enabledTime, retrievedMonitor.enabledTime)
+    }
+
     private fun verifyAlert(alert: Alert, monitor: Monitor, expectedState: Alert.State = ACTIVE) {
         assertNotNull(alert.id)
         assertNotNull(alert.startTime)
