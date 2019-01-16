@@ -10,8 +10,14 @@ publishing {
                 url = localRepoUrl
             } else if ("true".equals(System.getProperty("build.snapshot", "true"))) {
                 url = snapshotRepoUrl
+                authentication {
+                    awsIm(AwsImAuthentication) // load from EC2 role or env var
+                }
             } else {
                 url = releaseRepoUrl
+                authentication {
+                    awsIm(AwsImAuthentication) // load from EC2 role or env var
+                }
             }
         }
     }
