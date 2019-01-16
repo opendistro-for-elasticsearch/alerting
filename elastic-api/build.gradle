@@ -1,5 +1,6 @@
 apply plugin: 'java'
 apply plugin: 'org.jetbrains.kotlin.jvm'
+apply from: '../build-tools/publish-subproject-jar.gradle'
 
 // Elastic API version specific code for both ES server api and ES test framework API.
 // Add a dependency on project(':elastic-api') to compile configuration and a dependency on 

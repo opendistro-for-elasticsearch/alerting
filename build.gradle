@@ -58,17 +58,4 @@ subprojects {
 
 evaluationDependsOnChildren()
 
-/*
-task release(type: Copy, group: 'build') {
-    dependsOn allprojects*.tasks.build
-    from(zipTree(findProject(':monitoring').tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into "build/plugins/${es_mv}/aes-monitoring"
-    includeEmptyDirs = false
-    // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip which we need to remove
-    eachFile { it.path = it.path - "elasticsearch/" }
-    // Codebuild can't run ES as root so we can't run tests there. In that case depend on assemble
-//    dependsOn project(':monitoring').tasks.assemble
-}
-*/
-
 check.dependsOn subprojects*.check

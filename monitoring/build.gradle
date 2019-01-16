@@ -46,11 +46,11 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile "org.jetbrains:annotations:13.0"
 
-    compile project(":core")
-    compile project(":notification")
-    compile project(':elastic-api')
+    compile project(":monitoring-core")
+    compile project(":monitoring-notification")
+    compile project(':monitoring-elastic-api')
 
-    testCompile project(path: ':elastic-api', configuration: 'testOutput')
+    testCompile project(path: ':monitoring-elastic-api', configuration: 'testOutput')
     // This needs to be declared manually as the offline dependencies task does not pick this up automatically for some reason
     checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
 }
