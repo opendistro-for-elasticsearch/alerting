@@ -56,7 +56,6 @@ import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ExecutorBuilder
-import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
@@ -129,7 +128,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         clusterService.clusterSettings.addSettingsUpdateConsumer(MonitoringSettings.MONITORING_ENABLED) { enabled ->
             if(!enabled) sweeper.disable() else sweeper.enable()
         }
-        scheduledJobIndices = ScheduledJobIndices(client.admin(), settings, clusterService)
+        scheduledJobIndices = ScheduledJobIndices(client.admin(), clusterService)
         this.threadPool = threadPool
         return listOf(sweeper, scheduler, runner)
     }
