@@ -4,8 +4,8 @@ publishing {
     repositories {
         maven {
             def localRepoUrl = "${rootProject.buildDir}/local-test-repo"
-            def snapshotRepoUrl = getRepositories().findByName("internal-snapshot")
-            def releaseRepoUrl = getRepositories().findByName("internal-release")
+            def snapshotRepoUrl = "s3://open-es/snapshots"
+            def releaseRepoUrl = "s3://open-es/releases"
             if ("true".equals(System.getProperty("localPublish", "true"))) {
                 url = localRepoUrl
             } else if ("true".equals(System.getProperty("build.snapshot", "true"))) {
