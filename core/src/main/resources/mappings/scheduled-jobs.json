@@ -19,13 +19,13 @@
           "enabled": {
             "type": "boolean"
           },
-          "enabled_time" : {
-            "type" : "date",
-            "format" : "strict_date_time||epoch_millis"
+          "enabled_time": {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
           },
-          "last_update_time" : {
-            "type" : "date",
-            "format" : "strict_date_time||epoch_millis"
+          "last_update_time": {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
           },
           "schedule": {
             "properties": {
@@ -96,7 +96,6 @@
                 "type": "nested",
                 "properties": {
                   "sns": {
-                    "type": "nested",
                     "properties": {
                       "name": {
                         "type": "text",
@@ -106,6 +105,9 @@
                             "ignore_above": 256
                           }
                         }
+                      },
+                      "destination_id": {
+                        "type": "keyword"
                       },
                       "topic_arn": {
                         "type": "text",
@@ -125,6 +127,74 @@
                         "enabled": false
                       }
                     }
+                  },
+                  "slack": {
+                    "properties": {
+                      "name": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "destination_id": {
+                        "type": "keyword"
+                      },
+                      "subject_template": {
+                        "type": "object",
+                        "enabled": false
+                      },
+                      "message_template": {
+                        "type": "object",
+                        "enabled": false
+                      }
+                    }
+                  },
+                  "chime": {
+                    "properties": {
+                      "name": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "destination_id": {
+                        "type": "keyword"
+                      },
+                      "subject_template": {
+                        "type": "object",
+                        "enabled": false
+                      },
+                      "message_template": {
+                        "type": "object",
+                        "enabled": false
+                      }
+                    }
+                  },
+                  "custom_webhook": {
+                    "properties": {
+                      "name": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "destination_id": {
+                        "type": "keyword"
+                      },
+                      "message_template": {
+                        "type": "object",
+                        "enabled": false
+                      }
+                    }
                   }
                 }
               }
@@ -135,7 +205,94 @@
             "enabled": false
           }
         }
+      },
+      "destination": {
+        "dynamic": "false",
+        "properties": {
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "type": {
+            "type": "keyword"
+          },
+          "last_update_time": {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
+          },
+          "chime": {
+            "properties": {
+              "url": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              }
+            }
+            },
+          "slack": {
+            "properties": {
+              "url": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              }
+            }
+          },
+          "custom_webhook": {
+            "properties": {
+              "url": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "scheme": {
+                "type": "keyword"
+              },
+              "host": {
+                "type": "text"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "path": {
+                "type": "keyword"
+              },
+              "query_params": {
+                "type": "object",
+                "enabled": false
+              },
+              "header_params": {
+                "type": "object",
+                "enabled": false
+              },
+              "username": {
+                "type": "text"
+              },
+              "password": {
+                "type": "text"
+              }
+            }
+          }
+        }
       }
     }
   }
 }
+
