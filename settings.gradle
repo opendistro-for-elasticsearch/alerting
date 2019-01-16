@@ -1,6 +1,9 @@
 rootProject.name = 'openes-monitoring-plugin'
-include ':monitoring'
+include 'monitoring'
 include 'core'
-include ':notification'
+include 'notification'
 include 'elastic-api'
 
+project(":core").name = 'monitoring-core'
+project(":notification").name = 'monitoring-notification'
+project(":elastic-api").name = 'monitoring-elastic-api'

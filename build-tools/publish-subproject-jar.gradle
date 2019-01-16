@@ -1,0 +1,23 @@
+apply plugin: 'nebula.maven-publish'
+
+publishing {
+    repositories {
+        maven {
+            def localRepoUrl = "${rootProject.buildDir}/local-test-repo"
+            def snapshotRepoUrl = getRepositories().findByName("internal-snapshot")
+            def releaseRepoUrl = getRepositories().findByName("internal-release")
+            if ("true".equals(System.getProperty("localPublish", "true"))) {
+                url = localRepoUrl
+            } else if ("true".equals(System.getProperty("build.snapshot", "true"))) {
+                url = snapshotRepoUrl
+            } else {
+                url = releaseRepoUrl
+            }
+        }
+    }
+    publications {
+        nebula(MavenPublication) {
+            artifactId = project.name
+        }
+    }
+}

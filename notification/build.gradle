@@ -1,5 +1,6 @@
 apply plugin: 'java'
 apply plugin: 'jacoco'
+apply from: '../build-tools/publish-subproject-jar.gradle'
 
 dependencies {
     compileOnly "org.openes:elasticsearch:${es_version}"
