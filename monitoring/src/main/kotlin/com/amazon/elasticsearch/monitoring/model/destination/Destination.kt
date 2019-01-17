@@ -10,6 +10,7 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import java.io.IOException
 import java.time.Instant
+import java.util.*
 
 /**
  * A value object that represents a Destination message.
@@ -21,17 +22,17 @@ data class Destination(val id: String = NO_ID, val version: Long = NO_VERSION, v
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
-                .startObject(DESTINATION_TYPE)
-                .field(TYPE_FIELD, type.name)
+                .startObject(DESTINATION)
+                .field(TYPE_FIELD, type.value)
                 .field(NAME_FIELD, name)
                 .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
-                .field(type.name, constructResponseForWebhookType(type))
+                .field(type.value, constructResponseForWebhookType(type))
                 .endObject()
                 .endObject()
     }
 
     companion object {
-        const val DESTINATION_TYPE = "destination"
+        const val DESTINATION = "destination"
         const val TYPE_FIELD = "type"
         const val NAME_FIELD = "name"
         const val NO_ID = ""
@@ -62,7 +63,7 @@ data class Destination(val id: String = NO_ID, val version: Long = NO_VERSION, v
                     TYPE_FIELD -> {
                         type = xcp.text()
                         val allowedTypes = mutableListOf<String>()
-                        DestinationType.values().map { allowedTypes.add(it.type) }
+                        DestinationType.values().map { allowedTypes.add(it.value) }
                         if (!allowedTypes.contains(type)) {
                             throw IllegalStateException("Type should be one of the ${allowedTypes}")
                         }
@@ -84,7 +85,7 @@ data class Destination(val id: String = NO_ID, val version: Long = NO_VERSION, v
             }
             return Destination(id,
                     version,
-                    DestinationType.valueOf(type.toUpperCase()),
+                    DestinationType.valueOf(type.toUpperCase(Locale.ROOT)),
                     requireNotNull(name) { "Destination name is null" },
                     lastUpdateTime ?: Instant.now(),
                     chime,
@@ -93,15 +94,15 @@ data class Destination(val id: String = NO_ID, val version: Long = NO_VERSION, v
         }
     }
 
-    fun constructResponseForWebhookType(destination: DestinationType): Any? {
+    fun constructResponseForWebhookType(type: DestinationType): Any? {
         var content: Any? = null
-        when (destination) {
-            DestinationType.CHIME -> content = chime?.convertToMap()?.get(destination.type)
-            DestinationType.SLACK -> content = slack?.convertToMap()?.get(destination.type)
-            DestinationType.CUSTOM_WEBHOOK -> content = customWebhook?.convertToMap()?.get(destination.type)
+        when (type) {
+            DestinationType.CHIME -> content = chime?.convertToMap()?.get(type.value)
+            DestinationType.SLACK -> content = slack?.convertToMap()?.get(type.value)
+            DestinationType.CUSTOM_WEBHOOK -> content = customWebhook?.convertToMap()?.get(type.value)
         }
         if (content == null) {
-            throw IllegalArgumentException("Content is NULL for destination type ${destination.type}")
+            throw IllegalArgumentException("Content is NULL for destination type ${type.value}")
         }
         return content
     }
