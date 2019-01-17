@@ -27,8 +27,8 @@ import java.time.temporal.ChronoUnit.MILLIS
 class MonitorRunnerIT : MonitoringRestTestCase() {
 
     fun `test execute monitor with dryrun`() {
-         val action = randomSNSAction(subjectTemplate = randomTemplateScript("Hello {{_ctx.monitor.name}}"),
-                 messageTemplate = randomTemplateScript("Goodbye {{_ctx.monitor.name}}"))
+         val action = randomSNSAction(subjectTemplate = randomTemplateScript("Hello {{ctx.monitor.name}}"),
+                 messageTemplate = randomTemplateScript("Goodbye {{ctx.monitor.name}}"))
          val monitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
 
         val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
@@ -165,7 +165,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
     }
 
     fun `test alert completion`() {
-        val trigger = randomTrigger(condition = Script("_ctx.alert == null"))
+        val trigger = randomTrigger(condition = Script("ctx.alert == null"))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
 
         executeMonitor(monitor.id)
@@ -197,7 +197,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
 
     fun `test execute action template error`() {
         // Intentional syntax error in mustache template
-        val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
+        val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name"))
         val monitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
 
         val response = executeMonitor(monitor)
@@ -219,7 +219,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         val input = SearchInput(indices = listOf("_all"), query = SearchSourceBuilder().query(query))
         val triggerScript = """
             // make sure there is at least one monitor
-            return _ctx.results[0].hits.hits.size() > 0
+            return ctx.results[0].hits.hits.size() > 0
         """.trimIndent()
         val trigger = randomTrigger(condition = Script(triggerScript))
         val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))
@@ -254,7 +254,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
         val input = SearchInput(indices = listOf(testIndex), query = SearchSourceBuilder().query(query))
         val triggerScript = """
             // make sure there is exactly one hit
-            return _ctx.results[0].hits.hits.size() == 1
+            return ctx.results[0].hits.hits.size() == 1
         """.trimIndent()
         val trigger = randomTrigger(condition = Script(triggerScript))
         val monitor = randomMonitor(inputs = listOf(input), triggers = listOf(trigger))
@@ -274,7 +274,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
     }
 
     fun `test monitor with one bad action and one good action`() {
-        val goodAction = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name}}"))
+        val goodAction = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name}}"))
         val syntaxErrorAction = randomAction(name = "bad syntax", template = randomTemplateScript("{{foo"))
         val actions = listOf(goodAction, syntaxErrorAction)
         val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = actions))))
@@ -303,7 +303,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
     fun `test execute monitor adds to alert error history`() {
         putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
-        val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
+        val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
         val listOfFiveErrorMessages = (1..5).map { i -> AlertError(timestamp = Instant.now(), message = "error message $i") }
@@ -327,7 +327,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
     fun `test latest error is not lost when alert is completed`() {
         // Creates an active alert the first time it's run and completes it the second time the monitor is run.
         val trigger = randomTrigger(condition = Script("""
-            if (_ctx.alert == null) {
+            if (ctx.alert == null) {
                 throw new RuntimeException("foo");
             } else {
                 return false;
@@ -351,7 +351,7 @@ class MonitorRunnerIT : MonitoringRestTestCase() {
     fun `test execute monitor limits alert error history to 10 error messages`() {
         putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
-        val action = randomAction(template = randomTemplateScript("Hello {{_ctx.monitor.name"))
+        val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name"))
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
         val listOfTenErrorMessages = (1..10).map { i -> AlertError(timestamp = Instant.now(),message = "error message $i") }

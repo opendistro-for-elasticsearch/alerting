@@ -328,11 +328,11 @@ class MonitorRunner(private val settings: Settings,
         val actionOutput = mutableMapOf<String, String>()
 
         actionOutput["subject"] = scriptService.compile(subjectTemplate, TemplateScript.CONTEXT)
-                .newInstance(subjectTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
+                .newInstance(subjectTemplate.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()
 
         actionOutput["message"] = scriptService.compile(messageTemplate, TemplateScript.CONTEXT)
-                .newInstance(messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
+                .newInstance(messageTemplate.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()
 
         // channel name will be replaced with actual name once we start supporting dedicated channels page
@@ -349,7 +349,7 @@ class MonitorRunner(private val settings: Settings,
     private fun TestAction.run(ctx: TriggerExecutionContext) : Map<String, String> {
         val actionOutput = mutableMapOf<String, String>()
         actionOutput["message"] = scriptService.compile(messageTemplate, TemplateScript.CONTEXT)
-                .newInstance(messageTemplate.params + mapOf("_ctx" to ctx.asTemplateArg()))
+                .newInstance(messageTemplate.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()
         return actionOutput.toMap()
     }
