@@ -1,6 +1,3 @@
-/*
- * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- */
 package com.amazon.elasticsearch.monitoring.resthandler
 
 import com.amazon.elasticsearch.ScheduledJobIndices
@@ -9,11 +6,10 @@ import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.elasticsearch.monitoring.MonitoringPlugin
-import com.amazon.elasticsearch.monitoring.model.Monitor
+import com.amazon.elasticsearch.monitoring.model.destination.Destination
 import com.amazon.elasticsearch.monitoring.util.REFRESH
 import com.amazon.elasticsearch.monitoring.util._ID
 import com.amazon.elasticsearch.monitoring.util._VERSION
-import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -24,81 +20,78 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS
-import org.elasticsearch.common.xcontent.XContentParser.Token
-import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.RestRequest.Method.POST
-import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
-import java.time.Instant
 
 /**
- * Rest handlers to create and update monitors
+ * Rest handlers to create and update Destination
  */
-class RestIndexMonitorAction(settings: Settings, controller: RestController, jobIndices: ScheduledJobIndices) : BaseRestHandler(settings) {
-
+class RestIndexDestinationAction(settings: Settings, controller: RestController, jobIndices: ScheduledJobIndices) : BaseRestHandler(settings) {
     private var scheduledJobIndices: ScheduledJobIndices
 
     init {
-        controller.registerHandler(POST, MonitoringPlugin.MONITOR_BASE_URI, this) // Create a new monitor
-        controller.registerHandler(PUT, MonitoringPlugin.MONITOR_BASE_URI + "{monitorID}", this)
+        controller.registerHandler(RestRequest.Method.POST, MonitoringPlugin.DESTINATION_BASE_URI, this) // Creates new destination 
+        controller.registerHandler(RestRequest.Method.PUT, MonitoringPlugin.DESTINATION_BASE_URI + "{destinationID}", this)
         scheduledJobIndices = jobIndices
     }
 
     override fun getName(): String {
-        return "index_monitor_action"
+        return "index_destination_action"
     }
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): BaseRestHandler.RestChannelConsumer {
-        val id = request.param("monitorID", Monitor.NO_ID)
-        if (request.method() == PUT && Monitor.NO_ID == id) {
-            throw IllegalArgumentException("Missing monitor ID")
+        val id = request.param("destinationID", Destination.NO_ID)
+        if (request.method() == RestRequest.Method.PUT && Destination.NO_ID == id) {
+            throw IllegalArgumentException("Missing destination ID")
         }
 
-        // Validate request by parsing JSON to Monitor
+        // Validate request by parsing JSON to Destination
         val xcp = request.contentParser()
-        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        val monitor = Monitor.parse(xcp, id).copy(lastUpdateTime = Instant.now())
-        val monitorVersion = RestActions.parseVersion(request)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        val destination = Destination.parse(xcp, id)
+        val destintaionVersion = RestActions.parseVersion(request)
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
         return RestChannelConsumer { channel ->
-            IndexMonitorHandler(client, channel, id, monitorVersion, refreshPolicy, monitor).start()
+            IndexDestinationHandler(client, channel, id, destintaionVersion, refreshPolicy, destination).start()
         }
     }
 
-    inner class IndexMonitorHandler(client: NodeClient,
-                                    channel: RestChannel,
-                                    private val monitorId: String,
-                                    private val monitorVersion: Long,
-                                    private val refreshPolicy: WriteRequest.RefreshPolicy,
-                                    private var newMonitor: Monitor) :
+
+    inner class IndexDestinationHandler(client: NodeClient,
+                                        channel: RestChannel,
+                                        private val destinationId: String,
+                                        private val destinationVersion: Long,
+                                        private val refreshPolicy: WriteRequest.RefreshPolicy,
+                                        private var newDestination: Destination) :
             AsyncActionHandler(client, channel) {
 
         fun start() {
             scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onCreateMappingsFailure))
-            if (channel.request().method() == PUT) updateMonitor()
+            if (channel.request().method() == RestRequest.Method.PUT) updateDestination()
             else {
                 val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
                         .setRefreshPolicy(refreshPolicy)
-                        .source(newMonitor.toXContentWithType(channel.newBuilder()))
-                        .version(monitorVersion)
+                        .source(newDestination.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
+                        .version(destinationVersion)
                         .timeout(REQUEST_TIMEOUT.get(settings))
-                client.index(indexRequest, indexMonitorResponse())
+                client.index(indexRequest, indexDestinationResponse())
             }
         }
 
@@ -119,8 +112,8 @@ class RestIndexMonitorAction(settings: Settings, controller: RestController, job
             }
         }
 
-        private fun updateMonitor() {
-            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, monitorId)
+        private fun updateDestination() {
+            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, destinationId)
             client.get(getRequest, ActionListener.wrap(::onGetResponse, ::onFailure))
         }
 
@@ -128,43 +121,41 @@ class RestIndexMonitorAction(settings: Settings, controller: RestController, job
             if (!response.isExists) {
                 val builder = channel.newErrorBuilder()
                         .startObject()
-
-                        .field("Message", "Monitor with $monitorId is not found")
+                        .field("Message", "Destination with $destinationId is not found")
                         .endObject()
-                return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, EMPTY_PARAMS)))
+                return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, ToXContent.EMPTY_PARAMS)))
             }
-            val xcp = ElasticAPI.INSTANCE.jsonParser(channel.request().xContentRegistry, response.sourceAsBytesRef)
-            val currentMonitor = ScheduledJob.parse(xcp, monitorId) as Monitor
-            // If both are enabled, use the current existing monitor enabled time, otherwise the next execution will be
-            // incorrect.
-            if (newMonitor.enabled && currentMonitor.enabled) newMonitor = newMonitor.copy(enabledTime = currentMonitor.enabledTime)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
                     .setRefreshPolicy(refreshPolicy)
-                    .source(newMonitor.toXContentWithType(channel.newBuilder()))
-                    .id(monitorId)
-                    .version(monitorVersion)
+                    .source(newDestination.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
+                    .id(destinationId)
+                    .version(destinationVersion)
                     .timeout(REQUEST_TIMEOUT.get(settings))
-            return client.index(indexRequest, indexMonitorResponse())
+            return client.index(indexRequest, indexDestinationResponse())
         }
 
-        private fun indexMonitorResponse(): RestResponseListener<IndexResponse> {
+        private fun indexDestinationResponse(): RestResponseListener<IndexResponse> {
             return object : RestResponseListener<IndexResponse>(channel) {
                 @Throws(Exception::class)
                 override fun buildResponse(response: IndexResponse): RestResponse {
-                    if (response.shardInfo.successful < 1) {
-                        return BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS))
+                    val failureReasons = mutableListOf<String>()
+                    if (response.shardInfo.failed > 0) {
+                        response.shardInfo.failures.forEach { entry -> failureReasons.add(entry.reason()) }
+                        val builder = channel.newErrorBuilder().startObject()
+                                .field("reasons", failureReasons.toTypedArray())
+                                .endObject()
+                        return BytesRestResponse(response.status(), response.toXContent(builder, ToXContent.EMPTY_PARAMS))
                     }
-
                     val builder = channel.newBuilder()
                             .startObject()
                             .field(_ID, response.id)
                             .field(_VERSION, response.version)
-                            .field("monitor", newMonitor)
+                            .field("destination", newDestination)
                             .endObject()
 
                     val restResponse = BytesRestResponse(response.status(), builder)
                     if (response.status() == RestStatus.CREATED) {
-                        val location = MonitoringPlugin.MONITOR_BASE_URI + response.id
+                        val location = MonitoringPlugin.DESTINATION_BASE_URI + response.id
                         restResponse.addHeader("Location", location)
                     }
                     return restResponse

@@ -19,10 +19,12 @@ import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.TestAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestAcknowledgeAlertAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteDestinationAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestDeleteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestDisableMonitoringAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestExecuteMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestGetMonitorAction
+import com.amazon.elasticsearch.monitoring.resthandler.RestIndexDestinationAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestIndexMonitorAction
 import com.amazon.elasticsearch.monitoring.resthandler.RestSearchMonitorAction
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
@@ -76,6 +78,7 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
         @JvmField val KIBANA_USER_AGENT = "Kibana"
         @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
         @JvmField val MONITOR_BASE_URI = "/_awses/monitors/"
+        @JvmField val DESTINATION_BASE_URI = "/_awses/destination/"
     }
 
     lateinit var runner: MonitorRunner
@@ -99,7 +102,9 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
                 RestExecuteMonitorAction(settings, restController, runner),
                 RestAcknowledgeAlertAction(settings, restController),
                 RestDisableMonitoringAction(settings, restController),
-                RestScheduledJobStatsHandler(settings, restController, "_monitors"))
+                RestScheduledJobStatsHandler(settings, restController, "_monitors"),
+                RestIndexDestinationAction(settings, restController, scheduledJobIndices),
+                RestDeleteDestinationAction(settings, restController))
     }
 
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
