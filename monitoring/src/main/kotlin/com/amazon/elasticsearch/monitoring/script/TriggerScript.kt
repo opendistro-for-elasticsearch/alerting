@@ -26,7 +26,7 @@ abstract class TriggerScript(_scriptParams: Map<String, Any>) {
          * In a sane world this would have been named `ARGUMENTS` to avoid confusing the hell out of everyone who has to
          * work with this code.
          */
-        @JvmField val PARAMETERS = arrayOf("_ctx")
+        @JvmField val PARAMETERS = arrayOf("ctx")
 
         val CONTEXT = ScriptContext("trigger", Factory::class.java)
     }
@@ -34,9 +34,9 @@ abstract class TriggerScript(_scriptParams: Map<String, Any>) {
     /**
      * Run a trigger script with the given context.
      *
-     * @param _ctx - the trigger execution context
+     * @param ctx - the trigger execution context
      */
-    abstract fun execute(_ctx : TriggerExecutionContext) : Boolean
+    abstract fun execute(ctx : TriggerExecutionContext) : Boolean
 
     interface Factory {
         fun newInstance(scriptParams: Map<String, Any>) : TriggerScript
