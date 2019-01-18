@@ -4,7 +4,7 @@ import com.amazon.elasticsearch.notification.util.Util;
 import org.elasticsearch.common.Strings;
 
 /**
- * This class holds the state of an SNS message
+ * This class holds the content of an SNS message
  */
 public class SNSMessage extends BaseMessage {
 
@@ -13,12 +13,12 @@ public class SNSMessage extends BaseMessage {
     private String roleArn;
     private String topicArn;
 
-    private SNSMessage(final NotificationChannel channelType, final String channelName, final String roleArn,
+    private SNSMessage(final DestinationType destinationType, final String destinationName, final String roleArn,
                        final String topicArn, final String subject, final String message) {
 
-        super(channelType, channelName);
+        super(destinationType, destinationName, message);
 
-        if (NotificationChannel.SNS != channelType) {
+        if (DestinationType.SNS != destinationType) {
             throw new IllegalArgumentException("Channel Type does not match SNS");
         }
 
@@ -40,17 +40,24 @@ public class SNSMessage extends BaseMessage {
         this.topicArn = topicArn;
     }
 
+    @Override
+    public String toString() {
+        return "DestinationType: " + destinationType + ", DestinationName:" +  destinationName +
+                ", RoleARn: " + roleArn + ", TopicArn: " + topicArn + ", Subject: " + subject +
+                ", Message: " + message;
+    }
+
     public static class Builder {
         private String subject;
         private String message;
         private String roleArn;
         private String topicArn;
-        private NotificationChannel channelType;
-        private String channelName;
+        private DestinationType destinationType;
+        private String destinationName;
 
-        public Builder(String channelName) {
-            this.channelName = channelName;
-            this.channelType = NotificationChannel.SNS;
+        public Builder(String destinationName) {
+            this.destinationName = destinationName;
+            this.destinationType = DestinationType.SNS;
         }
 
         public Builder withSubject(String subject) {
@@ -74,7 +81,7 @@ public class SNSMessage extends BaseMessage {
         }
 
         public SNSMessage build() {
-            SNSMessage snsMessage = new SNSMessage(this.channelType, this.channelName, this.roleArn, this.topicArn,
+            SNSMessage snsMessage = new SNSMessage(this.destinationType, this.destinationName, this.roleArn, this.topicArn,
                     this.subject, this.message);
 
             return snsMessage;

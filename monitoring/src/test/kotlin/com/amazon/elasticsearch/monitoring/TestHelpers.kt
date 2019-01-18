@@ -7,6 +7,8 @@ import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.IntervalSchedule
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.model.action.Action
+import com.amazon.elasticsearch.model.action.SNSAction
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.TestAction

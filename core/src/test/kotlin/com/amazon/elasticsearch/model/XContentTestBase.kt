@@ -1,5 +1,6 @@
 package com.amazon.elasticsearch.model
 
+import com.amazon.elasticsearch.model.action.SNSAction
 import com.amazon.elasticsearch.util.ElasticAPI
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry

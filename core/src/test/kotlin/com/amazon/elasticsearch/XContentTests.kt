@@ -7,6 +7,8 @@ package com.amazon.elasticsearch
 import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.model.XContentTestBase
+import com.amazon.elasticsearch.model.action.Action
+import com.amazon.elasticsearch.model.action.SNSAction
 import com.amazon.elasticsearch.util.string
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.index.query.QueryBuilders

@@ -95,7 +95,7 @@ public class ExpirableCredentialsProviderFactory implements CredentialsProviderF
                         return new AwsClientBuilder.EndpointConfiguration(serviceEndpoint, region);
                 }
             } catch (Exception ex) {
-                logger.error("Error fetching SNS endpoint information. Defaulting to global");
+                logger.error("Error fetching STS endpoint information. Defaulting to global");
             }
         }
         logger.info("Region not provided, defaulting to global");

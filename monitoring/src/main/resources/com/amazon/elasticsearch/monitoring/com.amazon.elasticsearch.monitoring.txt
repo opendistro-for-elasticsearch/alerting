@@ -36,7 +36,7 @@ class com.amazon.elasticsearch.monitoring.model.Trigger {
     List getActions()
 }
 
-class com.amazon.elasticsearch.model.Action {
+class com.amazon.elasticsearch.model.action.Action {
     String getName()
     String getType()
 }

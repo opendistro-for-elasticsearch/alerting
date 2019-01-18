@@ -17,7 +17,6 @@ import org.elasticsearch.script.Script
 import java.io.IOException
 import java.lang.IllegalStateException
 
-
 /**
  * This class holds the data and parser for Chime message which will be
  * submitted to the Chime destination

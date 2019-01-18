@@ -37,7 +37,11 @@ import com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
 import com.amazon.elasticsearch.notification.Notification
+import com.amazon.elasticsearch.notification.message.ChimeMessage
+import com.amazon.elasticsearch.notification.message.CustomWebhookMessage
 import com.amazon.elasticsearch.notification.message.SNSMessage
+import com.amazon.elasticsearch.notification.message.SlackMessage
+import com.amazon.elasticsearch.notification.response.DestinationHttpResponse
 import com.amazon.elasticsearch.notification.response.SNSResponse
 import com.amazon.elasticsearch.util.ElasticAPI
 import com.amazon.elasticsearch.util.convertToMap
@@ -362,7 +366,7 @@ class MonitorRunner(private val settings: Settings,
             val messageContent = constructMessageContent(actionOutput[SUBJECT], actionOutput[MESSAGE], destinationId)
             val chimeMessage = ChimeMessage.Builder(name).withUrl(destination?.chime?.url)
                     .withMessage(messageContent).withSubject(actionOutput[SUBJECT]).build()
-            val response = Notification.publish(chimeMessage) as ChimeResponse
+            val response = Notification.publish(chimeMessage) as DestinationHttpResponse
             actionOutput[MESSAGE_ID] = response.responseString
             logger.info("Message published for action name: ${name}, sns messageid: ${response.responseString}, statuscode: ${response.statusCode}")
         }
@@ -379,7 +383,7 @@ class MonitorRunner(private val settings: Settings,
             val messageContent = constructMessageContent(actionOutput[SUBJECT], actionOutput[MESSAGE], destinationId)
             val slackMessage = SlackMessage.Builder(name).withUrl(destination?.slack?.url)
                     .withMessage(actionOutput[MESSAGE]).withSubject(actionOutput[SUBJECT]).build()
-            val response = Notification.publish(slackMessage) as SlackResponse
+            val response = Notification.publish(slackMessage) as DestinationHttpResponse
             actionOutput[MESSAGE_ID] = response.responseString
             logger.info("Message published for action name: ${name}, sns messageid: ${response.responseString}, statuscode: ${response.statusCode}")
         }
@@ -398,7 +402,7 @@ class MonitorRunner(private val settings: Settings,
                     .withPath(destination?.customWebhook?.path).withQueryParams(destination?.customWebhook?.queryParams)
                     .withHeaderParams(destination?.customWebhook?.headerParams)
                     .withMessage(actionOutput[MESSAGE]).build()
-            val response = Notification.publish(customWebhookMessage) as CustomWebhookResponse
+            val response = Notification.publish(customWebhookMessage) as DestinationHttpResponse
             actionOutput[MESSAGE_ID] = response.responseString
             logger.info("Message published for action name: ${name}, sns messageid: ${response.responseString}, statuscode: ${response.statusCode}")
         }

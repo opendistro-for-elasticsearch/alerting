@@ -18,7 +18,6 @@ import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
 import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
 import org.elasticsearch.script.ScriptException
-import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.Instant

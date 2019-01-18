@@ -1,7 +1,7 @@
 package com.amazon.elasticsearch.notification;
 
-import com.amazon.elasticsearch.notification.factory.ChannelFactory;
-import com.amazon.elasticsearch.notification.factory.ChannelFactoryProvider;
+import com.amazon.elasticsearch.notification.factory.DestinationFactory;
+import com.amazon.elasticsearch.notification.factory.DestinationFactoryProvider;
 import com.amazon.elasticsearch.notification.message.BaseMessage;
 import com.amazon.elasticsearch.notification.response.BaseResponse;
 
@@ -13,7 +13,12 @@ import java.security.PrivilegedAction;
  * to the Notification channel like SNS, Email, Webhooks etc
  */
 public class Notification {
-    private ChannelFactoryProvider factoryProvider;
+    private DestinationFactoryProvider factoryProvider;
+
+    private BaseResponse run(BaseMessage notificationMessage) throws Exception {
+        DestinationFactory destinationFactory = DestinationFactoryProvider.getFactory(notificationMessage.getChannelType());
+        return destinationFactory.publish(notificationMessage);
+    }
 
     /**
      * Publishes the notification message to the corresponding notification
@@ -23,10 +28,10 @@ public class Notification {
      * @return BaseResponse
      */
     public static BaseResponse publish(BaseMessage notificationMessage) {
-        return AccessController.doPrivileged((PrivilegedAction<BaseResponse>) () -> {
-            ChannelFactory channelFactory = ChannelFactoryProvider.getFactory(notificationMessage.getChannelType());
-            return channelFactory.publish(notificationMessage);
-        });
+            return AccessController.doPrivileged((PrivilegedAction<BaseResponse>) () -> {
+                DestinationFactory destinationFactory = DestinationFactoryProvider.getFactory(notificationMessage.getChannelType());
+                return destinationFactory.publish(notificationMessage);
+            });
     }
 }
 

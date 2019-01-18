@@ -64,7 +64,6 @@ import org.elasticsearch.threadpool.ExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
-
 /**
  * Entry point of the Amazon Elasticsearch monitoring plugin
  * This class initializes the [RestGetMonitorAction], [RestDeleteMonitorAction], [RestIndexMonitorAction] rest handlers.

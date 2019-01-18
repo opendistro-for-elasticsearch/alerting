@@ -25,19 +25,18 @@ import java.util.Map;
  * the first one that works.
  */
 
-final class SNSChannelFactory implements ChannelFactory<SNSMessage> {
+final class SNSDestinationFactory implements DestinationFactory<SNSMessage, AmazonSNS> {
+    private static final Logger logger = Loggers.getLogger(SNSDestinationFactory.class);
 
     private final InternalAuthCredentialsClient internalApiCredentialsClient;
     private final CredentialsProviderFactory[] orderedCredentialsProviderSources;
-
-    private static final Logger logger = Loggers.getLogger(SNSChannelFactory.class);
 
     /*
      * Mapping between IAM roleArn and SNSClientHelper. Each role will have its own credentials.
      */
     Map<String, SNSClientHelper> roleClientMap = new HashMap<>();
 
-    SNSChannelFactory() {
+    SNSDestinationFactory() {
         this.internalApiCredentialsClient = InternalAuthCredentialsClientPool
                 .getInstance()
                 .getInternalAuthClient(getClass().getName());
@@ -57,7 +56,7 @@ final class SNSChannelFactory implements ChannelFactory<SNSMessage> {
             return new SNSResponse.Builder().withMessageId(result.getMessageId())
                     .withStatusCode(result.getSdkHttpMetadata().getHttpStatusCode()).build();
         } catch (Exception ex) {
-            logger.error("Message publishing failed ", ex);
+            logger.error("Exception publishing Message: " + message.toString(), ex);
             throw ex;
         }
     }
@@ -126,8 +125,9 @@ class SNSClientHelper {
 
     public AmazonSNS getSnsClient(String region) {
         if (!snsClientMap.containsKey(region)) {
-            AmazonSNS snsClient = AmazonSNSClientBuilder.standard().withRegion(region).
-                    withCredentials(credentialsProvider).build();
+            AmazonSNS snsClient = AmazonSNSClientBuilder.standard()
+                    .withRegion(region)
+                    .withCredentials(credentialsProvider).build();
             snsClientMap.put(region, snsClient);
         }
         return snsClientMap.get(region);

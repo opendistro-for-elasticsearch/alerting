@@ -5,6 +5,7 @@
 package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.model.action.SNSAction
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Alert
 import com.amazon.elasticsearch.monitoring.model.Monitor

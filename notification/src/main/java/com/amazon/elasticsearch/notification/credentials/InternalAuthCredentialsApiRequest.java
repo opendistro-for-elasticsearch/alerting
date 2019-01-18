@@ -39,7 +39,6 @@ class InternalAuthCredentialsApiRequest {
         this.policyType = policyType;
     }
 
-
     InternalAwsCredentials execute() throws IOException {
         HttpResponse response = getHttpResponse();
         validateResponseStatus(response);
