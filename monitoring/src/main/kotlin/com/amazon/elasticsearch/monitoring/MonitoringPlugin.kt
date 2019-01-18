@@ -12,9 +12,12 @@ import com.amazon.elasticsearch.Settings.SWEEP_PAGE_SIZE
 import com.amazon.elasticsearch.Settings.SWEEP_PERIOD
 import com.amazon.elasticsearch.action.node.ScheduledJobsStatsAction
 import com.amazon.elasticsearch.action.node.ScheduledJobsStatsTransportAction
-import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.model.action.ChimeAction
+import com.amazon.elasticsearch.model.action.CustomWebhookAction
+import com.amazon.elasticsearch.model.action.SNSAction
+import com.amazon.elasticsearch.model.action.SlackAction
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.Monitor
 import com.amazon.elasticsearch.monitoring.model.TestAction
@@ -114,6 +117,9 @@ internal class MonitoringPlugin : PainlessExtension, ActionPlugin, ScriptPlugin,
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {
         return listOf(Monitor.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY,
+                ChimeAction.XCONTENT_REGISTRY,
+                CustomWebhookAction.XCONTENT_REGISTRY,
+                SlackAction.XCONTENT_REGISTRY,
                 SNSAction.XCONTENT_REGISTRY,
                 TestAction.XCONTENT_REGISTRY)
     }

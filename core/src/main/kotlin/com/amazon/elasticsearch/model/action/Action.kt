@@ -1,4 +1,4 @@
-package com.amazon.elasticsearch.model
+package com.amazon.elasticsearch.model.action
 
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentParser
@@ -13,6 +13,10 @@ interface Action : ToXContentObject {
     fun asTemplateArg() : Map<String, Any>
 
     companion object {
+        const val MUSTACHE = "mustache"
+        const val SUBJECT = "subject"
+        const val MESSAGE = "message"
+        const val MESSAGE_ID= "messageId"
 
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Action {

@@ -4,9 +4,7 @@
 
 package com.amazon.elasticsearch
 
-import com.amazon.elasticsearch.model.Action
 import com.amazon.elasticsearch.model.Input
-import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.model.XContentTestBase
 import com.amazon.elasticsearch.util.string

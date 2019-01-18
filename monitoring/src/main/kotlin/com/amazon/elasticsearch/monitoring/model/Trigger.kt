@@ -4,7 +4,7 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
-import com.amazon.elasticsearch.model.Action
+import com.amazon.elasticsearch.model.action.Action
 import org.elasticsearch.common.UUIDs
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder

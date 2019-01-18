@@ -8,7 +8,6 @@
 
 package com.amazon.elasticsearch.monitoring.model
 
-import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.randomAlert
 import com.amazon.elasticsearch.monitoring.randomMonitor

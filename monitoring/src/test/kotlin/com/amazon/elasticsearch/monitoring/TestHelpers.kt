@@ -3,10 +3,8 @@
  */
 package com.amazon.elasticsearch.monitoring
 
-import com.amazon.elasticsearch.model.Action
 import com.amazon.elasticsearch.model.Input
 import com.amazon.elasticsearch.model.IntervalSchedule
-import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.Schedule
 import com.amazon.elasticsearch.model.SearchInput
 import com.amazon.elasticsearch.monitoring.model.Alert

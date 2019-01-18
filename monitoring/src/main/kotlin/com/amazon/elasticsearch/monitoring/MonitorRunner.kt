@@ -5,10 +5,18 @@
 package com.amazon.elasticsearch.monitoring
 
 import com.amazon.elasticsearch.JobRunner
-import com.amazon.elasticsearch.model.Action
-import com.amazon.elasticsearch.model.SNSAction
 import com.amazon.elasticsearch.model.ScheduledJob
+import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
+import com.amazon.elasticsearch.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.elasticsearch.model.SearchInput
+import com.amazon.elasticsearch.model.action.Action
+import com.amazon.elasticsearch.model.action.Action.Companion.MESSAGE
+import com.amazon.elasticsearch.model.action.Action.Companion.MESSAGE_ID
+import com.amazon.elasticsearch.model.action.Action.Companion.SUBJECT
+import com.amazon.elasticsearch.model.action.ChimeAction
+import com.amazon.elasticsearch.model.action.CustomWebhookAction
+import com.amazon.elasticsearch.model.action.SNSAction
+import com.amazon.elasticsearch.model.action.SlackAction
 import com.amazon.elasticsearch.monitoring.alerts.AlertError
 import com.amazon.elasticsearch.monitoring.alerts.AlertIndices
 import com.amazon.elasticsearch.monitoring.model.ActionRunResult
@@ -24,6 +32,7 @@ import com.amazon.elasticsearch.monitoring.model.MonitorRunResult
 import com.amazon.elasticsearch.monitoring.model.TestAction
 import com.amazon.elasticsearch.monitoring.model.Trigger
 import com.amazon.elasticsearch.monitoring.model.TriggerRunResult
+import com.amazon.elasticsearch.monitoring.model.destination.Destination
 import com.amazon.elasticsearch.monitoring.script.TriggerExecutionContext
 import com.amazon.elasticsearch.monitoring.script.TriggerScript
 import com.amazon.elasticsearch.monitoring.settings.MonitoringSettings
@@ -40,6 +49,7 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkItemResponse
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.delete.DeleteRequest
+import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.Client
@@ -315,6 +325,9 @@ class MonitorRunner(private val settings: Settings,
         return try {
             val actionOutput = when (action) {
                 is SNSAction -> action.run(ctx, dryrun)
+                is ChimeAction -> action.run(ctx, dryrun)
+                is SlackAction -> action.run(ctx, dryrun)
+                is CustomWebhookAction -> action.run(ctx, dryrun)
                 is TestAction -> action.run(ctx)
                 else -> throw IllegalArgumentException("Unknown action type: ${action.type}")
             }
@@ -327,31 +340,99 @@ class MonitorRunner(private val settings: Settings,
     private fun SNSAction.run(ctx: TriggerExecutionContext, dryrun: Boolean) : Map<String, String> {
         val actionOutput = mutableMapOf<String, String>()
 
-        actionOutput["subject"] = scriptService.compile(subjectTemplate, TemplateScript.CONTEXT)
-                .newInstance(subjectTemplate.params + mapOf("ctx" to ctx.asTemplateArg()))
-                .execute()
+        actionOutput[SUBJECT] = compileTemplate(subjectTemplate, ctx)
+        actionOutput[MESSAGE] = compileTemplate(messageTemplate, ctx)
 
-        actionOutput["message"] = scriptService.compile(messageTemplate, TemplateScript.CONTEXT)
-                .newInstance(messageTemplate.params + mapOf("ctx" to ctx.asTemplateArg()))
-                .execute()
-
-        // channel name will be replaced with actual name once we start supporting dedicated channels page
         if (!dryrun) {
-            val snsMessage = SNSMessage.Builder("default").withRole(roleARN).withTopicArn(topicARN)
-                    .withMessage(actionOutput["message"]).withSubject(actionOutput["subject"]).build()
+            val snsMessage = SNSMessage.Builder(name).withRole(roleARN).withTopicArn(topicARN)
+                    .withMessage(actionOutput[MESSAGE]).withSubject(actionOutput[SUBJECT]).build()
             val response = Notification.publish(snsMessage) as SNSResponse
-            actionOutput["messageId"] = response.messageId
+            actionOutput[MESSAGE_ID] = response.messageId
             logger.info("Message published for action name: ${name}, sns messageid: ${response.messageId}, statuscode: ${response.statusCode}")
+        }
+        return actionOutput.toMap()
+    }
+
+    private fun ChimeAction.run(ctx: TriggerExecutionContext, dryrun: Boolean) : Map<String, String> {
+        val actionOutput = mutableMapOf<String, String>()
+        val destination = getDestinationInfo(destinationId)
+        actionOutput[SUBJECT] = compileTemplate(subjectTemplate, ctx)
+        actionOutput[MESSAGE] = compileTemplate(messageTemplate, ctx)
+        if (!dryrun) {
+            val messageContent = constructMessageContent(actionOutput[SUBJECT], actionOutput[MESSAGE], destinationId)
+            val chimeMessage = ChimeMessage.Builder(name).withUrl(destination?.chime?.url)
+                    .withMessage(messageContent).withSubject(actionOutput[SUBJECT]).build()
+            val response = Notification.publish(chimeMessage) as ChimeResponse
+            actionOutput[MESSAGE_ID] = response.responseString
+            logger.info("Message published for action name: ${name}, sns messageid: ${response.responseString}, statuscode: ${response.statusCode}")
+        }
+        return actionOutput.toMap()
+    }
+
+    private fun SlackAction.run(ctx: TriggerExecutionContext, dryrun: Boolean) : Map<String, String> {
+        val actionOutput = mutableMapOf<String, String>()
+        val destination = getDestinationInfo(destinationId)
+        actionOutput[SUBJECT] = compileTemplate(subjectTemplate, ctx)
+        actionOutput[MESSAGE] = compileTemplate(messageTemplate, ctx)
+
+        if (!dryrun) {
+            val messageContent = constructMessageContent(actionOutput[SUBJECT], actionOutput[MESSAGE], destinationId)
+            val slackMessage = SlackMessage.Builder(name).withUrl(destination?.slack?.url)
+                    .withMessage(actionOutput[MESSAGE]).withSubject(actionOutput[SUBJECT]).build()
+            val response = Notification.publish(slackMessage) as SlackResponse
+            actionOutput[MESSAGE_ID] = response.responseString
+            logger.info("Message published for action name: ${name}, sns messageid: ${response.responseString}, statuscode: ${response.statusCode}")
+        }
+        return actionOutput.toMap()
+    }
+
+    private fun CustomWebhookAction.run(ctx: TriggerExecutionContext, dryrun: Boolean) : Map<String, String> {
+        val actionOutput = mutableMapOf<String, String>()
+        val destination = getDestinationInfo(destinationId)
+        actionOutput[MESSAGE] = compileTemplate(messageTemplate, ctx)
+
+        if (!dryrun) {
+            val customWebhookMessage = CustomWebhookMessage.Builder(name).withUrl(destination?.customWebhook?.url)
+                    .withScheme(destination?.customWebhook?.scheme).withHost(destination?.customWebhook?.host)
+                    .withPort(destination?.customWebhook?.port)
+                    .withPath(destination?.customWebhook?.path).withQueryParams(destination?.customWebhook?.queryParams)
+                    .withHeaderParams(destination?.customWebhook?.headerParams)
+                    .withMessage(actionOutput[MESSAGE]).build()
+            val response = Notification.publish(customWebhookMessage) as CustomWebhookResponse
+            actionOutput[MESSAGE_ID] = response.responseString
+            logger.info("Message published for action name: ${name}, sns messageid: ${response.responseString}, statuscode: ${response.statusCode}")
         }
         return actionOutput.toMap()
     }
 
     private fun TestAction.run(ctx: TriggerExecutionContext) : Map<String, String> {
         val actionOutput = mutableMapOf<String, String>()
-        actionOutput["message"] = scriptService.compile(messageTemplate, TemplateScript.CONTEXT)
-                .newInstance(messageTemplate.params + mapOf("ctx" to ctx.asTemplateArg()))
-                .execute()
+        actionOutput[MESSAGE] = compileTemplate(messageTemplate, ctx)
         return actionOutput.toMap()
+    }
+
+    private fun compileTemplate(template: Script, ctx: TriggerExecutionContext): String {
+        return scriptService.compile(template, TemplateScript.CONTEXT)
+                .newInstance(template.params + mapOf("ctx" to ctx.asTemplateArg()))
+                .execute()
+    }
+
+    private fun getDestinationInfo(destinationId: String): Destination? {
+        var destination: Destination
+        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, destinationId).routing(destinationId)
+        val getResponse = client.get(getRequest).actionGet()
+        if (!getResponse.isExists() || getResponse.isSourceEmpty) {
+            throw IllegalStateException("Destination document with id ${destinationId} not found or source is empty")
+        }
+
+        val jobSource = getResponse.sourceAsBytesRef
+        val xcp = ElasticAPI.INSTANCE.jsonParser(xContentRegistry, jobSource)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        destination = Destination.parse(xcp)
+        ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        return destination
     }
 
     private fun List<AlertError>?.update(alertError: AlertError?) : List<AlertError> {

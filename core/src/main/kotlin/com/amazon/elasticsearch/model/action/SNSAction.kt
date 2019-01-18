@@ -2,8 +2,9 @@
  * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
-package com.amazon.elasticsearch.model
+package com.amazon.elasticsearch.model.action
 
+import com.amazon.elasticsearch.model.action.Action.Companion.MUSTACHE
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -16,6 +17,10 @@ import org.elasticsearch.script.Script
 import java.io.IOException
 import java.util.regex.Pattern
 
+/**
+ * This class holds the data and parser for SNS message which will be
+ * submitted to the SNS destination
+ */
 data class SNSAction(override val name: String,
                      val topicARN: String,
                      val roleARN: String,
@@ -25,8 +30,8 @@ data class SNSAction(override val name: String,
                      ) : Action {
 
     init {
-        require(subjectTemplate.lang == "mustache") { "subject_template must be a mustache script" }
-        require(messageTemplate.lang == "mustache") { "message_template must be a mustache script" }
+        require(subjectTemplate.lang == MUSTACHE) { "subject_template must be a mustache script" }
+        require(messageTemplate.lang == MUSTACHE) { "message_template must be a mustache script" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -89,7 +94,7 @@ data class SNSAction(override val name: String,
                     requireNotNull(topicARN) { "SNS Action topic_arn is null" },
                     requireNotNull(roleARN) { "SNS Action role_arn is null" },
                     requireNotNull(subjectTemplate) { "SNS Action subject_template is null" },
-                    requireNotNull(messageTemplate) { "SNS Action message_temaplte is null" })
+                    requireNotNull(messageTemplate) { "SNS Action message_template is null" })
         }
     }
 }
