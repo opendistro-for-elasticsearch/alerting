@@ -17,8 +17,6 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.result.UnresolvedArtifactResult
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.TaskAction
 import org.gradle.internal.component.external.model.DefaultModuleComponentIdentifier
 import org.gradle.ivy.IvyDescriptorArtifact

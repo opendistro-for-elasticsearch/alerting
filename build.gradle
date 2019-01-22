@@ -1,3 +1,18 @@
+/*
+ *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *   
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *   
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *   
+ *   or in the "license" file accompanying this file. This file is distributed 
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+ *   express or implied. See the License for the specific language governing 
+ *   permissions and limitations under the License.
+ */
+
 buildscript {
     apply from: 'build-tools/amazon-sandbox.gradle'
     apply from: 'build-tools/dependencies.gradle'
@@ -25,7 +40,7 @@ apply from: 'build-tools/prepare-offline-repo.gradle'
 apply from: 'build-tools/merged-coverage.gradle'
 
 allprojects {
-    group = 'com.amazon.elasticsearch'
+    group = 'com.amazon.opendistro'
     version = es_version
 
     apply from: "$rootDir/build-tools/repositories.gradle"
@@ -43,7 +58,7 @@ evaluationDependsOnChildren()
 task release(type: Copy, group: 'build') {
     dependsOn allprojects*.tasks.build
     from(zipTree(findProject(':monitoring').tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into "build/plugins/${es_mv}/aes-monitoring"
+    into "build/plugins/${es_mv}/opendistro-alerting"
     includeEmptyDirs = false
     // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip which we need to remove
     eachFile { it.path = it.path - "elasticsearch/" }

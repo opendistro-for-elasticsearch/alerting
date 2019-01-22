@@ -32,5 +32,5 @@ mkdir -p $ES_TMPDIR
 GRADLE=$(which gradle)
 for ES_MAJOR_VERSION in "6.2" "6.3"; do
     echo "Running '$GRADLE $@' for ES major version $ES_MAJOR_VERSION"
-    $GRADLE -Paes.mv=$ES_MAJOR_VERSION --stacktrace "$@"
+    $GRADLE -P es.mv=$ES_MAJOR_VERSION --stacktrace "$@"
 done

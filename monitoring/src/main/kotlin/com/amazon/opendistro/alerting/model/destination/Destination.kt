@@ -1,0 +1,124 @@
+/*
+ *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
+package com.amazon.opendistro.alerting.model.destination
+
+import com.amazon.opendistro.alerting.util.DestinationType
+import com.amazon.opendistro.util.convertToMap
+import com.amazon.opendistro.util.instant
+import com.amazon.opendistro.util.optionalTimeField
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils
+import java.io.IOException
+import java.time.Instant
+import java.util.*
+
+/**
+ * A value object that represents a Destination message.
+ */
+data class Destination(val id: String = NO_ID, val version: Long = NO_VERSION, val type: DestinationType,
+                       val name: String, val lastUpdateTime: Instant,
+                       val chime: Chime?, val slack: Slack?,
+                       val customWebhook: CustomWebhook?): ToXContent {
+
+    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        return builder.startObject()
+                .startObject(DESTINATION)
+                .field(TYPE_FIELD, type.value)
+                .field(NAME_FIELD, name)
+                .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
+                .field(type.value, constructResponseForWebhookType(type))
+                .endObject()
+                .endObject()
+    }
+
+    companion object {
+        const val DESTINATION = "destination"
+        const val TYPE_FIELD = "type"
+        const val NAME_FIELD = "name"
+        const val NO_ID = ""
+        const val NO_VERSION = 1L
+        const val LAST_UPDATE_TIME_FIELD = "last_update_time"
+        const val CHIME = "chime"
+        const val SLACK = "slack"
+        const val CUSTOMWEBHOOK = "custom_webhook"
+
+        @JvmStatic
+        @JvmOverloads
+        @Throws(IOException::class)
+        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Destination {
+            lateinit var name: String
+            lateinit var type: String
+            var slack: Slack? = null
+            var chime: Chime? = null
+            var customWebhook: CustomWebhook? = null
+            var lastUpdateTime: Instant? = null
+
+            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
+
+                when (fieldName) {
+                    NAME_FIELD -> name = xcp.text()
+                    TYPE_FIELD -> {
+                        type = xcp.text()
+                        val allowedTypes = mutableListOf<String>()
+                        DestinationType.values().map { allowedTypes.add(it.value) }
+                        if (!allowedTypes.contains(type)) {
+                            throw IllegalStateException("Type should be one of the ${allowedTypes}")
+                        }
+                    }
+                    LAST_UPDATE_TIME_FIELD -> lastUpdateTime = xcp.instant()
+                    CHIME -> {
+                        chime = Chime.parse(xcp)
+                    }
+                    SLACK -> {
+                        slack = Slack.parse(xcp)
+                    }
+                    CUSTOMWEBHOOK -> {
+                        customWebhook = CustomWebhook.parse(xcp)
+                    }
+                    else -> {
+                        xcp.skipChildren()
+                    }
+                }
+            }
+            return Destination(id,
+                    version,
+                    DestinationType.valueOf(type.toUpperCase(Locale.ROOT)),
+                    requireNotNull(name) { "Destination name is null" },
+                    lastUpdateTime ?: Instant.now(),
+                    chime,
+                    slack,
+                    customWebhook)
+        }
+    }
+
+    fun constructResponseForWebhookType(type: DestinationType): Any? {
+        var content: Any? = null
+        when (type) {
+            DestinationType.CHIME -> content = chime?.convertToMap()?.get(type.value)
+            DestinationType.SLACK -> content = slack?.convertToMap()?.get(type.value)
+            DestinationType.CUSTOM_WEBHOOK -> content = customWebhook?.convertToMap()?.get(type.value)
+        }
+        if (content == null) {
+            throw IllegalArgumentException("Content is NULL for destination type ${type.value}")
+        }
+        return content
+    }
+}
