@@ -1,6 +1,6 @@
 #What?
 
-AES Plugins for Elasticsearch. Currently includes monitoring plugin. 
+OpenDistro Plugins for Elasticsearch. Currently includes monitoring plugin.
 
 Developing
 --
