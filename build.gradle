@@ -1,0 +1,91 @@
+/*
+ *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *   
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *   
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *   
+ *   or in the "license" file accompanying this file. This file is distributed 
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+ *   express or implied. See the License for the specific language governing 
+ *   permissions and limitations under the License.
+ */
+
+buildscript {
+    apply from: 'build-tools/repositories.gradle'
+
+    ext {
+        es_version = '6.5.4'
+        kotlin_version = '1.2.60'
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+        jcenter()
+    }
+    dependencies {
+        classpath "org.elasticsearch.gradle:build-tools:${es_version}"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
+    }
+}
+
+plugins {
+    id 'nebula.ospackage' version "5.3.0" apply false
+}
+
+apply plugin: 'base'
+apply plugin: 'jacoco'
+apply from: 'build-tools/merged-coverage.gradle'
+
+ext {
+    opendistroVersion = '0.7.0'
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+}
+
+allprojects {
+    group = "com.amazon.opendistroforelasticsearch"
+    // Increment the final digit when there's a new plugin versions for the same opendistro version
+    // Reset the final digit to 0 when upgrading to a new opendistro version
+    version = "${opendistroVersion}.0"
+
+    apply from: "$rootDir/build-tools/repositories.gradle"
+
+    plugins.withId('java') {
+        sourceCompatibility = targetCompatibility = "1.8"
+    }
+    plugins.withId('org.jetbrains.kotlin.jvm') {
+        compileKotlin.kotlinOptions.jvmTarget = compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
+    }
+}
+
+evaluationDependsOnChildren()
+
+check.dependsOn subprojects*.check
+
+configurations {
+    ktlint
+}
+
+dependencies {
+    ktlint "com.github.shyiko:ktlint:0.29.0"
+}
+
+task ktlint(type: JavaExec, group: "verification") {
+    description = "Check Kotlin code style."
+    main = "com.github.shyiko.ktlint.Main"
+    classpath = configurations.ktlint
+    args "alerting/**/*.kt", "elastic-api/**/*.kt", "core/**/*.kt"
+
+}
+
+task ktlintFormat(type: JavaExec, group: "formatting") {
+    description = "Fix Kotlin code style deviations."
+    main = "com.github.shyiko.ktlint.Main"
+    classpath = configurations.ktlint
+    args "-F", "alerting/**/*.kt", "elastic-api/**/*.kt", "core/**/*.kt"
+}
+
+check.dependsOn ktlint

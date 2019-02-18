@@ -1,0 +1,8 @@
+grant {
+    // needed to find the classloader to load whitelisted classes.
+    permission java.lang.RuntimePermission "createClassLoader";
+    permission java.lang.RuntimePermission "getClassLoader";
+
+    permission java.net.SocketPermission "*", "connect,resolve";
+    permission java.net.NetPermission "getProxySelector";
+};

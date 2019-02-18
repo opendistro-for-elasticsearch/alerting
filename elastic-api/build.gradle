@@ -1,0 +1,55 @@
+/*
+ *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *   
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *   
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *   
+ *   or in the "license" file accompanying this file. This file is distributed 
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+ *   express or implied. See the License for the specific language governing 
+ *   permissions and limitations under the License.
+ */
+
+apply plugin: 'java'
+apply plugin: 'org.jetbrains.kotlin.jvm'
+
+// Elastic API version specific code for both ES server api and ES test framework API.
+// Add a dependency on project(':elastic-api') to compile configuration and a dependency on 
+// project(path: ':elastic-api', configuration: 'testOutput') to the testCompile configuration.
+def versionDir = 'es65'
+assert versionDir != null : "Can't find elastic-api adapter for ES version $es_mv"
+sourceSets {
+    main {
+        java.srcDir "$versionDir/main/java/"
+        kotlin.srcDir "$versionDir/main/kotlin"
+        resources.srcDir "$versionDir/main/resources"
+    }
+    test {
+        java.srcDir "$versionDir/test/java"
+        kotlin.srcDir "$versionDir/test/kotlin"
+        resources.srcDir "$versionDir/test/resources"
+    }
+}
+
+configurations {
+    testOutput.extendsFrom testCompile
+}
+
+task testJar(type: Jar) {
+    from sourceSets.test.output
+    classifier = 'test'
+}
+
+dependencies {
+    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+
+    testCompile "org.elasticsearch.test:framework:${es_version}"
+}
+
+artifacts {
+    testOutput testJar
+}
