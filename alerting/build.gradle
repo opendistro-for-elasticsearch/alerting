@@ -25,11 +25,7 @@ ext {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
-boolean snapshot = "true".equals(System.getProperty("build.snapshot", "true"))
-if (snapshot) {
-    // we update the version property to reflect if we are building a snapshot or a release build
-    // we write this back out below to load it in the Build.java which will be shown in rest main action
-    // to indicate this being a snapshot build or a release build.
+if (isSnapshot) {
     version += "-SNAPSHOT"
 }
 
@@ -130,3 +126,5 @@ run {
 afterEvaluate {
     repositories.remove(repositories.findByName("MavenRepo"))
 }
+
+apply from: '../build-tools/rpmbuild.gradle'
