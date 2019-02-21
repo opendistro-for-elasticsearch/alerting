@@ -14,14 +14,6 @@
  */
 
 repositories {
-    mavenCentral() // For Elastic Libs that you can use to get started coding until open ES libs are available
-    maven {
-        name = "internal-snapshots"
-        url = "https://d1mbdmiycff3en.cloudfront.net/maven"
-    }
-    maven {
-        name = "internal-releases"
-        url = "https://d3g5vo6xdbdb9a.cloudfront.net/maven"
-    }
+    mavenCentral()
     jcenter()
 }

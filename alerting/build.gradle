@@ -25,6 +25,14 @@ ext {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
+boolean snapshot = "true".equals(System.getProperty("build.snapshot", "true"))
+if (snapshot) {
+    // we update the version property to reflect if we are building a snapshot or a release build
+    // we write this back out below to load it in the Build.java which will be shown in rest main action
+    // to indicate this being a snapshot build or a release build.
+    version += "-SNAPSHOT"
+}
+
 esplugin {
     name 'alerting'
     description 'Amazon opendistro alerting plugin'
@@ -49,7 +57,7 @@ configurations.all {
 }
 
 dependencies {
-    compileOnly "com.amazon.opendistroforelasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
+    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
 
     // Elasticsearch Nanny state
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"

@@ -44,10 +44,10 @@ task testJar(type: Jar) {
 }
 
 dependencies {
-    compileOnly "com.amazon.opendistroforelasticsearch:elasticsearch:${es_version}"
+    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
 
-    testCompile "com.amazon.opendistroforelasticsearch.test:framework:${es_version}"
+    testCompile "org.elasticsearch.test:framework:${es_version}"
 }
 
 artifacts {
