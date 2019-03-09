@@ -106,4 +106,9 @@ Just like option 1, remember to manually kill the nodes when you're done.
 
 ## License
 
-This code is licensed under the [Apache License, Version 2.0](https://github.com/mauve-hedgehog/opendistro-elasticsearch-alerting/blob/master/LICENSE.txt).
+This library is licensed under the Apache 2.0 License. 
+
+## Copyright
+
+Open Distro For Elasticsearch Security Copyright 2019- Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
