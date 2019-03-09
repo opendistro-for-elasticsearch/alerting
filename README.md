@@ -1,9 +1,9 @@
 # Open Distro for Elasticsearch Alerting
 
-The Open Distro for Elasticsearch alerting plugin lets you perform scheduled searches against your cluster and send notifications upon meeting the criteria of a trigger.
+The Open Distro for Elasticsearch Alerting enables you to monitor your data and send alert notifications automatically to your stakeholders. With an intuitive Kibana interface and a powerful API, it is easy to set up, manage, and monitor your alerts. Craft highly specific alert conditions using Elasticsearch's full query language and scripting capabilities.
 
 
-# Highlights
+## Highlights
 
 Scheduled searches use [cron expressions](https://en.wikipedia.org/wiki/Cron) or intervals (e.g. every five minutes) and the Elasticsearch query DSL.
 
@@ -18,13 +18,9 @@ When trigger conditions are met, you can publish messages to the following desti
 Messages can be static strings, or you can use the [Mustache](https://mustache.github.io/mustache.5.html) templates to include contextual information.
 
 
-# Technical documentation
+## Documentation
 
-Please see our [technical documentation](https://opendistro.github.io/for-elasticsearch-docs/).
-
-
-# Developer setup, build, and run steps
-
+Please see our [documentation](https://opendistro.github.io/for-elasticsearch-docs/).
 
 ## Setup
 
@@ -108,6 +104,6 @@ If you need a multi-node cluster where you'd like to be able to add and kill eac
 Just like option 1, remember to manually kill the nodes when you're done.
 
 
-# License
+## License
 
 This code is licensed under the [Apache License, Version 2.0](https://github.com/mauve-hedgehog/opendistro-elasticsearch-alerting/blob/master/LICENSE.txt).
