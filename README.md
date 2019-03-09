@@ -11,7 +11,7 @@ To define trigger conditions, use the Painless scripting language or simple thre
 
 When trigger conditions are met, you can publish messages to the following destinations:
 
-* [Chime](https://aws.amazon.com/chime/)
+* [Amazon Chime](https://aws.amazon.com/chime/)
 * [Slack](https://slack.com/)
 * Custom webhook
 
