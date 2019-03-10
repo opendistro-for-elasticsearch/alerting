@@ -11,9 +11,9 @@ To define trigger conditions, use the Painless scripting language or simple thre
 
 When trigger conditions are met, you can publish messages to the following destinations:
 
-* [Amazon Chime](https://aws.amazon.com/chime/)
 * [Slack](https://slack.com/)
 * Custom webhook
+* [Amazon Chime](https://aws.amazon.com/chime/)
 
 Messages can be static strings, or you can use the [Mustache](https://mustache.github.io/mustache.5.html) templates to include contextual information.
 
