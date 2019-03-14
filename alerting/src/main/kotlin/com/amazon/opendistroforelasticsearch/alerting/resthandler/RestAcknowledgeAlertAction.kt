@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import org.elasticsearch.action.ActionListener
@@ -35,10 +34,13 @@ import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
@@ -107,7 +109,8 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
 
         private fun onSearchResponse(response: SearchResponse) {
             val updateRequests = response.hits.flatMap { hit ->
-                val xcp = ElasticAPI.INSTANCE.jsonParser(channel.request().xContentRegistry, hit.sourceRef)
+                val xcp = XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                        hit.sourceRef, XContentType.JSON)
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
                 val alert = Alert.parse(xcp, hit.id, hit.version)
                 alerts[alert.id] = alert

@@ -18,13 +18,13 @@ package com.amazon.opendistroforelasticsearch.alerting.resthandler
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.MonitorRunner
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser.Token.START_OBJECT
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
@@ -97,8 +97,9 @@ class RestExecuteMonitorAction(
                     this.channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, ret))
                 }
 
-                val xcp = ElasticAPI.INSTANCE.createParser(this.channel.request().xContentRegistry,
-                        response.sourceAsBytesRef, this.channel.request().xContentType ?: XContentType.JSON)
+                val xcp = (this.channel.request().xContentType ?: XContentType.JSON).xContent()
+                        .createParser(this.channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                                response.sourceAsBytesRef.streamInput())
                 val monitor = xcp.use {
                     ScheduledJob.parse(xcp, response.id, response.version) as Monitor
                 }

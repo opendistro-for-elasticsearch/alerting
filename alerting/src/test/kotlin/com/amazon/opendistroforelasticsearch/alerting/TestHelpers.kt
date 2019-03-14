@@ -23,6 +23,10 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedul
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
+import org.apache.http.Header
+import org.apache.http.HttpEntity
+import org.elasticsearch.client.Response
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.UUIDs
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.QueryBuilders
@@ -93,4 +97,43 @@ fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
 fun Monitor.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
+}
+
+/**
+ * Wrapper for [RestClient.performRequest] which was deprecated in ES 6.5 and is used in tests. This provides
+ * a single place to suppress deprecation warnings. This will probably need further work when the API is removed entirely
+ * but that's an exercise for another day.
+ */
+@Suppress("DEPRECATION")
+fun RestClient.makeRequest(
+    method: String,
+    endpoint: String,
+    params: Map<String, String> = emptyMap(),
+    entity: HttpEntity? = null,
+    vararg headers: Header
+): Response {
+    return if (entity != null) {
+        performRequest(method, endpoint, params, entity, *headers)
+    } else {
+        performRequest(method, endpoint, params, *headers)
+    }
+}
+
+/**
+ * Wrapper for [RestClient.performRequest] which was deprecated in ES 6.5 and is used in tests. This provides
+ * a single place to suppress deprecation warnings. This will probably need further work when the API is removed entirely
+ * but that's an exercise for another day.
+ */
+@Suppress("DEPRECATION")
+fun RestClient.makeRequest(
+    method: String,
+    endpoint: String,
+    entity: HttpEntity? = null,
+    vararg headers: Header
+): Response {
+    return if (entity != null) {
+        performRequest(method, endpoint, emptyMap(), entity, *headers)
+    } else {
+        performRequest(method, endpoint, emptyMap(), *headers)
+    }
 }

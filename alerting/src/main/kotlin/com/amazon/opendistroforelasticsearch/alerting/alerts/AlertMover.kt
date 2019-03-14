@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices.Compan
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices.Companion.HISTORY_WRITE_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BulkRequest
@@ -32,11 +31,14 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.VersionType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -155,7 +157,8 @@ class AlertMover(
     }
 
     private fun alertContentParser(bytesReference: BytesReference): XContentParser {
-        val xcp = ElasticAPI.INSTANCE.jsonParser(NamedXContentRegistry.EMPTY, bytesReference)
+        val xcp = XContentHelper.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                bytesReference, XContentType.JSON)
         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         return xcp
     }

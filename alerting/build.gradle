@@ -62,9 +62,6 @@ dependencies {
 
     compile project(":alerting-core")
     compile project(":alerting-notification")
-    compile project(':alerting-elastic-api')
-
-    testCompile project(path: ':alerting-elastic-api', configuration: 'testOutput')
 }
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code

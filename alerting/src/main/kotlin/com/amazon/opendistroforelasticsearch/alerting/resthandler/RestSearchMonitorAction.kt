@@ -19,14 +19,16 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Co
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.util.context
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
@@ -80,11 +82,11 @@ class RestSearchMonitorAction(settings: Settings, controller: RestController) : 
                     return BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString())
                 }
                 for (hit in response.hits) {
-                    ElasticAPI.INSTANCE
-                            .jsonParser(channel.request().xContentRegistry, hit.sourceAsString).use { hitsParser ->
+                    XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
+                            LoggingDeprecationHandler.INSTANCE, hit.sourceAsString).use { hitsParser ->
                                 val monitor = ScheduledJob.parse(hitsParser, hit.id, hit.version)
                                 val xcb = monitor.toXContent(jsonBuilder(), EMPTY_PARAMS)
-                                hit.sourceRef(ElasticAPI.INSTANCE.builderToBytesRef(xcb))
+                                hit.sourceRef(BytesReference.bytes(xcb))
                             }
                 }
                 return BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS))
