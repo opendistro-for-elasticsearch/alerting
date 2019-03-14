@@ -40,7 +40,7 @@ configurations {
 
 task testJar(type: Jar) {
     from sourceSets.test.output
-    classifier = 'test'
+    archiveAppendix = 'test'
 }
 
 dependencies {

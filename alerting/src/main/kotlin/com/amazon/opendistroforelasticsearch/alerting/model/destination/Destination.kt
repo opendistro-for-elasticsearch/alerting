@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.destination
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.Notification
-import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationHttpClient
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage
@@ -26,7 +25,7 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
-import org.elasticsearch.common.logging.Loggers
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -48,8 +47,6 @@ data class Destination(
     val slack: Slack?,
     val customWebhook: CustomWebhook?
 ) : ToXContent {
-
-    private val logger = Loggers.getLogger(DestinationHttpClient::class.java)
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -78,6 +75,8 @@ data class Destination(
         const val CUSTOMWEBHOOK = "custom_webhook"
         // This constant is used for test actions created part of integ tests
         const val TEST_ACTION = "test"
+
+        private val logger = LogManager.getLogger(Destination::class.java)
 
         @JvmStatic
         @JvmOverloads

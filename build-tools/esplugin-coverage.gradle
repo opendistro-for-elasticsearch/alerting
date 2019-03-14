@@ -53,7 +53,7 @@ task dummyIntegTest(type: Test) {
     }
 }
 
-test {
+unitTest {
     jvmArg dummyTest.jacoco.getAsJvmArg()
 }
 
@@ -66,7 +66,7 @@ integTestCluster {
     systemProperty 'java.rmi.server.hostname', "127.0.0.1"
 }
 
-task jacocoTestReport(type: JacocoReport, group: 'verification') {
+jacocoTestReport {
     dependsOn integTest, test
     executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
     sourceDirectories = sourceSets.main.allSource
