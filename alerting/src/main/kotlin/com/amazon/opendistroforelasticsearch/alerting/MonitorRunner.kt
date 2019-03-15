@@ -15,10 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
-import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
-import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertMover
+import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
+import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
+import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACKNOWLEDGED
@@ -38,7 +45,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Compan
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.BULK_TIMEOUT
@@ -53,6 +59,10 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrN
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import org.apache.logging.log4j.LogManager
+import com.amazon.opendistroforelasticsearch.alerting.util.retry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -63,8 +73,8 @@ import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.Client
-import org.elasticsearch.common.Strings
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.Strings
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -141,18 +151,36 @@ class MonitorRunner(
     fun executor() = threadPool.executor(THREAD_POOL_NAME)!!
 
     override fun postIndex(job: ScheduledJob) {
-        if (job is Monitor) {
-            executor().submit {
-                AlertMover(client, threadPool, this, alertIndices, moveAlertsRetryPolicy.iterator(), logger, job.id, job).run()
-            }
-        } else {
+        if (job !is Monitor) {
             throw IllegalArgumentException("Invalid job type")
+        }
+
+        // Using Dispatchers.Unconfined as moveAlerts isn't CPU intensive so we can just run it on the calling thread.
+        GlobalScope.launch(Dispatchers.Unconfined) {
+            try {
+                moveAlertsRetryPolicy.retry(logger) {
+                    if (alertIndices.isInitialized()) {
+                        moveAlerts(client, job.id, job)
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("Failed to move active alerts for monitor [${job.id}].", e)
+            }
         }
     }
 
     override fun postDelete(jobId: String) {
-        executor().submit {
-            AlertMover(client, threadPool, this, alertIndices, moveAlertsRetryPolicy.iterator(), logger, jobId).run()
+        // Using Dispatchers.Unconfined as moveAlerts isn't CPU intensive so we can just run it on the calling thread.
+        GlobalScope.launch(Dispatchers.Unconfined) {
+            try {
+                moveAlertsRetryPolicy.retry(logger) {
+                    if (alertIndices.isInitialized()) {
+                        moveAlerts(client, jobId, null)
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("Failed to move active alerts for monitor [$jobId].", e)
+            }
         }
     }
 
@@ -207,12 +235,6 @@ class MonitorRunner(
             saveAlerts(updatedAlerts)
         }
         return monitorResult.copy(triggerResults = triggerResults)
-    }
-
-    fun rescheduleAlertMover(monitorId: String, monitor: Monitor?, backoff: Iterator<TimeValue>) {
-        executor().submit {
-            AlertMover(client, threadPool, this, alertIndices, backoff, logger, monitorId, monitor).run()
-        }
     }
 
     private fun currentTime() = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
