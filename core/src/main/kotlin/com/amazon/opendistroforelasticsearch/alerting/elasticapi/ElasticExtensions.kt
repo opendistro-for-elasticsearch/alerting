@@ -15,10 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.elasticapi
 
+import kotlinx.coroutines.delay
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
+import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.search.ShardSearchFailure
+import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -26,10 +30,14 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
 import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
 import java.time.Instant
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 /** Convert an object to maps and lists representation */
 fun ToXContent.convertToMap(): Map<String, Any> {
@@ -49,6 +57,39 @@ fun <T> BackoffPolicy.retry(block: () -> T): T {
         } catch (e: ElasticsearchException) {
             if (iter.hasNext() && e.isRetriable()) {
                 Thread.sleep(iter.next().millis)
+            } else {
+                throw e
+            }
+        }
+    } while (true)
+}
+
+/**
+ * Retries the given [block] of code as specified by the receiver [BackoffPolicy], if [block] throws an [ElasticsearchException]
+ * that is retriable (502, 503, 504).
+ *
+ * If all retries fail the final exception will be rethrown. Exceptions caught during intermediate retries are
+ * logged as warnings to [logger]. Similar to [org.elasticsearch.action.bulk.Retry], except this retries on
+ * 502, 503, 504 error codes as well as 429.
+ *
+ * @param logger - logger used to log intermediate failures
+ * @param retryOn - any additional [RestStatus] values that should be retried
+ * @param block - the block of code to retry. This should be a suspend function.
+ */
+suspend fun <T> BackoffPolicy.retry(
+    logger: Logger,
+    retryOn: List<RestStatus> = emptyList(),
+    block: suspend () -> T
+): T {
+    val iter = iterator()
+    do {
+        try {
+            return block()
+        } catch (e: ElasticsearchException) {
+            if (iter.hasNext() && (e.isRetriable() || retryOn.contains(e.status()))) {
+                val backoff = iter.next()
+                logger.warn("Operation failed. Retrying in $backoff.", e)
+                delay(backoff.millis)
             } else {
                 throw e
             }
@@ -90,3 +131,17 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
  * Extension function for ES 6.3 and above that duplicates the ES 6.2 XContentBuilder.string() method.
  */
 fun XContentBuilder.string(): String = BytesReference.bytes(this).utf8ToString()
+
+/**
+ * Converts [ElasticsearchClient] methods that take a callback into a kotlin suspending function.
+ *
+ * @param block - a block of code that is passed an [ActionListener] that should be passed to the ES client API.
+ */
+suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener<T>) -> Unit): T =
+    suspendCoroutine { cont ->
+        block(object : ActionListener<T> {
+            override fun onResponse(response: T) = cont.resume(response)
+
+            override fun onFailure(e: Exception) = cont.resumeWithException(e)
+        })
+    }
