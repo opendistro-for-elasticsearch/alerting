@@ -14,11 +14,16 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.JobSweeper
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.action.node.ScheduledJobsStatsAction
 import com.amazon.opendistroforelasticsearch.alerting.core.action.node.ScheduledJobsStatsTransportAction
-import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.core.resthandler.RestScheduledJobStatsHandler
+import com.amazon.opendistroforelasticsearch.alerting.core.schedule.JobScheduler
+import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestAcknowledgeAlertAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteDestinationAction
@@ -30,11 +35,6 @@ import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonit
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.core.resthandler.RestScheduledJobStatsHandler
-import com.amazon.opendistroforelasticsearch.alerting.core.schedule.JobScheduler
-import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
@@ -61,10 +61,10 @@ import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
-import org.elasticsearch.threadpool.ExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
+
 /**
  * Entry point of the OpenDistro for Elasticsearch alerting plugin
  * This class initializes the [RestGetMonitorAction], [RestDeleteMonitorAction], [RestIndexMonitorAction] rest handlers.
@@ -176,7 +176,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         return listOf(TriggerScript.CONTEXT)
     }
 
-    override fun getExecutorBuilders(settings: Settings): List<ExecutorBuilder<*>> {
-        return listOf(MonitorRunner.executorBuilder(settings))
-    }
+//    override fun getExecutorBuilders(settings: Settings): List<ExecutorBuilder<*>> {
+//        return listOf(MonitorRunner.executorBuilder(settings))
+//    }
 }
