@@ -23,10 +23,13 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_ROLLOVER_PERIOD
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import org.apache.logging.log4j.LogManager
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
+import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
+import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterChangedEvent
@@ -148,31 +151,34 @@ class AlertIndices(
         return alertIndexInitialized && historyIndexInitialized
     }
 
-    fun createAlertIndex() {
+    suspend fun createAlertIndex() {
         if (!alertIndexInitialized) {
             alertIndexInitialized = createIndex(ALERT_INDEX)
         }
         alertIndexInitialized
     }
 
-    fun createInitialHistoryIndex() {
+    suspend fun createInitialHistoryIndex() {
         if (!historyIndexInitialized) {
             historyIndexInitialized = createIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX)
         }
         historyIndexInitialized
     }
 
-    private fun createIndex(index: String, alias: String? = null): Boolean {
+    private suspend fun createIndex(index: String, alias: String? = null): Boolean {
         // This should be a fast check of local cluster state. Should be exceedingly rare that the local cluster
         // state does not contain the index and multiple nodes concurrently try to create the index.
         // If it does happen that error is handled we catch the ResourceAlreadyExistsException
-        val exists = client.exists(IndicesExistsRequest(index).local(true)).actionGet(requestTimeout).isExists
-        if (exists) return true
+        val existsResponse: IndicesExistsResponse = client.suspendUntil {
+            client.exists(IndicesExistsRequest(index).local(true), it)
+        }
+        if (existsResponse.isExists) return true
 
         val request = CreateIndexRequest(index).mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
         if (alias != null) request.alias(Alias(alias))
         return try {
-            client.create(request).actionGet(requestTimeout).isAcknowledged
+            val createIndexResponse: CreateIndexResponse = client.suspendUntil { client.create(request, it) }
+            createIndexResponse.isAcknowledged
         } catch (e: ResourceAlreadyExistsException) {
             true
         }

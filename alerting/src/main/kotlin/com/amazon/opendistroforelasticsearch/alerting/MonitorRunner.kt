@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACKNOWLEDGED
@@ -51,35 +52,28 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INPUT_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
-import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
-import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import org.apache.logging.log4j.LogManager
-import com.amazon.opendistroforelasticsearch.alerting.util.retry
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
-import org.elasticsearch.action.bulk.BulkItemResponse
 import org.elasticsearch.action.bulk.BulkRequest
+import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.get.GetRequest
+import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.common.util.concurrent.EsExecutors
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -95,7 +89,6 @@ import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.script.TemplateScript
 import org.elasticsearch.search.builder.SearchSourceBuilder
-import org.elasticsearch.threadpool.ScalingExecutorBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 
@@ -107,9 +100,12 @@ class MonitorRunner(
     private val xContentRegistry: NamedXContentRegistry,
     private val alertIndices: AlertIndices,
     clusterService: ClusterService
-) : JobRunner {
+) : JobRunner, CoroutineScope {
 
     private val logger = LogManager.getLogger(MonitorRunner::class.java)
+
+    private val job = SupervisorJob()
+    override val coroutineContext = Dispatchers.Default + job
 
     @Volatile private var searchTimeout = INPUT_TIMEOUT.get(settings)
     @Volatile private var bulkTimeout = BULK_TIMEOUT.get(settings)
@@ -137,19 +133,6 @@ class MonitorRunner(
         }
     }
 
-    companion object {
-        private const val THREAD_POOL_NAME = "opendistro_monitor_runner"
-
-        fun executorBuilder(settings: Settings): ScalingExecutorBuilder {
-            val availableProcessors = EsExecutors.numberOfProcessors(settings)
-            // Use the same setting as ES GENERIC Executor builder.
-            val genericThreadPoolMax = Math.min(512, Math.max(128, 4 * availableProcessors))
-            return ScalingExecutorBuilder(THREAD_POOL_NAME, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30L))
-        }
-    }
-
-    fun executor() = threadPool.executor(THREAD_POOL_NAME)!!
-
     override fun postIndex(job: ScheduledJob) {
         if (job !is Monitor) {
             throw IllegalArgumentException("Invalid job type")
@@ -172,6 +155,9 @@ class MonitorRunner(
     override fun postDelete(jobId: String) {
         // Using Dispatchers.Unconfined as moveAlerts isn't CPU intensive so we can just run it on the calling thread.
         GlobalScope.launch(Dispatchers.Unconfined) {
+        // Using Unconfined dispatcher here as moveAlerts doesn't do much CPU intensive work, so we can just
+        // run it on the ES built-in thread pools.
+        launch(Dispatchers.Unconfined) {
             try {
                 moveAlertsRetryPolicy.retry(logger) {
                     if (alertIndices.isInitialized()) {
@@ -185,14 +171,14 @@ class MonitorRunner(
     }
 
     override fun runJob(job: ScheduledJob, periodStart: Instant, periodEnd: Instant) {
-        if (job is Monitor) {
-            executor().submit { runMonitor(job, periodStart, periodEnd) }
-        } else {
+        if (job !is Monitor) {
             throw IllegalArgumentException("Invalid job type")
         }
+
+        launch { runMonitor(job, periodStart, periodEnd) }
     }
 
-    fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
+    suspend fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
         if (periodStart == periodEnd) {
             logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
@@ -284,7 +270,7 @@ class MonitorRunner(
         }
     }
 
-    private fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
+    private suspend fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
         return try {
             val results = mutableListOf<Map<String, Any>>()
             monitor.inputs.forEach { input ->
@@ -302,7 +288,8 @@ class MonitorRunner(
                         XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
                             searchRequest.source(SearchSourceBuilder.fromXContent(it))
                         }
-                        results += client.search(searchRequest).actionGet(searchTimeout).convertToMap()
+                        val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
+                        results += searchResponse.convertToMap()
                     }
                     else -> {
                         throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
@@ -329,11 +316,11 @@ class MonitorRunner(
         }
     }
 
-    private fun loadCurrentAlerts(monitor: Monitor): Map<Trigger, Alert?> {
+    private suspend fun loadCurrentAlerts(monitor: Monitor): Map<Trigger, Alert?> {
         val request = SearchRequest(AlertIndices.ALERT_INDEX)
                 .routing(monitor.id)
                 .source(alertQuery(monitor))
-        val response = client.search(request).actionGet(searchTimeout)
+        val response: SearchResponse = client.suspendUntil { client.search(request, it) }
         if (response.status() != RestStatus.OK) {
             throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
         }
@@ -364,7 +351,7 @@ class MonitorRunner(
                 .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitor.id))
     }
 
-    private fun saveAlerts(alerts: List<Alert>) {
+    private suspend fun saveAlerts(alerts: List<Alert>) {
         var requestsToRetry = alerts.flatMap { alert ->
             // we don't want to set the version when saving alerts because the Runner has first priority when writing alerts.
             // In the rare event that a user acknowledges an alert between when it's read and when it's written
@@ -393,30 +380,18 @@ class MonitorRunner(
         }
 
         if (requestsToRetry.isEmpty()) return
-        var bulkRequest = BulkRequest().add(requestsToRetry)
-        val successfulResponses = mutableListOf<BulkItemResponse>()
-        var failedResponses = listOf<BulkItemResponse>()
-        retryPolicy.retry { // Handles 502, 503, 504 responses for the bulk request.
-            retryPolicy.iterator().forEach { delay -> // Handles partial failures
-                val responses = client.bulk(bulkRequest).actionGet(bulkTimeout).items ?: arrayOf()
-                successfulResponses += responses.filterNot { it.isFailed }
-                failedResponses = responses.filter { it.isFailed }
-                // retry only if this is a EsRejectedExecutionException (i.e. 429 TOO MANY REQUESTs)
-                requestsToRetry = failedResponses
-                        .filter { ExceptionsHelper.unwrapCause(it.failure.cause) is EsRejectedExecutionException }
-                        .map { bulkRequest.requests()[it.itemId] as IndexRequest }
+        // Retry Bulk requests if there was any 429 response
+        retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
+            val bulkRequest = BulkRequest().add(requestsToRetry)
+            val bulkResponse: BulkResponse = client.suspendUntil { client.bulk(bulkRequest, it) }
+            val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
+            requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
+                .map { bulkRequest.requests()[it.itemId] as IndexRequest }
 
-                bulkRequest = BulkRequest().add(requestsToRetry)
-                if (requestsToRetry.isEmpty()) {
-                    return@retry
-                } else {
-                    Thread.sleep(delay.millis)
-                }
+            if (requestsToRetry.isNotEmpty()) {
+                val retryCause = failedResponses.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
+                throw ExceptionsHelper.convertToElastic(retryCause)
             }
-        }
-
-        for (it in failedResponses) {
-            logger.error("Failed to write alert: ${it.id}", it.failure.cause)
         }
     }
 
@@ -439,7 +414,7 @@ class MonitorRunner(
         return true
     }
 
-    private fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean): ActionRunResult {
+    private suspend fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean): ActionRunResult {
         return try {
             if (!isActionActionable(action, ctx.alert)) {
                 return ActionRunResult(action.id, action.name, mapOf(), true, null, null)
@@ -451,8 +426,10 @@ class MonitorRunner(
                 throw IllegalStateException("Message content missing in the Destination with id: ${action.destinationId}")
             }
             if (!dryrun) {
-                var destination = getDestinationInfo(action.destinationId)
-                actionOutput[MESSAGE_ID] = destination.publish(actionOutput[SUBJECT], actionOutput[MESSAGE]!!)
+                withContext(Dispatchers.IO) {
+                    val destination = getDestinationInfo(action.destinationId)
+                    actionOutput[MESSAGE_ID] = destination.publish(actionOutput[SUBJECT], actionOutput[MESSAGE]!!)
+                }
             }
             ActionRunResult(action.id, action.name, actionOutput, false, currentTime(), null)
         } catch (e: Exception) {
@@ -466,22 +443,23 @@ class MonitorRunner(
                 .execute()
     }
 
-    private fun getDestinationInfo(destinationId: String): Destination {
-        var destination: Destination
+    private suspend fun getDestinationInfo(destinationId: String): Destination {
         val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, destinationId).routing(destinationId)
-        val getResponse = client.get(getRequest).actionGet()
+        val getResponse: GetResponse = client.suspendUntil { client.get(getRequest, it) }
         if (!getResponse.isExists || getResponse.isSourceEmpty) {
             throw IllegalStateException("Destination document with id $destinationId not found or source is empty")
         }
 
         val jobSource = getResponse.sourceAsBytesRef
         val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobSource, XContentType.JSON)
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        destination = Destination.parse(xcp)
-        ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        return destination
+        return withContext(Dispatchers.IO) {
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val destination = Destination.parse(xcp)
+            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            destination
+        }
     }
 
     private fun List<AlertError>?.update(alertError: AlertError?): List<AlertError> {
