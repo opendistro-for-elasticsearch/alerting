@@ -175,8 +175,4 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
     override fun getContexts(): List<ScriptContext<*>> {
         return listOf(TriggerScript.CONTEXT)
     }
-
-//    override fun getExecutorBuilders(settings: Settings): List<ExecutorBuilder<*>> {
-//        return listOf(MonitorRunner.executorBuilder(settings))
-//    }
 }
