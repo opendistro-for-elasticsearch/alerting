@@ -15,12 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.destination.factory;
 
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationHttpClient;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationHttpClientPool;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.rest.RestStatus;
 
 /**
@@ -28,7 +28,7 @@ import org.elasticsearch.rest.RestStatus;
  */
 public class ChimeDestinationFactory implements DestinationFactory<ChimeMessage, DestinationHttpClient>{
 
-    private static final Logger logger = Loggers.getLogger(ChimeDestinationFactory.class);
+    private static final Logger logger = LogManager.getLogger(ChimeDestinationFactory.class);
 
     private DestinationHttpClient destinationHttpClient;
 

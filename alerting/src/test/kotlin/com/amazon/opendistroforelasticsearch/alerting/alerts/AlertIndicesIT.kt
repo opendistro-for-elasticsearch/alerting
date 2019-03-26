@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
-import com.amazon.opendistroforelasticsearch.alerting.test.makeRequest
+import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
 

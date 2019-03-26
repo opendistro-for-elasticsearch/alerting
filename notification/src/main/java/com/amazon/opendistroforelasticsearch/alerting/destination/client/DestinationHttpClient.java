@@ -29,9 +29,9 @@ import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestStatus;
 
@@ -46,7 +46,7 @@ import java.util.Map;
  */
 public class DestinationHttpClient {
 
-    private static final Logger logger = Loggers.getLogger(DestinationHttpClient.class);
+    private static final Logger logger = LogManager.getLogger(DestinationHttpClient.class);
 
     private static final int MAX_CONNECTIONS = 60;
     private static final int MAX_CONNECTIONS_PER_ROUTE = 20;

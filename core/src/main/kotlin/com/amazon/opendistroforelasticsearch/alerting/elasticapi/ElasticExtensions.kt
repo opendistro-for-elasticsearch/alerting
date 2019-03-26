@@ -19,6 +19,7 @@ import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.search.ShardSearchFailure
+import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -82,12 +83,10 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
     if (instant == null) {
         return nullField(name)
     }
-    return ElasticAPI.INSTANCE.timeField(this, name, instant)
+    return this.timeField(name, name, instant.toEpochMilli())
 }
 
 /**
- * Extension function for ES 6.3 that duplicates the ES 6.2 XContentBuilder.string() method.  On 6.2 this method shadows
- * the existing [XContentBuilder.string] method and so is not invoked.
+ * Extension function for ES 6.3 and above that duplicates the ES 6.2 XContentBuilder.string() method.
  */
-@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-fun XContentBuilder.string(): String = ElasticAPI.INSTANCE.builderToBytesRef(this).utf8ToString()
+fun XContentBuilder.string(): String = BytesReference.bytes(this).utf8ToString()

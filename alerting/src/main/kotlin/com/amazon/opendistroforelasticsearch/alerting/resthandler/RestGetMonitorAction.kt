@@ -20,12 +20,14 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Co
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util.context
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
@@ -82,8 +84,8 @@ class RestGetMonitorAction(settings: Settings, controller: RestController) : Bas
                         .field(_ID, response.id)
                         .field(_VERSION, response.version)
                 if (!response.isSourceEmpty) {
-                    ElasticAPI.INSTANCE
-                            .jsonParser(channel.request().xContentRegistry, response.sourceAsBytesRef).use { xcp ->
+                    XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                            response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
                                 val monitor = ScheduledJob.parse(xcp, response.id, response.version)
                                 builder.field("monitor", monitor)
                             }

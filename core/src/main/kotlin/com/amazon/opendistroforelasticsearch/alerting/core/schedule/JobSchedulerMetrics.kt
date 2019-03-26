@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.schedule
 
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -49,7 +48,7 @@ class JobSchedulerMetrics : ToXContentFragment, Writeable {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         if (lastExecutionTime != null)
-            ElasticAPI.INSTANCE.timeField(builder, "last_execution_time", Instant.ofEpochMilli(lastExecutionTime))
+            builder.timeField("last_execution_time", "last_execution_time", Instant.ofEpochMilli(lastExecutionTime).toEpochMilli())
         builder.field("running_on_time", runningOnTime)
         return builder
     }

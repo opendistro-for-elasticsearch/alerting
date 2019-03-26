@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchException
-import org.elasticsearch.common.logging.Loggers
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.script.ScriptException
@@ -116,7 +116,7 @@ data class ActionRunResult(
     }
 }
 
-private val logger = Loggers.getLogger("UserError")
+private val logger = LogManager.getLogger(MonitorRunResult::class.java)
 
 /** Constructs an error message from an exception suitable for human consumption. */
 private fun Throwable.userErrorMessage(): String {

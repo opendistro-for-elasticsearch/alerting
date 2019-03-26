@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.core.schedule
 
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import org.elasticsearch.common.logging.Loggers
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Duration
@@ -33,7 +33,7 @@ import java.util.stream.Collectors
  * JobScheduler is unaware of the ScheduledJob version and it is up to callers to ensure that the older version of ScheduledJob to be descheduled and schedule the new version.
  */
 class JobScheduler(private val threadPool: ThreadPool, private val jobRunner: JobRunner) {
-    private val logger = Loggers.getLogger(JobScheduler::class.java)
+    private val logger = LogManager.getLogger(JobScheduler::class.java)
 
     /**
      * Map of ScheduledJobName to Info of the ScheduledJob.

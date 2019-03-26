@@ -48,10 +48,10 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -69,11 +69,14 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.EsExecutors
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
@@ -95,7 +98,7 @@ class MonitorRunner(
     clusterService: ClusterService
 ) : JobRunner {
 
-    private val logger = ElasticAPI.INSTANCE.getLogger(MonitorRunner::class.java, settings)
+    private val logger = LogManager.getLogger(MonitorRunner::class.java)
 
     @Volatile private var searchTimeout = INPUT_TIMEOUT.get(settings)
     @Volatile private var bulkTimeout = BULK_TIMEOUT.get(settings)
@@ -250,7 +253,7 @@ class MonitorRunner(
                                 .execute()
 
                         val searchRequest = SearchRequest().indices(*input.indices.toTypedArray())
-                        ElasticAPI.INSTANCE.jsonParser(xContentRegistry, searchSource).use {
+                        XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
                             searchRequest.source(SearchSourceBuilder.fromXContent(it))
                         }
                         results += client.search(searchRequest).actionGet(searchTimeout).convertToMap()
@@ -303,7 +306,8 @@ class MonitorRunner(
     }
 
     private fun contentParser(bytesReference: BytesReference): XContentParser {
-        val xcp = ElasticAPI.INSTANCE.jsonParser(xContentRegistry, bytesReference)
+        val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                bytesReference, XContentType.JSON)
         ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         return xcp
     }
@@ -409,7 +413,7 @@ class MonitorRunner(
         }
 
         val jobSource = getResponse.sourceAsBytesRef
-        val xcp = ElasticAPI.INSTANCE.jsonParser(xContentRegistry, jobSource)
+        val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobSource, XContentType.JSON)
         ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
         ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)

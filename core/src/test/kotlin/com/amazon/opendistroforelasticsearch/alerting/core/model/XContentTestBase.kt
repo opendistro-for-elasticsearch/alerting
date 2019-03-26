@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.model
 
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -29,7 +29,7 @@ interface XContentTestBase {
     }
 
     fun parser(xc: String): XContentParser {
-        val parser = ElasticAPI.INSTANCE.jsonParser(xContentRegistry(), xc)
+        val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
         parser.nextToken()
         return parser
     }

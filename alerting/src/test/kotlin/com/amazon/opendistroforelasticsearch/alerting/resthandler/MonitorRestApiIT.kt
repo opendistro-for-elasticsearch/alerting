@@ -28,13 +28,13 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.CronSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
-import com.amazon.opendistroforelasticsearch.alerting.test.makeRequest
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
+import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.message.BasicHeader
 import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentType
@@ -72,7 +72,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         val monitor = createRandomMonitor()
 
         val builder = monitor.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), USE_TYPED_KEYS)
-        val string = ElasticAPI.INSTANCE.builderToBytesRef(builder).utf8ToString()
+        val string = BytesReference.bytes(builder).utf8ToString()
         val xcp = createParser(XContentType.JSON.xContent(), string)
         val scheduledJob = ScheduledJob.parse(xcp, monitor.id, monitor.version)
         assertEquals(monitor, scheduledJob)
