@@ -22,9 +22,9 @@ import com.amazon.opendistroforelasticsearch.alerting.randomTemplateScript
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -90,7 +90,7 @@ class XContentTests : ESTestCase() {
     }
 
     private fun parser(xc: String): XContentParser {
-        val parser = ElasticAPI.INSTANCE.jsonParser(xContentRegistry(), xc)
+        val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
         parser.nextToken()
         return parser
     }

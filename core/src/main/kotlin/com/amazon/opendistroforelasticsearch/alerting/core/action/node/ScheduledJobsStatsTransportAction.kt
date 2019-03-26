@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.JobSweeperMetrics
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.schedule.JobScheduler
 import com.amazon.opendistroforelasticsearch.alerting.core.schedule.JobSchedulerMetrics
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.FailedNodeException
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.nodes.BaseNodeRequest
@@ -30,16 +31,15 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
-import org.elasticsearch.common.logging.Loggers
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
 
+private val log = LogManager.getLogger(ScheduledJobsStatsTransportAction::class.java)
+
 class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStatsRequest, ScheduledJobsStatsResponse,
         ScheduledJobsStatsTransportAction.ScheduledJobStatusRequest, ScheduledJobStats> {
-
-    private val log = Loggers.getLogger(ScheduledJobsStatsTransportAction::class.java)
 
     private val jobSweeper: JobSweeper
     private val jobScheduler: JobScheduler

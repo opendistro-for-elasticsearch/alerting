@@ -62,9 +62,6 @@ dependencies {
 
     compile project(":alerting-core")
     compile project(":alerting-notification")
-    compile project(':alerting-elastic-api')
-
-    testCompile project(path: ':alerting-elastic-api', configuration: 'testOutput')
 }
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
@@ -99,7 +96,7 @@ task startMultiNode(dependsOn: startMultiNode1)
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
 
-test {
+unitTest {
     systemProperty 'tests.security.manager', 'false'
 }
 
@@ -121,10 +118,6 @@ integTestCluster {
 }
 run {
     distribution = "oss-zip"
-}
-
-afterEvaluate {
-    repositories.remove(repositories.findByName("MavenRepo"))
 }
 
 apply from: '../build-tools/rpmbuild.gradle'

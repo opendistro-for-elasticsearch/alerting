@@ -38,7 +38,7 @@ class ScheduleTest : XContentTestBase {
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Kolkata"), testInstance)
         val nextTimeToExecute = cronSchedule.nextTimeToExecute(Instant.now())
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
+        assertEquals(2L, nextTimeToExecute.seconds, "Execute time should be 2 seconds")
     }
 
     @Test
@@ -50,7 +50,7 @@ class ScheduleTest : XContentTestBase {
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Tokyo"), testInstance)
         val nextTimeToExecute = cronSchedule.nextTimeToExecute(Instant.now())
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
+        assertEquals(2L, nextTimeToExecute.seconds, "Execute time should be 2 seconds")
     }
 
     @Test
@@ -266,7 +266,7 @@ class ScheduleTest : XContentTestBase {
 
         val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 60L, "Excepted 60 seconds but was ${nextTimeToExecute.seconds}")
+        assertEquals(60L, nextTimeToExecute.seconds, "Excepted 60 seconds but was ${nextTimeToExecute.seconds}")
     }
 
     @Test
@@ -277,7 +277,7 @@ class ScheduleTest : XContentTestBase {
 
         val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 98L, "Excepted 98 seconds but was ${nextTimeToExecute.seconds}")
+        assertEquals(98L, nextTimeToExecute.seconds, "Excepted 98 seconds but was ${nextTimeToExecute.seconds}")
     }
 
     @Test
@@ -310,7 +310,7 @@ class ScheduleTest : XContentTestBase {
 
         val nextTimeToExecute = intervalSchedule.nextTimeToExecute(enabledTime)
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 28L, "Excepted 28 seconds but was ${nextTimeToExecute.seconds}")
+        assertEquals(28L, nextTimeToExecute.seconds, "Excepted 28 seconds but was ${nextTimeToExecute.seconds}")
 
         return intervalSchedule
     }
@@ -322,7 +322,7 @@ class ScheduleTest : XContentTestBase {
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("UTC"), testInstance)
         val nextTimeToExecute = cronSchedule.nextTimeToExecute(Instant.now())
         assertNotNull(nextTimeToExecute, "There should be next execute time.")
-        assertTrue(nextTimeToExecute!!.seconds == 2L, "Execute time should be 2 seconds")
+        assertEquals(2L, nextTimeToExecute.seconds, "Execute time should be 2 seconds")
 
         return cronSchedule
     }

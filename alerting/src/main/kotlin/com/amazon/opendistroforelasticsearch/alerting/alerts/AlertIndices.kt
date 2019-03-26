@@ -22,7 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_MAX_DOCS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_ROLLOVER_PERIOD
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
@@ -88,9 +88,9 @@ class AlertIndices(
         @JvmStatic
         fun alertMapping() =
                 AlertIndices::class.java.getResource("alert_mapping.json").readText()
-    }
 
-    private val logger = ElasticAPI.INSTANCE.getLogger(AlertIndices::class.java, settings)
+        private val logger = LogManager.getLogger(AlertIndices::class.java)
+    }
 
     @Volatile private var historyMaxDocs = AlertingSettings.ALERT_HISTORY_MAX_DOCS.get(settings)
 
@@ -185,7 +185,7 @@ class AlertIndices(
 
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
         val request = RolloverRequest(HISTORY_WRITE_INDEX, null)
-        ElasticAPI.INSTANCE.getCreateIndexRequest(request).index(HISTORY_INDEX_PATTERN)
+        request.createIndexRequest.index(HISTORY_INDEX_PATTERN)
                 .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)

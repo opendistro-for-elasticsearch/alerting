@@ -15,12 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.destination.factory;
 
-import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationHttpClient;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationHttpClientPool;
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.rest.RestStatus;
 
 /**
@@ -30,7 +30,7 @@ public class SlackDestinationFactory implements DestinationFactory<SlackMessage,
 
     private DestinationHttpClient destinationHttpClient;
 
-    private static final Logger logger = Loggers.getLogger(SlackDestinationFactory.class);
+    private static final Logger logger = LogManager.getLogger(SlackDestinationFactory.class);
 
     public SlackDestinationFactory() {
         this.destinationHttpClient = DestinationHttpClientPool.getHttpClient();

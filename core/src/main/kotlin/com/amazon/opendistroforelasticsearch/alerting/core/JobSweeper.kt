@@ -23,9 +23,9 @@ import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings.Companion.SWEEP_BACKOFF_RETRY_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings.Companion.SWEEP_PAGE_SIZE
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings.Companion.SWEEP_PERIOD
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.Client
@@ -37,13 +37,17 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.LifecycleListener
+import org.elasticsearch.common.logging.Loggers
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.EsExecutors
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.engine.Engine
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
@@ -84,7 +88,7 @@ class JobSweeper(
     private val scheduler: JobScheduler,
     private val sweepableJobTypes: List<String>
 ) : ClusterStateListener, IndexingOperationListener, LifecycleListener() {
-    private val logger = ElasticAPI.INSTANCE.getLogger(javaClass, settings)
+    private val logger = LogManager.getLogger(javaClass)
 
     private val fullSweepExecutor = Executors.newSingleThreadExecutor(EsExecutors.daemonThreadFactory("opendistro_job_sweeper"))
 
@@ -167,7 +171,7 @@ class JobSweeper(
     override fun postIndex(shardId: ShardId, index: Engine.Index, result: Engine.IndexResult) {
         if (!isSweepingEnabled()) return
 
-        if (ElasticAPI.INSTANCE.hasWriteFailed(result)) {
+        if (result.resultType != Engine.Result.Type.SUCCESS) {
             val shardJobs = sweptJobs[shardId] ?: emptyMap<JobId, JobVersion>()
             val currentVersion = shardJobs[index.id()] ?: Versions.NOT_FOUND
             logger.debug("Indexing failed for ScheduledJob: ${index.id()}. Continuing with current version $currentVersion")
@@ -175,7 +179,7 @@ class JobSweeper(
         }
 
         if (isOwningNode(shardId, index.id())) {
-            val xcp = ElasticAPI.INSTANCE.jsonParser(xContentRegistry, index.source())
+            val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, index.source(), XContentType.JSON)
             if (isSweepableJobType(xcp)) {
                 val job = parseAndSweepJob(xcp, shardId, index.id(), result.version, index.source(), true)
                 if (job != null) scheduler.postIndex(job)
@@ -192,7 +196,7 @@ class JobSweeper(
     override fun postDelete(shardId: ShardId, delete: Engine.Delete, result: Engine.DeleteResult) {
         if (!isSweepingEnabled()) return
 
-        if (ElasticAPI.INSTANCE.hasWriteFailed(result)) {
+        if (result.resultType != Engine.Result.Type.SUCCESS) {
             val shardJobs = sweptJobs[shardId] ?: emptyMap<JobId, JobVersion>()
             val currentVersion = shardJobs[delete.id()] ?: Versions.NOT_FOUND
             logger.debug("Deletion failed for ScheduledJob: ${delete.id()}. Continuing with current version $currentVersion")
@@ -286,7 +290,7 @@ class JobSweeper(
             try {
                 sweepShard(shardId, ShardNodes(localNodeId, shards.map { it.currentNodeId() }))
             } catch (e: Exception) {
-                val shardLogger = ElasticAPI.INSTANCE.getLogger(javaClass, settings, shardId)
+                val shardLogger = Loggers.getLogger(javaClass, shardId)
                 shardLogger.error("Error while sweeping shard $shardId", e)
             }
         }
@@ -294,7 +298,7 @@ class JobSweeper(
     }
 
     private fun sweepShard(shardId: ShardId, shardNodes: ShardNodes, startAfter: String = "") {
-        val logger = ElasticAPI.INSTANCE.getLogger(javaClass, settings, shardId)
+        val logger = Loggers.getLogger(javaClass, shardId)
         logger.debug("Sweeping shard $shardId")
 
         // Remove any jobs that are currently scheduled that are no longer owned by this node
@@ -331,7 +335,8 @@ class JobSweeper(
             }
             for (hit in response.hits) {
                 if (shardNodes.isOwningNode(hit.id)) {
-                    val xcp = ElasticAPI.INSTANCE.jsonParser(xContentRegistry, hit.sourceRef)
+                    val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                            hit.sourceRef, XContentType.JSON)
                     parseAndSweepJob(xcp, shardId, hit.id, hit.version, hit.sourceRef)
                 }
             }

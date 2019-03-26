@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.model
 
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticAPI
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -66,7 +65,7 @@ data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder
                         }
                     }
                     QUERY_FIELD -> {
-                        searchSourceBuilder = ElasticAPI.INSTANCE.parseSearchSource(xcp)
+                        searchSourceBuilder = SearchSourceBuilder.fromXContent(xcp, false)
                     }
                 }
             }
