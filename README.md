@@ -40,7 +40,7 @@ However, to build the `alerting` plugin subproject, we also use the Elastic buil
 
 ### Building from the command line
 
-1. `./gradlew release` builds and tests all subprojects.
+1. `./gradlew build` builds and tests all subprojects.
 2. `./gradlew :alerting:run` launches a single node cluster with the alerting plugin installed.
 3. `./gradlew :alerting:integTest` launches a single node cluster with the alerting plugin installed and runs all integ tests.
 4. ` ./gradlew :alerting:integTest --tests="**.test execute foo"` runs a single integ test class or method
