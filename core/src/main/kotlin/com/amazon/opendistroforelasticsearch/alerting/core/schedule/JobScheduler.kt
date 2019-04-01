@@ -19,11 +19,11 @@ import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors
 
@@ -81,7 +81,7 @@ class JobScheduler(private val threadPool: ThreadPool, private val jobRunner: Jo
         val scheduledJobInfo = scheduledJobIdToInfo.getOrPut(scheduledJob.id) {
             ScheduledJobInfo(scheduledJob.id, scheduledJob)
         }
-        if (scheduledJobInfo.scheduledFuture != null) {
+        if (scheduledJobInfo.scheduledCancellable != null) {
             // This means that the given ScheduledJob already has schedule running. We should not schedule any more.
             return true
         }
@@ -131,10 +131,10 @@ class JobScheduler(private val threadPool: ThreadPool, private val jobRunner: Jo
             scheduledJobInfo.actualPreviousExecutionTime = null
             scheduledJobInfo.expectedNextExecutionTime = null
             var result = true
-            val scheduledFuture = scheduledJobInfo.scheduledFuture
+            val scheduledFuture = scheduledJobInfo.scheduledCancellable
 
-            if (scheduledFuture != null && !scheduledFuture.isDone) {
-                result = scheduledFuture.cancel(false)
+            if (scheduledFuture != null && !scheduledFuture.isCancelled) {
+                result = scheduledFuture.cancel()
             }
 
             if (result) {
@@ -194,8 +194,8 @@ class JobScheduler(private val threadPool: ThreadPool, private val jobRunner: Jo
         }
 
         // Finally schedule the job in the ThreadPool with next time to execute.
-        val scheduledFuture = threadPool.schedule(TimeValue(duration.toNanos(), TimeUnit.NANOSECONDS), ThreadPool.Names.SAME, runnable)
-        scheduledJobInfo.scheduledFuture = scheduledFuture
+        val scheduledCancellable = threadPool.schedule(runnable, TimeValue(duration.toNanos(), TimeUnit.NANOSECONDS), ThreadPool.Names.SAME)
+        scheduledJobInfo.scheduledCancellable = scheduledCancellable
 
         return true
     }
@@ -230,6 +230,6 @@ class JobScheduler(private val threadPool: ThreadPool, private val jobRunner: Jo
         var descheduled: Boolean = false,
         var actualPreviousExecutionTime: Instant? = null,
         var expectedNextExecutionTime: Instant? = null,
-        var scheduledFuture: ScheduledFuture<*>? = null
+        var scheduledCancellable: Scheduler.ScheduledCancellable? = null
     )
 }
