@@ -1,5 +1,13 @@
-## 2019-01-31, Version 0.7.0 (Current)
+## Version 0.8.0 (Current)
 
+### New Features
+  * Adds support for Elasticsearch 6.6.2 - [PR #8](https://github.com/opendistro-for-elasticsearch/alerting/pull/8)
+  * Upgrade to latest Kotlin version - [PR #7](https://github.com/opendistro-for-elasticsearch/alerting/pull/7)
+
+### Bug fixes
+  * Fixed task name in build instructions - [PR #12](https://github.com/opendistro-for-elasticsearch/alerting/pull/12)
+
+## 2019-01-31, Version 0.7.0
 
 ### New Features
 
