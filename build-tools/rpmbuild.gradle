@@ -28,7 +28,7 @@ afterEvaluate {
         maintainer 'OpenDistro for Elasticsearch Team <opendistro@amazon.com>'
         url 'https://opendistro.github.io/elasticsearch/downloads'
         summary '''
-         Alerting plugin for OpenDistro for Elasticsearch. 
+         Open Distro for Elasticsearch Alerting. 
          Reference documentation can be found at https://opendistro.github.io/elasticsearch/docs.
     '''.stripIndent().replace('\n', ' ').trim()
     }
