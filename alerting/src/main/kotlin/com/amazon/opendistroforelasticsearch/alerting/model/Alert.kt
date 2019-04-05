@@ -71,6 +71,8 @@ data class Alert(
 
     companion object {
 
+        const val ALERT_ID_FIELD = "id"
+        const val ALERT_VERSION_FIELD = "version"
         const val MONITOR_ID_FIELD = "monitor_id"
         const val MONITOR_VERSION_FIELD = "monitor_version"
         const val MONITOR_NAME_FIELD = "monitor_name"
@@ -169,9 +171,14 @@ data class Alert(
     }
 
     fun asTemplateArg(): Map<String, Any?> {
-        return mapOf(STATE_FIELD to state.toString(),
+        return mapOf(ACKNOWLEDGED_TIME_FIELD to acknowledgedTime?.toEpochMilli(),
+                ALERT_ID_FIELD to id,
+                ALERT_VERSION_FIELD to version,
+                END_TIME_FIELD to endTime?.toEpochMilli(),
                 ERROR_MESSAGE_FIELD to errorMessage,
-                ACKNOWLEDGED_TIME_FIELD to acknowledgedTime?.toEpochMilli(),
-                LAST_NOTIFICATION_TIME_FIELD to lastNotificationTime?.toEpochMilli())
+                LAST_NOTIFICATION_TIME_FIELD to lastNotificationTime?.toEpochMilli(),
+                SEVERITY_FIELD to severity,
+                START_TIME_FIELD to startTime.toEpochMilli(),
+                STATE_FIELD to state.toString())
     }
 }
