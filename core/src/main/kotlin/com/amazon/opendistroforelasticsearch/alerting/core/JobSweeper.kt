@@ -265,6 +265,7 @@ class JobSweeper(
         if (!clusterState.routingTable.hasIndex(ScheduledJob.SCHEDULED_JOBS_INDEX)) {
             scheduler.deschedule(scheduler.scheduledJobs())
             sweptJobs.clear()
+            lastFullSweepTimeNano = System.nanoTime()
             return
         }
 
