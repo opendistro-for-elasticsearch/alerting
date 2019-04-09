@@ -70,6 +70,7 @@ public class DestinationHttpClient {
                 .setDefaultRequestConfig(config)
                 .setConnectionManager(connectionManager)
                 .setRetryHandler(new DefaultHttpRequestRetryHandler())
+                .useSystemProperties()
                 .build();
     }
 
