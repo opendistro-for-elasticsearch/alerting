@@ -150,7 +150,7 @@ class AlertMover(
             val runnable = Runnable {
                 monitorRunner.rescheduleAlertMover(monitorId, monitor, backoff)
             }
-            threadPool.schedule(wait, ThreadPool.Names.SAME, runnable)
+            threadPool.schedule(runnable, wait, ThreadPool.Names.SAME)
         } else {
             logger.warn("Retries exhausted for ${monitorIdTriggerIdsTuple()}")
         }

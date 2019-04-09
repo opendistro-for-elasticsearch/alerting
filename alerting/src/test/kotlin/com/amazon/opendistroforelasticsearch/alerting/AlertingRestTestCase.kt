@@ -278,7 +278,6 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
     override fun restClientSettings(): Settings {
         return if (isDebuggingTest || isDebuggingRemoteCluster) {
             Settings.builder()
-                    .put(CLIENT_RETRY_TIMEOUT, TimeValue.timeValueMinutes(10))
                     .put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10))
                     .build()
         } else {
