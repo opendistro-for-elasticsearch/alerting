@@ -40,7 +40,7 @@ afterEvaluate {
     
     buildDeb {
         arch = 'amd64'
-        archiveName "${packageName}-${version}.rpm"
+        archiveName "${packageName}-${version}.deb"
         dependsOn 'assemble'
     }
 }
