@@ -120,4 +120,4 @@ run {
     distribution = "oss-zip"
 }
 
-apply from: '../build-tools/rpmbuild.gradle'
+apply from: '../build-tools/pkgbuild.gradle'
