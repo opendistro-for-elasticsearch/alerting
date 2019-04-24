@@ -38,6 +38,7 @@ import org.elasticsearch.rest.RestStatus;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 
@@ -109,7 +110,7 @@ public class DestinationHttpClient {
         }
 
         httpPostRequest.setURI(uri);
-        StringEntity entity = new StringEntity(extractBody(message));
+        StringEntity entity = new StringEntity(extractBody(message), StandardCharsets.UTF_8);
         httpPostRequest.setEntity(entity);
 
         return HTTP_CLIENT.execute(httpPostRequest);
