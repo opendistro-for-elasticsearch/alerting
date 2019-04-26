@@ -16,16 +16,11 @@
 package com.amazon.opendistroforelasticsearch.alerting.core.action.node
 
 import org.elasticsearch.action.Action
-import org.elasticsearch.client.ElasticsearchClient
 
-class ScheduledJobsStatsAction : Action<ScheduledJobsStatsRequest, ScheduledJobsStatsResponse, ScheduledJobsStatsRequestBuilder>(NAME) {
+class ScheduledJobsStatsAction : Action<ScheduledJobsStatsResponse>(NAME) {
     companion object {
         val INSTANCE = ScheduledJobsStatsAction()
         const val NAME = "cluster:admin/opendistro/_scheduled_jobs/stats"
-    }
-
-    override fun newRequestBuilder(client: ElasticsearchClient): ScheduledJobsStatsRequestBuilder {
-        return ScheduledJobsStatsRequestBuilder(client, this)
     }
 
     override fun newResponse(): ScheduledJobsStatsResponse {

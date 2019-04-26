@@ -39,7 +39,6 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.index.VersionType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.threadpool.ThreadPool
@@ -94,15 +93,15 @@ class AlertMover(
 
     private fun onSearchResponse(response: SearchResponse) {
         // If no alerts are found, simply return
-        if (response.hits.totalHits == 0L) return
+        if (response.hits.totalHits.value == 0L) return
         val indexRequests = response.hits.map { hit ->
-            IndexRequest(AlertIndices.HISTORY_WRITE_INDEX, AlertIndices.MAPPING_TYPE)
+            IndexRequest(AlertIndices.HISTORY_WRITE_INDEX)
                     .routing(monitorId)
                     .source(Alert.parse(alertContentParser(hit.sourceRef), hit.id, hit.version)
                             .copy(state = Alert.State.DELETED)
                             .toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
-                    .version(hit.version)
-                    .versionType(VersionType.EXTERNAL_GTE)
+                    .setIfSeqNo(hit.seqNo)
+                    .setIfPrimaryTerm(hit.primaryTerm)
                     .id(hit.id)
         }
         val copyRequest = BulkRequest().add(indexRequests)
@@ -111,9 +110,8 @@ class AlertMover(
 
     private fun onCopyResponse(response: BulkResponse) {
         val deleteRequests = response.items.filterNot { it.isFailed }.map {
-            DeleteRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, it.id)
+            DeleteRequest(AlertIndices.ALERT_INDEX, it.id)
                     .routing(monitorId)
-                    .version(it.version)
         }
         if (response.hasFailures()) {
             hasFailures = true

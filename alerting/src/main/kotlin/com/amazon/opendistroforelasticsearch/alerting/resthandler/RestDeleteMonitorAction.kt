@@ -52,7 +52,7 @@ class RestDeleteMonitorAction(settings: Settings, controller: RestController) :
         val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
 
         return RestChannelConsumer { channel ->
-            val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, monitorId)
+            val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, monitorId)
                     .setRefreshPolicy(refreshPolicy)
             client.delete(deleteRequest, RestStatusToXContentListener(channel))
         }

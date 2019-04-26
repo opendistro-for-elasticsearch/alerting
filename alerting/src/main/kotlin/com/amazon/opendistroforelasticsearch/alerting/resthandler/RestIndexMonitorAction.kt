@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.alerting.resthandler
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERTING_MAX_MONITORS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
@@ -26,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.get.GetRequest
@@ -45,6 +45,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
@@ -55,7 +56,6 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
@@ -75,6 +75,7 @@ class RestIndexMonitorAction(
     @Volatile private var maxMonitors = ALERTING_MAX_MONITORS.get(settings)
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
+    private val log = LogManager.getLogger(javaClass)
 
     init {
         controller.registerHandler(POST, AlertingPlugin.MONITOR_BASE_URI, this) // Create a new monitor
@@ -101,14 +102,15 @@ class RestIndexMonitorAction(
         val xcp = request.contentParser()
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         val monitor = Monitor.parse(xcp, id).copy(lastUpdateTime = Instant.now())
-        val monitorVersion = RestActions.parseVersion(request)
+        val seqNo = request.paramAsLong("if_seq_no", SequenceNumbers.UNASSIGNED_SEQ_NO)
+        val primaryTerm = request.paramAsLong("if_primary_term", SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
         return RestChannelConsumer { channel ->
-            IndexMonitorHandler(client, channel, id, monitorVersion, refreshPolicy, monitor).start()
+            IndexMonitorHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, monitor).start()
         }
     }
 
@@ -116,7 +118,8 @@ class RestIndexMonitorAction(
         client: NodeClient,
         channel: RestChannel,
         private val monitorId: String,
-        private val monitorVersion: Long,
+        private val seqNo: Long,
+        private val primaryTerm: Long,
         private val refreshPolicy: WriteRequest.RefreshPolicy,
         private var newMonitor: Monitor
     ) : AsyncActionHandler(client, channel) {
@@ -139,7 +142,6 @@ class RestIndexMonitorAction(
             val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
             val searchSource = SearchSourceBuilder().query(query).timeout(requestTimeout)
             val searchRequest = SearchRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
-                    .types(ScheduledJob.SCHEDULED_JOB_TYPE)
                     .source(searchSource)
             client.search(searchRequest, ActionListener.wrap(::onSearchResponse, ::onFailure))
         }
@@ -148,8 +150,8 @@ class RestIndexMonitorAction(
          * After searching for all existing monitors we validate the system can support another monitor to be created.
          */
         private fun onSearchResponse(response: SearchResponse) {
-            if (response.hits.totalHits >= maxMonitors) {
-                logger.error("This request would create more than the allowed monitors [$maxMonitors].")
+            if (response.hits.totalHits.value >= maxMonitors) {
+                log.error("This request would create more than the allowed monitors [$maxMonitors].")
                 onFailure(IllegalArgumentException("This request would create more than the allowed monitors [$maxMonitors]."))
             } else {
                 indexMonitor()
@@ -158,26 +160,27 @@ class RestIndexMonitorAction(
 
         private fun onCreateMappingsResponse(response: CreateIndexResponse) {
             if (response.isAcknowledged) {
-                logger.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
                 prepareMonitorIndexing()
             } else {
-                logger.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
                         response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)))
             }
         }
 
         private fun indexMonitor() {
-            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
+            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(refreshPolicy)
                         .source(newMonitor.toXContentWithType(channel.newBuilder()))
-                        .version(monitorVersion)
+                        .setIfSeqNo(seqNo)
+                        .setIfPrimaryTerm(primaryTerm)
                         .timeout(indexTimeout)
             client.index(indexRequest, indexMonitorResponse())
         }
 
         private fun updateMonitor() {
-            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, monitorId)
+            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, monitorId)
             client.get(getRequest, ActionListener.wrap(::onGetResponse, ::onFailure))
         }
 
@@ -195,11 +198,12 @@ class RestIndexMonitorAction(
             // If both are enabled, use the current existing monitor enabled time, otherwise the next execution will be
             // incorrect.
             if (newMonitor.enabled && currentMonitor.enabled) newMonitor = newMonitor.copy(enabledTime = currentMonitor.enabledTime)
-            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
+            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newMonitor.toXContentWithType(channel.newBuilder()))
                     .id(monitorId)
-                    .version(monitorVersion)
+                    .setIfSeqNo(seqNo)
+                    .setIfPrimaryTerm(primaryTerm)
                     .timeout(indexTimeout)
             return client.index(indexRequest, indexMonitorResponse())
         }
@@ -216,6 +220,8 @@ class RestIndexMonitorAction(
                             .startObject()
                             .field(_ID, response.id)
                             .field(_VERSION, response.version)
+                            .field("_seq_no", response.seqNo)
+                            .field("_primary_term", response.primaryTerm)
                             .field("monitor", newMonitor)
                             .endObject()
 

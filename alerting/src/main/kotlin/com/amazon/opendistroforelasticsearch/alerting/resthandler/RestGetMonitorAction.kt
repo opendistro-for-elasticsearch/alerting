@@ -16,7 +16,6 @@ package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util.context
@@ -62,7 +61,7 @@ class RestGetMonitorAction(settings: Settings, controller: RestController) : Bas
         if (monitorId == null || monitorId.isEmpty()) {
             throw IllegalArgumentException("missing id")
         }
-        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, monitorId)
+        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, monitorId)
                 .version(RestActions.parseVersion(request))
                 .fetchSourceContext(context(request))
         if (request.method() == HEAD) {

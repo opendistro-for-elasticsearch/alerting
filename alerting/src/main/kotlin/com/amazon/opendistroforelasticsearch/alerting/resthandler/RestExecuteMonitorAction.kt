@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.MonitorRunner
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
@@ -45,6 +46,8 @@ class RestExecuteMonitorAction(
     private val runner: MonitorRunner
 ) : BaseRestHandler(settings) {
 
+    private val log = LogManager.getLogger(javaClass)
+
     init {
         restController.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_execute", this)
         restController.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_execute", this)
@@ -65,7 +68,7 @@ class RestExecuteMonitorAction(
                         val response = runner.runMonitor(monitor, periodStart, periodEnd, dryrun)
                         channel.sendResponse(BytesRestResponse(RestStatus.OK, channel.newBuilder().value(response)))
                     } catch (e: Exception) {
-                        logger.error("Unexpected error running monitor", e)
+                        log.error("Unexpected error running monitor", e)
                         channel.sendResponse(BytesRestResponse(channel, e))
                     }
                 }
