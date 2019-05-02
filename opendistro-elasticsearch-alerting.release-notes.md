@@ -3,6 +3,7 @@
 ### New Features
 * Adds support for Elasticsearch 6.7.1 - #19 
 * Add http proxy support to outgoing notifications - #23 
+* Allow encoding while constructing HTTP request for sending notification - [PR # 35](https://github.com/opendistro-for-elasticsearch/alerting/pull/35)
 * Add build for Debian - #36
 
 ### Bug fixes
