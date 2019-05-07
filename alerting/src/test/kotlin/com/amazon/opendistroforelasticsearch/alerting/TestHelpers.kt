@@ -37,6 +37,7 @@ import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomInt
+import org.elasticsearch.test.ESTestCase.randomIntBetween
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -94,7 +95,7 @@ fun randomAction(
 ) = Action(name, destinationId, template, template, throttleEnabled, throttle)
 
 fun randomThrottle(
-    value: Int = randomInt()
+    value: Int = randomIntBetween(1, 100)
 ) = Throttle(value)
 
 fun randomAlert(monitor: Monitor = randomMonitor()): Alert {

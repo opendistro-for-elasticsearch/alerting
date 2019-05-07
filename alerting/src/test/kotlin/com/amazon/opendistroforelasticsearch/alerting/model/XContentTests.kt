@@ -34,6 +34,7 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
+import kotlin.test.assertFailsWith
 
 class XContentTests : ESTestCase() {
 
@@ -45,7 +46,7 @@ class XContentTests : ESTestCase() {
     }
 
     private fun randomThrottle(
-        value: Int = randomInt()
+            value: Int = randomIntBetween(1, 100)
     ) = Throttle(value)
 
     fun `test throttle parsing`() {
@@ -53,6 +54,21 @@ class XContentTests : ESTestCase() {
         val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedThrottle = Throttle.parse(parser(throttleString))
         assertEquals("Round tripping Monitor doesn't work", throttle, parsedThrottle)
+    }
+
+    fun `test throttle parsing with wrong unit`() {
+        val throttle = randomThrottle()
+        val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val wrongThrottleString = throttleString.replace("MINUTES", "wrongunit")
+
+        assertFailsWith<IllegalArgumentException>("Only support MINUTES throttle unit") { Throttle.parse(parser(wrongThrottleString)) }
+    }
+
+    fun `test throttle parsing with negative value`() {
+        val throttle = randomThrottle().copy(value = -1)
+        val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+
+        assertFailsWith<IllegalArgumentException>("Can only set positive throttle period") { Throttle.parse(parser(throttleString)) }
     }
 
     fun `test monitor parsing`() {

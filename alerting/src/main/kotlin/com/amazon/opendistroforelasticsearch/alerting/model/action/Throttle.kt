@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model.action
 
+import org.apache.commons.codec.binary.StringUtils
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -52,12 +53,19 @@ data class Throttle(
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
                 when (fieldName) {
-                    UNIT_FIELD -> unit = ChronoUnit.valueOf(xcp.text().toUpperCase(Locale.ROOT))
+                    UNIT_FIELD -> {
+                        val unitString = xcp.text().toUpperCase(Locale.ROOT)
+                        require(StringUtils.equals(unitString, ChronoUnit.MINUTES.name), { "Only support MINUTES throttle unit" })
+                        unit = ChronoUnit.valueOf(unitString)
+                    }
                     VALUE_FIELD -> {
                         val currentToken = xcp.currentToken()
                         when {
                             currentToken == XContentParser.Token.VALUE_NULL -> value = null
-                            currentToken.isValue -> value = xcp.intValue()
+                            currentToken.isValue -> {
+                                value = xcp.intValue()
+                                require(value > 0, { "Can only set positive throttle period" })
+                            }
                             else -> {
                                 XContentParserUtils.throwUnknownToken(currentToken, xcp.tokenLocation)
                             }
