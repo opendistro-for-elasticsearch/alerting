@@ -114,7 +114,7 @@ data class ActionRunResult(
                 .field("name", actionName)
                 .field("output", output)
                 .field("throttled", throttled)
-                .field("executionTime", executionTime)
+                .optionalTimeField("executionTime", executionTime)
                 .field("error", error?.message)
                 .endObject()
     }

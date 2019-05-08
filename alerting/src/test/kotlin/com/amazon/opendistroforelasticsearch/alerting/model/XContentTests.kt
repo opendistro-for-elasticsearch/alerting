@@ -46,7 +46,7 @@ class XContentTests : ESTestCase() {
     }
 
     private fun randomThrottle(
-            value: Int = randomIntBetween(1, 100)
+        value: Int = randomIntBetween(1, 100)
     ) = Throttle(value)
 
     fun `test throttle parsing`() {
