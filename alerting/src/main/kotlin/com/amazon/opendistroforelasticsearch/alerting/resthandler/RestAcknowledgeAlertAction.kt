@@ -65,8 +65,6 @@ private val log: Logger = LogManager.getLogger(RestAcknowledgeAlertAction::class
  */
 class RestAcknowledgeAlertAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
 
-    private val log: Logger = LogManager.getLogger(javaClass)
-
     init {
         // Acknowledge alerts
         controller.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_acknowledge/alerts", this)

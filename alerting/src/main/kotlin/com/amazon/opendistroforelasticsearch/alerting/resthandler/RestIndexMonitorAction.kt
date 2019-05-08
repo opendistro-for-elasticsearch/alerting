@@ -65,6 +65,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 import java.time.Instant
 
+private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
+
 /**
  * Rest handlers to create and update monitors.
  */
@@ -79,7 +81,6 @@ class RestIndexMonitorAction(
     @Volatile private var maxMonitors = ALERTING_MAX_MONITORS.get(settings)
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
-    private val log = LogManager.getLogger(javaClass)
 
     init {
         controller.registerHandler(POST, AlertingPlugin.MONITOR_BASE_URI, this) // Create a new monitor

@@ -54,6 +54,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 
+private val log = LogManager.getLogger(RestIndexDestinationAction::class.java)
+
 /**
  * Rest handlers to create and update Destination
  */
@@ -65,7 +67,6 @@ class RestIndexDestinationAction(
 ) : BaseRestHandler(settings) {
     private var scheduledJobIndices: ScheduledJobIndices
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
-    private val log = LogManager.getLogger(javaClass)
 
     init {
         controller.registerHandler(RestRequest.Method.POST, AlertingPlugin.DESTINATION_BASE_URI, this) // Creates new destination

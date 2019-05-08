@@ -48,8 +48,6 @@ class RestExecuteMonitorAction(
     private val runner: MonitorRunner
 ) : BaseRestHandler(settings) {
 
-    private val log = LogManager.getLogger(javaClass)
-
     init {
         restController.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_execute", this)
         restController.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_execute", this)
