@@ -153,7 +153,7 @@ public class DestinationHttpClient {
     private void validateResponseStatus(HttpResponse response) throws IOException {
         int statusCode = response.getStatusLine().getStatusCode();
 
-        if (statusCode != RestStatus.OK.getStatus()) {
+        if (!(statusCode == RestStatus.OK.getStatus() || statusCode == RestStatus.CREATED.getStatus())) {
             throw new IOException("Failed: " + response);
         }
     }
