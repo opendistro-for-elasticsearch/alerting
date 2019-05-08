@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util.context
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
@@ -64,6 +66,7 @@ class RestGetMonitorAction(settings: Settings, controller: RestController) : Bas
         val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, monitorId)
                 .version(RestActions.parseVersion(request))
                 .fetchSourceContext(context(request))
+
         if (request.method() == HEAD) {
             getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE)
         }
@@ -82,6 +85,8 @@ class RestGetMonitorAction(settings: Settings, controller: RestController) : Bas
                         .startObject()
                         .field(_ID, response.id)
                         .field(_VERSION, response.version)
+                        .field(_SEQ_NO, response.seqNo)
+                        .field(_PRIMARY_TERM, response.primaryTerm)
                 if (!response.isSourceEmpty) {
                     XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                             response.sourceAsBytesRef, XContentType.JSON).use { xcp ->

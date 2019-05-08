@@ -56,6 +56,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 import java.time.Instant
 
+private val log: Logger = LogManager.getLogger(RestAcknowledgeAlertAction::class.java)
+
 /**
  * This class consists of the REST handler to acknowledge alerts.
  * The user provides the monitorID to which these alerts pertain and in the content of the request provides

@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import org.apache.http.Header
+import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
@@ -110,7 +111,7 @@ fun RestClient.makeRequest(
     method: String,
     endpoint: String,
     params: Map<String, String> = emptyMap(),
-    entity: String? = null,
+    entity: HttpEntity? = null,
     vararg headers: Header
 ): Response {
     val request = Request(method, endpoint)
@@ -119,7 +120,7 @@ fun RestClient.makeRequest(
     request.options = options.build()
     params.forEach { request.addParameter(it.key, it.value) }
     if (entity != null) {
-        request.setJsonEntity(entity)
+        request.entity = entity
     }
     return performRequest(request)
 }
@@ -133,7 +134,7 @@ fun RestClient.makeRequest(
 fun RestClient.makeRequest(
     method: String,
     endpoint: String,
-    entity: String? = null,
+    entity: HttpEntity? = null,
     vararg headers: Header
 ): Response {
     val request = Request(method, endpoint)
@@ -141,7 +142,7 @@ fun RestClient.makeRequest(
     headers.forEach { options.addHeader(it.name, it.value) }
     request.options = options.build()
     if (entity != null) {
-        request.setJsonEntity(entity)
+        request.entity = entity
     }
     return performRequest(request)
 }

@@ -40,6 +40,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActionListener
 import java.time.Instant
 
+private val log = LogManager.getLogger(RestExecuteMonitorAction::class.java)
+
 class RestExecuteMonitorAction(
     val settings: Settings,
     restController: RestController,

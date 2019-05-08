@@ -53,10 +53,6 @@ task dummyIntegTest(type: Test) {
     }
 }
 
-unitTest {
-    jvmArg dummyTest.jacoco.getAsJvmArg()
-}
-
 integTestCluster {
     jvmArgs += " ${dummyIntegTest.jacoco.getAsJvmArg()}"
     systemProperty 'com.sun.management.jmxremote', "true"

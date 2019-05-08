@@ -25,6 +25,10 @@ import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
+import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -102,8 +106,8 @@ class RestIndexMonitorAction(
         val xcp = request.contentParser()
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         val monitor = Monitor.parse(xcp, id).copy(lastUpdateTime = Instant.now())
-        val seqNo = request.paramAsLong("if_seq_no", SequenceNumbers.UNASSIGNED_SEQ_NO)
-        val primaryTerm = request.paramAsLong("if_primary_term", SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
+        val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
+        val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
@@ -220,8 +224,8 @@ class RestIndexMonitorAction(
                             .startObject()
                             .field(_ID, response.id)
                             .field(_VERSION, response.version)
-                            .field("_seq_no", response.seqNo)
-                            .field("_primary_term", response.primaryTerm)
+                            .field(_SEQ_NO, response.seqNo)
+                            .field(_PRIMARY_TERM, response.primaryTerm)
                             .field("monitor", newMonitor)
                             .endObject()
 

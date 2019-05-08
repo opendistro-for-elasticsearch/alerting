@@ -23,7 +23,11 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.ContentType.APPLICATION_JSON
+import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
@@ -65,7 +69,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
 
     protected fun createMonitor(monitor: Monitor, refresh: Boolean = true): Monitor {
         val response = client().makeRequest("POST", "$ALERTING_BASE_URI?refresh=$refresh", emptyMap(),
-                monitor.toJsonString())
+                monitor.toHttpEntity())
         assertEquals("Unable to create a new monitor", RestStatus.CREATED, response.restStatus())
 
         val monitorJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
@@ -78,7 +82,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                 "POST",
                 "$DESTINATION_BASE_URI?refresh=$refresh",
                 emptyMap(),
-                destination.toJsonString())
+                destination.toHttpEntity())
         assertEquals("Unable to create a new destination", RestStatus.CREATED, response.restStatus())
         val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
                 response.entity.content).map()
@@ -90,7 +94,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                 "PUT",
                 "$DESTINATION_BASE_URI/${destination.id}?refresh=$refresh",
                 emptyMap(),
-                destination.toJsonString())
+                destination.toHttpEntity())
         assertEquals("Unable to update a destination", RestStatus.OK, response.restStatus())
         val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
                 response.entity.content).map()
@@ -109,7 +113,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
 
     protected fun createAlert(alert: Alert): Alert {
         val response = client().makeRequest("POST", "/${AlertIndices.ALERT_INDEX}/_doc?refresh=true&routing=${alert.monitorId}",
-                emptyMap(), alert.toJsonString())
+                emptyMap(), alert.toHttpEntity())
         assertEquals("Unable to create a new alert", RestStatus.CREATED, response.restStatus())
 
         val alertJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
@@ -128,7 +132,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
 
     protected fun updateMonitor(monitor: Monitor, refresh: Boolean = false): Monitor {
         val response = client().makeRequest("PUT", "${monitor.relativeUrl()}?refresh=$refresh",
-                emptyMap(), monitor.toJsonString())
+                emptyMap(), monitor.toHttpEntity())
         assertEquals("Unable to update a monitor", RestStatus.OK, response.restStatus())
         return getMonitor(monitorId = monitor.id)
     }
@@ -166,7 +170,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                   "query" : { "term" : { "${Alert.MONITOR_ID_FIELD}" : "${monitor.id}" } }
                 }
                 """.trimIndent()
-        val httpResponse = client().makeRequest("GET", "/$indices/_search", searchParams, request)
+        val httpResponse = client().makeRequest("GET", "/$indices/_search", searchParams, StringEntity(request, APPLICATION_JSON))
         assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
 
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, httpResponse.entity.content))
@@ -181,6 +185,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                 .array("alerts", *alerts.map { it.id }.toTypedArray())
                 .endObject()
                 .string()
+                .let { StringEntity(it, APPLICATION_JSON) }
 
         val response = client().makeRequest("POST", "${monitor.relativeUrl()}/_acknowledge/alerts?refresh=true",
                 emptyMap(), request)
@@ -205,11 +210,12 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
     }
 
     protected fun executeMonitor(monitor: Monitor, params: Map<String, String> = mapOf()): Response =
-            client().makeRequest("POST", "$ALERTING_BASE_URI/_execute", params, monitor.toJsonString())
+            client().makeRequest("POST", "$ALERTING_BASE_URI/_execute", params, monitor.toHttpEntity())
 
     protected fun indexDoc(index: String, id: String, doc: String, refresh: Boolean = true): Response {
+        val requestBody = StringEntity(doc, APPLICATION_JSON)
         val params = if (refresh) mapOf("refresh" to "true") else mapOf()
-        val response = client().makeRequest("POST", "$index/_doc/$id", params, doc)
+        val response = client().makeRequest("PUT", "$index/_doc/$id", params, requestBody)
         assertTrue("Unable to index doc: '${doc.take(15)}...' to index: '$index'",
                 listOf(RestStatus.OK, RestStatus.CREATED).contains(response.restStatus()))
         return response
@@ -218,9 +224,9 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
     /** A test index that can be used across tests. Feel free to add new fields but don't remove any. */
     protected fun createTestIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
         createIndex(index, Settings.EMPTY, """
-            "properties" : {
-                "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
-            }
+          "properties" : {
+             "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
+          }
         """.trimIndent())
         return index
     }
@@ -237,14 +243,26 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
         return RestStatus.fromCode(this.statusLine.statusCode)
     }
 
+    protected fun Monitor.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), APPLICATION_JSON)
+    }
+
     private fun Monitor.toJsonString(): String {
         val builder = XContentFactory.jsonBuilder()
         return shuffleXContent(toXContent(builder)).string()
     }
 
+    private fun Destination.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), APPLICATION_JSON)
+    }
+
     private fun Destination.toJsonString(): String {
         val builder = XContentFactory.jsonBuilder()
         return shuffleXContent(toXContent(builder)).string()
+    }
+
+    private fun Alert.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), APPLICATION_JSON)
     }
 
     private fun Alert.toJsonString(): String {
@@ -279,7 +297,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                 .endObject()
                 .endObject()
                 .string()
-        val response = this.makeRequest("PUT", "_cluster/settings", settings)
+        val response = this.makeRequest("PUT", "_cluster/settings", StringEntity(settings, APPLICATION_JSON))
         assertEquals(RestStatus.OK, response.restStatus())
         return response.asMap()
     }
@@ -305,18 +323,18 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
     fun enableScheduledJob(): Response {
         val updateResponse = client().makeRequest("PUT", "_cluster/settings",
                 emptyMap(),
-                XContentFactory.jsonBuilder().startObject().field("persistent")
+                StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
                         .startObject().field(ScheduledJobSettings.SWEEPER_ENABLED.key, true).endObject()
-                        .endObject().string())
+                        .endObject().string(), ContentType.APPLICATION_JSON))
         return updateResponse
     }
 
     fun disableScheduledJob(): Response {
         val updateResponse = client().makeRequest("PUT", "_cluster/settings",
                 emptyMap(),
-                XContentFactory.jsonBuilder().startObject().field("persistent")
+                StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
                         .startObject().field(ScheduledJobSettings.SWEEPER_ENABLED.key, false).endObject()
-                        .endObject().string())
+                        .endObject().string(), ContentType.APPLICATION_JSON))
         return updateResponse
     }
 }

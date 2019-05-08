@@ -29,9 +29,10 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
-import com.amazon.opendistroforelasticsearch.alerting.toJsonString
 import org.apache.http.HttpHeaders
+import org.apache.http.entity.ContentType
 import org.apache.http.message.BasicHeader
+import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.ToXContent
@@ -81,7 +82,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test creating a monitor`() {
         val monitor = randomMonitor()
 
-        val createResponse = client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toJsonString())
+        val createResponse = client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
 
         assertEquals("Create monitor failed", RestStatus.CREATED, createResponse.restStatus())
         val responseBody = createResponse.asMap()
@@ -95,7 +96,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test creating a monitor with PUT fails`() {
         try {
             val monitor = randomMonitor()
-            client().makeRequest("PUT", ALERTING_BASE_URI, emptyMap(), monitor.toJsonString())
+            client().makeRequest("PUT", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
             fail("Expected 405 Method Not Allowed response")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.METHOD_NOT_ALLOWED, e.response.restStatus())
@@ -109,7 +110,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         val updatedSearch = SearchInput(emptyList(),
                 SearchSourceBuilder().query(QueryBuilders.termQuery("foo", "bar")))
         val updateResponse = client().makeRequest("PUT", monitor.relativeUrl(),
-                emptyMap(), monitor.copy(inputs = listOf(updatedSearch)).toJsonString())
+                emptyMap(), monitor.copy(inputs = listOf(updatedSearch)).toHttpEntity())
 
         assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -126,7 +127,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
 
         val updatedTriggers = listOf(Trigger("foo", "1", Script("return true"), emptyList()))
         val updateResponse = client().makeRequest("PUT", monitor.relativeUrl(),
-                emptyMap(), monitor.copy(triggers = updatedTriggers).toJsonString())
+                emptyMap(), monitor.copy(triggers = updatedTriggers).toHttpEntity())
 
         assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -143,7 +144,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
 
         val updatedSchedule = CronSchedule(expression = "0 9 * * *", timezone = ZoneId.of("UTC"))
         val updateResponse = client().makeRequest("PUT", monitor.relativeUrl(),
-                emptyMap(), monitor.copy(schedule = updatedSchedule).toJsonString())
+                emptyMap(), monitor.copy(schedule = updatedSchedule).toHttpEntity())
 
         assertEquals("Update monitor failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -227,11 +228,11 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", monitor.id)).toString()
         val searchResponse = client().makeRequest("GET", "$ALERTING_BASE_URI/_search",
                 emptyMap(),
-                search)
+                NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
         val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
-        val numberDocsFound = hits.getValue("total")["value"] as Int
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
@@ -241,11 +242,11 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", monitor.id)).toString()
         val searchResponse = client().makeRequest("POST", "$ALERTING_BASE_URI/_search",
                 emptyMap(),
-                search)
+                NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
         val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
-        val numberDocsFound = hits["total"]!!["value"] as Int
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
@@ -259,11 +260,11 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 "GET",
                 "$ALERTING_BASE_URI/_search",
                 emptyMap(),
-                search)
+                NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
         val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
-        val numberDocsFound = hits["total"]!!["value"] as Int
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor found during search when no document present.", 0, numberDocsFound)
     }
 
@@ -275,7 +276,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 "GET",
                 "$ALERTING_BASE_URI/_search",
                 emptyMap(),
-                search,
+                NStringEntity(search, ContentType.APPLICATION_JSON),
                 header)
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
 
@@ -297,7 +298,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 "GET",
                 "$ALERTING_BASE_URI/_search",
                 emptyMap(),
-                search)
+                NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
 
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
@@ -380,7 +381,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         refreshIndex("*")
         val updatedMonitor = monitor.copy(triggers = emptyList())
         val updateResponse = client().makeRequest("PUT", "$ALERTING_BASE_URI/${monitor.id}", emptyMap(),
-                updatedMonitor.toJsonString())
+                updatedMonitor.toHttpEntity())
         assertEquals("Update request not successful", RestStatus.OK, updateResponse.restStatus())
 
         // Wait 5 seconds for event to be processed and alerts moved
@@ -405,7 +406,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         refreshIndex("*")
         val updatedMonitor = monitor.copy(triggers = listOf(triggerToKeep))
         val updateResponse = client().makeRequest("PUT", "$ALERTING_BASE_URI/${monitor.id}", emptyMap(),
-                updatedMonitor.toJsonString())
+                updatedMonitor.toHttpEntity())
         assertEquals("Update request not successful", RestStatus.OK, updateResponse.restStatus())
 
         // Wait 5 seconds for event to be processed and alerts moved
@@ -426,10 +427,9 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         val monitor = createRandomMonitor(refresh = true)
         try {
             client().makeRequest("PUT", "${monitor.relativeUrl()}?refresh=true&if_seq_no=1234&if_primary_term=1234",
-                    emptyMap(), monitor.toJsonString())
+                    emptyMap(), monitor.toHttpEntity())
             fail("expected 409 ResponseException")
         } catch (e: ResponseException) {
-            logger.error("Response is: ${e.response}")
             assertEquals(RestStatus.CONFLICT, e.response.restStatus())
         }
     }
