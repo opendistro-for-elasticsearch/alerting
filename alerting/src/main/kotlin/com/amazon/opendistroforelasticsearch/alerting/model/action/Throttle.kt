@@ -55,7 +55,7 @@ data class Throttle(
                 when (fieldName) {
                     UNIT_FIELD -> {
                         val unitString = xcp.text().toUpperCase(Locale.ROOT)
-                        require(StringUtils.equals(unitString, ChronoUnit.MINUTES.name), { "Only support MINUTES throttle unit curretnly" })
+                        require(StringUtils.equals(unitString, ChronoUnit.MINUTES.name), { "Only support MINUTES throttle unit currently" })
                         unit = ChronoUnit.valueOf(unitString)
                     }
                     VALUE_FIELD -> {
