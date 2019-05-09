@@ -23,6 +23,8 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedul
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Response
@@ -35,6 +37,7 @@ import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomInt
+import org.elasticsearch.test.ESTestCase.randomIntBetween
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -86,13 +89,28 @@ fun randomTemplateScript(
 fun randomAction(
     name: String = ESRestTestCase.randomUnicodeOfLength(10),
     template: Script = randomTemplateScript("Hello World"),
-    destinationId: String = "123"
-) = Action(name, destinationId, template, template)
+    destinationId: String = "123",
+    throttleEnabled: Boolean = false,
+    throttle: Throttle = randomThrottle()
+) = Action(name, destinationId, template, template, throttleEnabled, throttle)
+
+fun randomThrottle(
+    value: Int = randomIntBetween(1, 100),
+    unit: ChronoUnit = ChronoUnit.MINUTES
+) = Throttle(value, unit)
 
 fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
     val trigger = randomTrigger()
-    return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null)
+    val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
+    return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
+            actionExecutionResults = actionExecutionResults)
 }
+
+fun randomActionExecutionResult(
+    actionId: String = UUIDs.base64UUID(),
+    lastExecutionTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+    throttledCount: Int = randomInt()
+) = ActionExecutionResult(actionId, lastExecutionTime, throttledCount)
 
 fun Monitor.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()

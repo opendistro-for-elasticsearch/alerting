@@ -114,6 +114,19 @@
                   "message_template": {
                     "type": "object",
                     "enabled": false
+                  },
+                  "throttle_enabled": {
+                    "type": "boolean"
+                  },
+                  "throttle": {
+                    "properties": {
+                      "value": {
+                        "type": "integer"
+                      },
+                      "unit": {
+                        "type": "keyword"
+                      }
+                    }
                   }
                 }
               }
