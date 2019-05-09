@@ -52,7 +52,7 @@ data class ActionExecutionResult(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ActionExecutionResult {
-            var actionId: String? = null
+            lateinit var actionId: String
             var throttledCount: Int = 0
             var lastExecutionTime: Instant? = null
 

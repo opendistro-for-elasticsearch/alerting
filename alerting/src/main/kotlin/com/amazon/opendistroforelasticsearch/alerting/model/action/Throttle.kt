@@ -27,7 +27,7 @@ import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 data class Throttle(
-    val value: Int?,
+    val value: Int,
     val unit: ChronoUnit = ChronoUnit.MINUTES
 ) : ToXContentObject {
 
@@ -45,7 +45,7 @@ data class Throttle(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Throttle {
-            var value: Int? = null
+            var value: Int = 0
             var unit: ChronoUnit? = null
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -60,8 +60,8 @@ data class Throttle(
                     }
                     VALUE_FIELD -> {
                         val currentToken = xcp.currentToken()
+                        require(currentToken != XContentParser.Token.VALUE_NULL, { "Throttle value can't be null" })
                         when {
-                            currentToken == XContentParser.Token.VALUE_NULL -> value = null
                             currentToken.isValue -> {
                                 value = xcp.intValue()
                                 require(value > 0, { "Can only set positive throttle period" })
