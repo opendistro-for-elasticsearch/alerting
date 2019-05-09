@@ -95,8 +95,9 @@ fun randomAction(
 ) = Action(name, destinationId, template, template, throttleEnabled, throttle)
 
 fun randomThrottle(
-    value: Int = randomIntBetween(1, 100)
-) = Throttle(value)
+    value: Int = randomIntBetween(1, 100),
+    unit: ChronoUnit = ChronoUnit.MINUTES
+) = Throttle(value, unit)
 
 fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
     val trigger = randomTrigger()

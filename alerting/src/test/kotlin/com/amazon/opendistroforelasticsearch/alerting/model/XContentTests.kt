@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
 import org.elasticsearch.common.settings.Settings
@@ -44,10 +45,6 @@ class XContentTests : ESTestCase() {
         val parsedAction = Action.parse(parser(actionString))
         assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
     }
-
-    private fun randomThrottle(
-        value: Int = randomIntBetween(1, 100)
-    ) = Throttle(value)
 
     fun `test throttle parsing`() {
         val throttle = randomThrottle()

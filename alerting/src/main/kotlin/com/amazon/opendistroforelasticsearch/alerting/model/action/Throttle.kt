@@ -28,7 +28,7 @@ import java.util.Locale
 
 data class Throttle(
     val value: Int,
-    val unit: ChronoUnit = ChronoUnit.MINUTES
+    val unit: ChronoUnit
 ) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -55,7 +55,7 @@ data class Throttle(
                 when (fieldName) {
                     UNIT_FIELD -> {
                         val unitString = xcp.text().toUpperCase(Locale.ROOT)
-                        require(StringUtils.equals(unitString, ChronoUnit.MINUTES.name), { "Only support MINUTES throttle unit" })
+                        require(StringUtils.equals(unitString, ChronoUnit.MINUTES.name), { "Only support MINUTES throttle unit curretnly" })
                         unit = ChronoUnit.valueOf(unitString)
                     }
                     VALUE_FIELD -> {
@@ -78,7 +78,7 @@ data class Throttle(
                 }
             }
 
-            return if (unit == null) Throttle(value = value) else Throttle(value = value, unit = unit)
+            return Throttle(value = value, unit = requireNotNull(unit))
         }
     }
 }

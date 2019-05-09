@@ -405,13 +405,13 @@ class MonitorRunner(
     }
 
     private fun isActionActionable(action: Action, alert: Alert?): Boolean {
-        if (alert == null) {
+        if (alert == null || action.throttle == null) {
             return true
         }
         if (action.throttleEnabled) {
             val result = alert.actionExecutionResults.firstOrNull { r -> r.actionId == action.id }
             val lastExecutionTime: Instant? = result?.lastExecutionTime
-            val throttledTimeBound = currentTime().minus(action.throttle!!.value!!.toLong(), action.throttle.unit)
+            val throttledTimeBound = currentTime().minus(action.throttle.value.toLong(), action.throttle.unit)
             return (lastExecutionTime == null || lastExecutionTime.isBefore(throttledTimeBound))
         }
         return true
