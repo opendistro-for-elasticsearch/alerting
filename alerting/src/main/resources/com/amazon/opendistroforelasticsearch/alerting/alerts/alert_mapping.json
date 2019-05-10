@@ -61,19 +61,19 @@
         "message": {
           "type": "text"
         }
-      },
-      "action_execution_results": {
-        "type": "nested",
-        "properties": {
-          "action_id": {
-            "type": "keyword"
-          },
-          "last_execution_time": {
-            "type": "date"
-          },
-          "throttled_count": {
-            "type": "integer"
-          }
+      }
+    },
+    "action_execution_results": {
+      "type": "nested",
+      "properties": {
+        "action_id": {
+          "type": "keyword"
+        },
+        "last_execution_time": {
+          "type": "date"
+        },
+        "throttled_count": {
+          "type": "integer"
         }
       }
     }
