@@ -66,6 +66,8 @@ class RestSearchMonitorAction(settings: Settings, controller: RestController) : 
         // searched.
         searchSourceBuilder.query(QueryBuilders.boolQuery().must(searchSourceBuilder.query())
                 .filter(QueryBuilders.termQuery(Monitor.MONITOR_TYPE + ".type", Monitor.MONITOR_TYPE)))
+                .seqNoAndPrimaryTerm(true)
+                .version(true)
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
                 .indices(SCHEDULED_JOBS_INDEX)

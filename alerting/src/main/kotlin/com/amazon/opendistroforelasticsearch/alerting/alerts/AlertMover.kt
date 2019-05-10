@@ -84,6 +84,7 @@ class AlertMover(
         val activeAlertsQuery = SearchSourceBuilder.searchSource()
                 .query(boolQuery)
                 .version(true)
+                .seqNoAndPrimaryTerm(true)
 
         val activeAlertsRequest = SearchRequest(AlertIndices.ALERT_INDEX)
                 .routing(monitorId)

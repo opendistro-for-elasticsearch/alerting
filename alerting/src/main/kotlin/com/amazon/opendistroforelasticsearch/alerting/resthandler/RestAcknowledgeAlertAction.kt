@@ -105,7 +105,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
             val searchRequest = SearchRequest()
                     .indices(AlertIndices.ALERT_INDEX)
                     .routing(monitorId)
-                    .source(SearchSourceBuilder().query(queryBuilder).version(true))
+                    .source(SearchSourceBuilder().query(queryBuilder).version(true).seqNoAndPrimaryTerm(true))
 
             client.search(searchRequest, ActionListener.wrap(::onSearchResponse, ::onFailure))
         }
