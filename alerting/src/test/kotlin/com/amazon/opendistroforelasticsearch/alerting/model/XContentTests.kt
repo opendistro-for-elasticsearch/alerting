@@ -15,14 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model
 
-import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
-import com.amazon.opendistroforelasticsearch.alerting.randomAlert
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
-import com.amazon.opendistroforelasticsearch.alerting.randomTemplateScript
-import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
-import com.amazon.opendistroforelasticsearch.alerting.toJsonString
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import com.amazon.opendistroforelasticsearch.alerting.randomAction
+import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.randomAlert
+import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
+import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
+import com.amazon.opendistroforelasticsearch.alerting.toJsonString
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -30,10 +33,9 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.script.Script
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
+import kotlin.test.assertFailsWith
 
 class XContentTests : ESTestCase() {
 
@@ -44,11 +46,27 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
     }
 
-    private fun randomAction(
-        name: String = ESRestTestCase.randomUnicodeOfLength(10),
-        template: Script = randomTemplateScript("Hello World"),
-        destinationId: String = "123"
-    ) = Action(name, destinationId, template, template)
+    fun `test throttle parsing`() {
+        val throttle = randomThrottle()
+        val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedThrottle = Throttle.parse(parser(throttleString))
+        assertEquals("Round tripping Monitor doesn't work", throttle, parsedThrottle)
+    }
+
+    fun `test throttle parsing with wrong unit`() {
+        val throttle = randomThrottle()
+        val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val wrongThrottleString = throttleString.replace("MINUTES", "wrongunit")
+
+        assertFailsWith<IllegalArgumentException>("Only support MINUTES throttle unit") { Throttle.parse(parser(wrongThrottleString)) }
+    }
+
+    fun `test throttle parsing with negative value`() {
+        val throttle = randomThrottle().copy(value = -1)
+        val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+
+        assertFailsWith<IllegalArgumentException>("Can only set positive throttle period") { Throttle.parse(parser(throttleString)) }
+    }
 
     fun `test monitor parsing`() {
         val monitor = randomMonitor()
@@ -74,6 +92,15 @@ class XContentTests : ESTestCase() {
         val parsedAlert = Alert.parse(parser(alertString))
 
         assertEquals("Round tripping alert doesn't work", alert, parsedAlert)
+    }
+
+    fun `test action execution result parsing`() {
+        val actionExecutionResult = randomActionExecutionResult()
+
+        val actionExecutionResultString = actionExecutionResult.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedActionExecutionResultString = ActionExecutionResult.parse(parser(actionExecutionResultString))
+
+        assertEquals("Round tripping alert doesn't work", actionExecutionResult, parsedActionExecutionResultString)
     }
 
     fun `test creating a monitor with duplicate trigger ids fails`() {
