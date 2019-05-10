@@ -39,7 +39,11 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -54,6 +58,15 @@ public class DestinationHttpClient {
     private static final int TIMEOUT_MILLISECONDS = (int) TimeValue.timeValueSeconds(5).millis();
     private static final int SOCKET_TIMEOUT_MILLISECONDS = (int)TimeValue.timeValueSeconds(50).millis();
 
+  	/**
+  	 * all valid response status
+  	 */
+  	private static final Set<Integer> VALID_RESPONSE_STATUS = Collections.unmodifiableSet(new HashSet<>(
+  	    Arrays.asList(RestStatus.OK.getStatus(), RestStatus.CREATED.getStatus(), RestStatus.ACCEPTED.getStatus(),
+  	        RestStatus.NON_AUTHORITATIVE_INFORMATION.getStatus(), RestStatus.NO_CONTENT.getStatus(),
+  	        RestStatus.RESET_CONTENT.getStatus(), RestStatus.PARTIAL_CONTENT.getStatus(),
+  	        RestStatus.MULTI_STATUS.getStatus())));
+    
     private static CloseableHttpClient HTTP_CLIENT = createHttpClient();
 
     private static CloseableHttpClient createHttpClient() {
@@ -153,7 +166,7 @@ public class DestinationHttpClient {
     private void validateResponseStatus(HttpResponse response) throws IOException {
         int statusCode = response.getStatusLine().getStatusCode();
 
-        if (statusCode != RestStatus.OK.getStatus()) {
+    		if (!(VALID_RESPONSE_STATUS.contains(statusCode))) {
             throw new IOException("Failed: " + response);
         }
     }

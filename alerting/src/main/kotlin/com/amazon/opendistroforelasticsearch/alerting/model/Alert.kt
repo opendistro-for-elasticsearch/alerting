@@ -41,7 +41,8 @@ data class Alert(
     val acknowledgedTime: Instant? = null,
     val errorMessage: String? = null,
     val errorHistory: List<AlertError>,
-    val severity: String
+    val severity: String,
+    val actionExecutionResults: List<ActionExecutionResult>
 ) : ToXContent {
 
     init {
@@ -57,11 +58,12 @@ data class Alert(
         lastNotificationTime: Instant?,
         state: State = State.ACTIVE,
         errorMessage: String? = null,
-        errorHistory: List<AlertError> = mutableListOf()
+        errorHistory: List<AlertError> = mutableListOf(),
+        actionExecutionResults: List<ActionExecutionResult> = mutableListOf()
     ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
             triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
             lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
-            severity = trigger.severity)
+            severity = trigger.severity, actionExecutionResults = actionExecutionResults)
 
     enum class State {
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR, DELETED
@@ -86,6 +88,7 @@ data class Alert(
         const val ERROR_MESSAGE_FIELD = "error_message"
         const val ALERT_HISTORY_FIELD = "alert_history"
         const val SEVERITY_FIELD = "severity"
+        const val ACTION_EXECUTION_RESULTS_FIELD = "action_execution_results"
 
         const val NO_ID = ""
         const val NO_VERSION = Versions.NOT_FOUND
@@ -115,6 +118,7 @@ data class Alert(
             var acknowledgedTime: Instant? = null
             var errorMessage: String? = null
             val errorHistory: MutableList<AlertError> = mutableListOf()
+            var actionExecutionResults: MutableList<ActionExecutionResult> = mutableListOf()
 
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -140,6 +144,12 @@ data class Alert(
                         }
                     }
                     SEVERITY_FIELD -> severity = xcp.text()
+                    ACTION_EXECUTION_RESULTS_FIELD -> {
+                        ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
+                            actionExecutionResults.add(ActionExecutionResult.parse(xcp))
+                        }
+                    }
                 }
             }
 
@@ -148,7 +158,8 @@ data class Alert(
                     triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
                     state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
                     lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
-                    errorMessage = errorMessage, errorHistory = errorHistory, severity = severity)
+                    errorMessage = errorMessage, errorHistory = errorHistory, severity = severity,
+                    actionExecutionResults = actionExecutionResults)
         }
     }
 
@@ -163,6 +174,7 @@ data class Alert(
                 .field(ERROR_MESSAGE_FIELD, errorMessage)
                 .field(ALERT_HISTORY_FIELD, errorHistory.toTypedArray())
                 .field(SEVERITY_FIELD, severity)
+                .field(ACTION_EXECUTION_RESULTS_FIELD, actionExecutionResults.toTypedArray())
                 .optionalTimeField(START_TIME_FIELD, startTime)
                 .optionalTimeField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
                 .optionalTimeField(END_TIME_FIELD, endTime)

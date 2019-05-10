@@ -51,6 +51,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
@@ -193,7 +194,7 @@ class MonitorRunner(
             if (isTriggerActionable(triggerCtx, triggerResult)) {
                 val actionCtx = triggerCtx.copy(error = monitorResult.error ?: triggerResult.error)
                 for (action in trigger.actions) {
-                    triggerResult.actionResults[action.name] = runAction(action, actionCtx, dryrun)
+                    triggerResult.actionResults[action.id] = runAction(action, actionCtx, dryrun)
                 }
             }
 
@@ -219,22 +220,45 @@ class MonitorRunner(
     private fun composeAlert(ctx: TriggerExecutionContext, result: TriggerRunResult, alertError: AlertError?): Alert? {
         val currentTime = currentTime()
         val currentAlert = ctx.alert
+
+        val updatedActionExecutionResults = mutableListOf<ActionExecutionResult>()
+        val currentActionIds = mutableSetOf<String>()
+        if (currentAlert != null) {
+            for (actionExecutionResult in currentAlert.actionExecutionResults) {
+                val actionId = actionExecutionResult.actionId
+                currentActionIds.add(actionId)
+                val actionRunResult = result.actionResults[actionId]
+                when {
+                    actionRunResult == null -> updatedActionExecutionResults.add(actionExecutionResult)
+                    actionRunResult.throttled ->
+                        updatedActionExecutionResults.add(actionExecutionResult.copy(
+                                throttledCount = actionExecutionResult.throttledCount + 1))
+                    else -> updatedActionExecutionResults.add(actionExecutionResult.copy(lastExecutionTime = actionRunResult.executionTime))
+                }
+            }
+            updatedActionExecutionResults.addAll(result.actionResults.filter { it -> currentActionIds.contains(it.key) }
+                    .map { it -> ActionExecutionResult(it.key, it.value.executionTime, if (it.value.throttled) 1 else 0) })
+        } else {
+            updatedActionExecutionResults.addAll(result.actionResults.map { it -> ActionExecutionResult(it.key, it.value.executionTime,
+                    if (it.value.throttled) 1 else 0) })
+        }
+
         // Merge the alert's error message to the current alert's history
         val updatedHistory = currentAlert?.errorHistory.update(alertError)
         return if (alertError == null && !result.triggered) {
             currentAlert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null,
-                    errorHistory = updatedHistory)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
         } else if (alertError == null && currentAlert?.isAcknowledged() == true) {
             null
         } else if (currentAlert != null) {
             val alertState = if (alertError == null) ACTIVE else ERROR
             currentAlert.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
         } else {
             val alertState = if (alertError == null) ACTIVE else ERROR
             Alert(monitor = ctx.monitor, trigger = ctx.trigger, startTime = currentTime,
                     lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
         }
     }
 
@@ -380,8 +404,24 @@ class MonitorRunner(
         return result.triggered && !suppress
     }
 
+    private fun isActionActionable(action: Action, alert: Alert?): Boolean {
+        if (alert == null || action.throttle == null) {
+            return true
+        }
+        if (action.throttleEnabled) {
+            val result = alert.actionExecutionResults.firstOrNull { r -> r.actionId == action.id }
+            val lastExecutionTime: Instant? = result?.lastExecutionTime
+            val throttledTimeBound = currentTime().minus(action.throttle.value.toLong(), action.throttle.unit)
+            return (lastExecutionTime == null || lastExecutionTime.isBefore(throttledTimeBound))
+        }
+        return true
+    }
+
     private fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean): ActionRunResult {
         return try {
+            if (!isActionActionable(action, ctx.alert)) {
+                return ActionRunResult(action.id, action.name, mapOf(), true, null, null)
+            }
             val actionOutput = mutableMapOf<String, String>()
             actionOutput[SUBJECT] = if (action.subjectTemplate != null) compileTemplate(action.subjectTemplate, ctx) else ""
             actionOutput[MESSAGE] = compileTemplate(action.messageTemplate, ctx)
@@ -392,9 +432,9 @@ class MonitorRunner(
                 var destination = getDestinationInfo(action.destinationId)
                 actionOutput[MESSAGE_ID] = destination.publish(actionOutput[SUBJECT], actionOutput[MESSAGE]!!)
             }
-            ActionRunResult(action.name, actionOutput, false, null)
+            ActionRunResult(action.id, action.name, actionOutput, false, currentTime(), null)
         } catch (e: Exception) {
-            ActionRunResult(action.name, mapOf(), false, e)
+            ActionRunResult(action.id, action.name, mapOf(), false, currentTime(), e)
         }
     }
 
