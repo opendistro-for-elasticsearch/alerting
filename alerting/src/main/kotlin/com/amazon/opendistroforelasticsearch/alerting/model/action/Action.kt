@@ -46,15 +46,19 @@ data class Action(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        return builder.startObject()
+        val xContentBuilder = builder.startObject()
                 .field(ID_FIELD, id)
                 .field(NAME_FIELD, name)
                 .field(DESTINATION_ID_FIELD, destinationId)
-                .field(SUBJECT_TEMPLATE_FIELD, subjectTemplate)
                 .field(MESSAGE_TEMPLATE_FIELD, messageTemplate)
                 .field(THROTTLE_ENABLED_FIELD, throttleEnabled)
-                .field(THROTTLE_FIELD, throttle)
-                .endObject()
+        if (subjectTemplate != null) {
+            xContentBuilder.field(SUBJECT_TEMPLATE_FIELD, subjectTemplate)
+        }
+        if (throttle != null) {
+            xContentBuilder.field(THROTTLE_FIELD, throttle)
+        }
+        return xContentBuilder.endObject()
     }
 
     fun asTemplateArg(): Map<String, Any> {
@@ -93,9 +97,14 @@ data class Action(
                     ID_FIELD -> id = xcp.text()
                     NAME_FIELD -> name = xcp.textOrNull()
                     DESTINATION_ID_FIELD -> destinationId = xcp.textOrNull()
-                    SUBJECT_TEMPLATE_FIELD -> subjectTemplate = Script.parse(xcp, Script.DEFAULT_TEMPLATE_LANG)
+                    SUBJECT_TEMPLATE_FIELD -> {
+                        subjectTemplate = if (xcp.currentToken() == XContentParser.Token.VALUE_NULL) null else
+                            Script.parse(xcp, Script.DEFAULT_TEMPLATE_LANG)
+                    }
                     MESSAGE_TEMPLATE_FIELD -> messageTemplate = Script.parse(xcp, Script.DEFAULT_TEMPLATE_LANG)
-                    THROTTLE_FIELD -> throttle = Throttle.parse(xcp)
+                    THROTTLE_FIELD -> {
+                        throttle = if (xcp.currentToken() == XContentParser.Token.VALUE_NULL) null else Throttle.parse(xcp)
+                    }
                     THROTTLE_ENABLED_FIELD -> {
                         throttleEnabled = xcp.booleanValue()
                     }
@@ -104,6 +113,10 @@ data class Action(
                         throw IllegalStateException("Unexpected field: $fieldName, while parsing action")
                     }
                 }
+            }
+
+            if (throttleEnabled) {
+                requireNotNull(throttle, { "Action throttle enabled but not set throttle value" })
             }
 
             return Action(requireNotNull(name) { "Action name is null" },
