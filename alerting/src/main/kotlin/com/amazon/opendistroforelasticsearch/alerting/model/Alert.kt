@@ -93,14 +93,6 @@ data class Alert(
         const val NO_ID = ""
         const val NO_VERSION = Versions.NOT_FOUND
 
-        /**
-         * The mapping type of [Alert]s in the ES index.
-         *
-         * This should go away starting ES 7. We use "_doc" for future compatibility as described here:
-         * https://www.elastic.co/guide/en/elasticsearch/reference/6.x/removal-of-types.html#_schedule_for_removal_of_mapping_types
-         */
-        const val ALERT_TYPE = "_doc"
-
         @JvmStatic @JvmOverloads
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Alert {
