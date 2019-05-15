@@ -24,6 +24,8 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
@@ -53,6 +55,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 import java.time.Instant
+
+private val log: Logger = LogManager.getLogger(RestAcknowledgeAlertAction::class.java)
 
 /**
  * This class consists of the REST handler to acknowledge alerts.
@@ -100,9 +104,8 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                     .filter(QueryBuilders.termsQuery("_id", alertIds))
             val searchRequest = SearchRequest()
                     .indices(AlertIndices.ALERT_INDEX)
-                    .types(Alert.ALERT_TYPE)
                     .routing(monitorId)
-                    .source(SearchSourceBuilder().query(queryBuilder).version(true))
+                    .source(SearchSourceBuilder().query(queryBuilder).version(true).seqNoAndPrimaryTerm(true))
 
             client.search(searchRequest, ActionListener.wrap(::onSearchResponse, ::onFailure))
         }
@@ -115,9 +118,10 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                 val alert = Alert.parse(xcp, hit.id, hit.version)
                 alerts[alert.id] = alert
                 if (alert.state == ACTIVE) {
-                    listOf(UpdateRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, hit.id)
+                    listOf(UpdateRequest(AlertIndices.ALERT_INDEX, hit.id)
                             .routing(monitorId)
-                            .version(hit.version)
+                            .setIfSeqNo(hit.seqNo)
+                            .setIfPrimaryTerm(hit.primaryTerm)
                             .doc(XContentFactory.jsonBuilder().startObject()
                                     .field(Alert.STATE_FIELD, ACKNOWLEDGED.toString())
                                     .optionalTimeField(Alert.ACKNOWLEDGED_TIME_FIELD, Instant.now())
@@ -127,7 +131,7 @@ class RestAcknowledgeAlertAction(settings: Settings, controller: RestController)
                 }
             }
 
-            logger.info("Acknowledging monitor: $monitorId, alerts: ${updateRequests.map { it.id() }}")
+            log.info("Acknowledging monitor: $monitorId, alerts: ${updateRequests.map { it.id() }}")
             val request = BulkRequest().add(updateRequests).setRefreshPolicy(refreshPolicy)
             client.bulk(request, ActionListener.wrap(::onBulkResponse, ::onFailure))
         }

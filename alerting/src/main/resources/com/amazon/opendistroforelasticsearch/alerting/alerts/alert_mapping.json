@@ -1,81 +1,79 @@
 {
-  "_doc": {
-    "dynamic": "strict",
-    "_routing": {
-      "required" : true
+  "dynamic": "strict",
+  "_routing": {
+    "required": true
+  },
+  "properties": {
+    "monitor_id": {
+      "type": "keyword"
     },
-    "properties" : {
-      "monitor_id" : {
-        "type" : "keyword"
-      },
-      "monitor_version" : {
-        "type" : "long"
-      },
-      "severity": {
-        "type": "keyword"
-      },
-      "monitor_name" : {
-        "type" : "text",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above" : 256
-          }
+    "monitor_version": {
+      "type": "long"
+    },
+    "severity": {
+      "type": "keyword"
+    },
+    "monitor_name": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
         }
-      },
-      "trigger_id" : {
-        "type" : "keyword"
-      },
-      "trigger_name" : {
-        "type": "text",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above" : 256
-          }
+      }
+    },
+    "trigger_id": {
+      "type": "keyword"
+    },
+    "trigger_name": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
         }
-      },
-      "state" : {
-        "type": "keyword"
-      },
-      "start_time" : {
-        "type" : "date"
-      },
-      "last_notification_time" : {
-        "type" : "date"
-      },
-      "acknowledged_time" : {
-        "type" : "date"
-      },
-      "end_time" : {
-        "type" : "date"
-      },
-      "error_message" : {
-        "type" : "text"
-      },
-      "alert_history": {
-        "type": "nested",
-        "properties" : {
-          "timestamp": {
-            "type": "date"
-          },
-          "message": {
-            "type": "text"
-          }
+      }
+    },
+    "state": {
+      "type": "keyword"
+    },
+    "start_time": {
+      "type": "date"
+    },
+    "last_notification_time": {
+      "type": "date"
+    },
+    "acknowledged_time": {
+      "type": "date"
+    },
+    "end_time": {
+      "type": "date"
+    },
+    "error_message": {
+      "type": "text"
+    },
+    "alert_history": {
+      "type": "nested",
+      "properties": {
+        "timestamp": {
+          "type": "date"
+        },
+        "message": {
+          "type": "text"
         }
-      },
-      "action_execution_results": {
-        "type": "nested",
-        "properties": {
-          "action_id": {
-            "type": "keyword"
-          },
-          "last_execution_time": {
-            "type": "date"
-          },
-          "throttled_count": {
-            "type": "integer"
-          }
+      }
+    },
+    "action_execution_results": {
+      "type": "nested",
+      "properties": {
+        "action_id": {
+          "type": "keyword"
+        },
+        "last_execution_time": {
+          "type": "date"
+        },
+        "throttled_count": {
+          "type": "integer"
         }
       }
     }

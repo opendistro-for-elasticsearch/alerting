@@ -70,9 +70,9 @@ suspend fun moveAlerts(client: Client, monitorId: String, monitor: Monitor? = nu
     val response: SearchResponse = client.suspendUntil { search(activeAlertsRequest, it) }
 
     // If no alerts are found, simply return
-    if (response.hits.totalHits == 0L) return
+    if (response.hits.totalHits.value == 0L) return
     val indexRequests = response.hits.map { hit ->
-        IndexRequest(AlertIndices.HISTORY_WRITE_INDEX, AlertIndices.MAPPING_TYPE)
+        IndexRequest(AlertIndices.HISTORY_WRITE_INDEX)
             .routing(monitorId)
             .source(Alert.parse(alertContentParser(hit.sourceRef), hit.id, hit.version)
                 .copy(state = Alert.State.DELETED)
@@ -85,9 +85,10 @@ suspend fun moveAlerts(client: Client, monitorId: String, monitor: Monitor? = nu
     val copyResponse: BulkResponse = client.suspendUntil { bulk(copyRequest, it) }
 
     val deleteRequests = copyResponse.items.filterNot { it.isFailed }.map {
-        DeleteRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, it.id)
+        DeleteRequest(AlertIndices.ALERT_INDEX, it.id)
             .routing(monitorId)
             .version(it.version)
+            .versionType(VersionType.EXTERNAL_GTE)
     }
     val deleteResponse: BulkResponse = client.suspendUntil { bulk(BulkRequest().add(deleteRequests), it) }
 

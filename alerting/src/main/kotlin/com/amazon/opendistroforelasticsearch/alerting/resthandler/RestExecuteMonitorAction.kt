@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.MonitorRunner
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,6 +42,8 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActionListener
 import java.time.Instant
+
+private val log = LogManager.getLogger(RestExecuteMonitorAction::class.java)
 
 class RestExecuteMonitorAction(
     val settings: Settings,
@@ -70,7 +73,7 @@ class RestExecuteMonitorAction(
                             channel.sendResponse(BytesRestResponse(RestStatus.OK, channel.newBuilder().value(response)))
                         }
                     } catch (e: Exception) {
-                        logger.error("Unexpected error running monitor", e)
+                        log.error("Unexpected error running monitor", e)
                         withContext(Dispatchers.IO) { channel.sendResponse(BytesRestResponse(channel, e)) }
                     }
                 }

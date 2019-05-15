@@ -26,12 +26,10 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.nodes.BaseNodeRequest
 import org.elasticsearch.action.support.nodes.TransportNodesAction
 import org.elasticsearch.cluster.health.ClusterIndexHealth
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
@@ -47,23 +45,19 @@ class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStat
 
     @Inject
     constructor(
-        settings: Settings,
         threadPool: ThreadPool,
         clusterService: ClusterService,
         transportService: TransportService,
         actionFilters: ActionFilters,
-        indexNameExpressionResolver: IndexNameExpressionResolver,
         jobSweeper: JobSweeper,
         jobScheduler: JobScheduler,
         scheduledJobIndices: ScheduledJobIndices
     ) : super(
-        settings,
         ScheduledJobsStatsAction.NAME,
         threadPool,
         clusterService,
         transportService,
         actionFilters,
-        indexNameExpressionResolver,
         { ScheduledJobsStatsRequest() },
         { ScheduledJobStatusRequest() },
         ThreadPool.Names.MANAGEMENT,

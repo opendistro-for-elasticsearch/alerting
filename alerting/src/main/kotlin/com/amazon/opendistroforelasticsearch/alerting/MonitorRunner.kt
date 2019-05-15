@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
@@ -355,7 +354,7 @@ class MonitorRunner(
             // spend time reloading the alert and writing it back.
             when (alert.state) {
                 ACTIVE, ERROR -> {
-                    listOf<DocWriteRequest<*>>(IndexRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE)
+                    listOf<DocWriteRequest<*>>(IndexRequest(AlertIndices.ALERT_INDEX)
                             .routing(alert.monitorId)
                             .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
                             .id(if (alert.id != Alert.NO_ID) alert.id else null))
@@ -365,9 +364,9 @@ class MonitorRunner(
                 }
                 COMPLETED -> {
                     listOf<DocWriteRequest<*>>(
-                            DeleteRequest(AlertIndices.ALERT_INDEX, AlertIndices.MAPPING_TYPE, alert.id)
+                            DeleteRequest(AlertIndices.ALERT_INDEX, alert.id)
                                     .routing(alert.monitorId),
-                            IndexRequest(AlertIndices.HISTORY_WRITE_INDEX, AlertIndices.MAPPING_TYPE)
+                            IndexRequest(AlertIndices.HISTORY_WRITE_INDEX)
                                     .routing(alert.monitorId)
                                     .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
                                     .id(alert.id))
@@ -440,7 +439,7 @@ class MonitorRunner(
     }
 
     private suspend fun getDestinationInfo(destinationId: String): Destination {
-        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, destinationId).routing(destinationId)
+        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId).routing(destinationId)
         val getResponse: GetResponse = client.suspendUntil { client.get(getRequest, it) }
         if (!getResponse.isExists || getResponse.isSourceEmpty) {
             throw IllegalStateException("Destination document with id $destinationId not found or source is empty")
