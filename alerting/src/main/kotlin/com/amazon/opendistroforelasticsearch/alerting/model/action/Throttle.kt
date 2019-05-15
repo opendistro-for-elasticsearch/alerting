@@ -46,7 +46,7 @@ data class Throttle(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Throttle {
             var value: Int = 0
-            var unit: ChronoUnit? = null
+            var unit: ChronoUnit = ChronoUnit.MINUTES // only support MINUTES throttle unit currently
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
