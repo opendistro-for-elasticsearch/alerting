@@ -71,8 +71,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         @Suppress("UNCHECKED_CAST")
         val searchResult = (output.objectMap("input_results")["results"] as List<Map<String, Any>>).first()
         @Suppress("UNCHECKED_CAST")
-        val total = searchResult.stringMap("hits")?.get("total") as Int
-        assertEquals("Incorrect search result", 1, total)
+        val total = searchResult.stringMap("hits")?.get("total") as Map<String, String>
+        assertEquals("Incorrect search result", 1, total["value"])
     }
 
     fun `test execute monitor not triggered`() {

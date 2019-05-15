@@ -19,6 +19,10 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.MonitorRunner
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import org.apache.logging.log4j.LogManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
@@ -39,6 +43,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActionListener
 import java.time.Instant
 
+private val log = LogManager.getLogger(RestExecuteMonitorAction::class.java)
+
 class RestExecuteMonitorAction(
     val settings: Settings,
     restController: RestController,
@@ -58,15 +64,17 @@ class RestExecuteMonitorAction(
             val requestEnd = request.paramAsTime("period_end", TimeValue(Instant.now().toEpochMilli()))
 
             val executeMonitor = fun(monitor: Monitor) {
-                runner.executor().submit {
+                runner.launch {
                     val (periodStart, periodEnd) =
                             monitor.schedule.getPeriodEndingAt(Instant.ofEpochMilli(requestEnd.millis))
                     try {
                         val response = runner.runMonitor(monitor, periodStart, periodEnd, dryrun)
-                        channel.sendResponse(BytesRestResponse(RestStatus.OK, channel.newBuilder().value(response)))
+                        withContext(Dispatchers.IO) {
+                            channel.sendResponse(BytesRestResponse(RestStatus.OK, channel.newBuilder().value(response)))
+                        }
                     } catch (e: Exception) {
-                        logger.error("Unexpected error running monitor", e)
-                        channel.sendResponse(BytesRestResponse(channel, e))
+                        log.error("Unexpected error running monitor", e)
+                        withContext(Dispatchers.IO) { channel.sendResponse(BytesRestResponse(channel, e)) }
                     }
                 }
             }

@@ -20,6 +20,7 @@ apply plugin: 'jacoco'
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1'
     compile "com.cronutils:cron-utils:7.0.5"
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"

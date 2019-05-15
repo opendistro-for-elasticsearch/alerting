@@ -224,11 +224,9 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
     /** A test index that can be used across tests. Feel free to add new fields but don't remove any. */
     protected fun createTestIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
         createIndex(index, Settings.EMPTY, """
-            "_doc" : {
-              "properties" : {
-                 "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
-              }
-            }
+          "properties" : {
+             "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
+          }
         """.trimIndent())
         return index
     }

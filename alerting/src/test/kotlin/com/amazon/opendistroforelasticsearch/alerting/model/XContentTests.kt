@@ -46,6 +46,27 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
     }
 
+    fun `test action parsing with null subject template`() {
+        val action = randomAction().copy(subjectTemplate = null)
+        val actionString = action.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedAction = Action.parse(parser(actionString))
+        assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
+    }
+
+    fun `test action parsing with null throttle`() {
+        val action = randomAction().copy(throttle = null)
+        val actionString = action.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedAction = Action.parse(parser(actionString))
+        assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
+    }
+
+    fun `test action parsing with throttled enabled and null throttle`() {
+        val action = randomAction().copy(throttle = null).copy(throttleEnabled = true)
+        val actionString = action.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        assertFailsWith<IllegalArgumentException>("Action throttle enabled but not set throttle value") {
+            Action.parse(parser(actionString)) }
+    }
+
     fun `test throttle parsing`() {
         val throttle = randomThrottle()
         val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
