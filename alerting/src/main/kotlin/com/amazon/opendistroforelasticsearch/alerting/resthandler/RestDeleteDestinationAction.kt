@@ -49,7 +49,7 @@ class RestDeleteDestinationAction(settings: Settings, controller: RestController
 
         return RestChannelConsumer { channel ->
                 val deleteDestinationRequest =
-                        DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE, destinationId)
+                        DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, destinationId)
                                 .setRefreshPolicy(refreshPolicy)
                 client.delete(deleteDestinationRequest, RestStatusToXContentListener(channel))
         }

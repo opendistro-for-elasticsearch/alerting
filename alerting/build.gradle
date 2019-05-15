@@ -102,7 +102,7 @@ task startMultiNode(dependsOn: startMultiNode1)
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
 
-unitTest {
+test {
     systemProperty 'tests.security.manager', 'false'
 }
 

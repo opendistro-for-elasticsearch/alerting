@@ -27,6 +27,8 @@ import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResul
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import org.apache.http.Header
 import org.apache.http.HttpEntity
+import org.elasticsearch.client.Request
+import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.UUIDs
@@ -130,11 +132,15 @@ fun RestClient.makeRequest(
     entity: HttpEntity? = null,
     vararg headers: Header
 ): Response {
-    return if (entity != null) {
-        performRequest(method, endpoint, params, entity, *headers)
-    } else {
-        performRequest(method, endpoint, params, *headers)
+    val request = Request(method, endpoint)
+    val options = RequestOptions.DEFAULT.toBuilder()
+    headers.forEach { options.addHeader(it.name, it.value) }
+    request.options = options.build()
+    params.forEach { request.addParameter(it.key, it.value) }
+    if (entity != null) {
+        request.entity = entity
     }
+    return performRequest(request)
 }
 
 /**
@@ -149,9 +155,12 @@ fun RestClient.makeRequest(
     entity: HttpEntity? = null,
     vararg headers: Header
 ): Response {
-    return if (entity != null) {
-        performRequest(method, endpoint, emptyMap(), entity, *headers)
-    } else {
-        performRequest(method, endpoint, emptyMap(), *headers)
+    val request = Request(method, endpoint)
+    val options = RequestOptions.DEFAULT.toBuilder()
+    headers.forEach { options.addHeader(it.name, it.value) }
+    request.options = options.build()
+    if (entity != null) {
+        request.entity = entity
     }
+    return performRequest(request)
 }
