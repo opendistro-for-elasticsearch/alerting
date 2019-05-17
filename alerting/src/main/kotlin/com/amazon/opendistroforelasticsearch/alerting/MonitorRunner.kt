@@ -227,6 +227,7 @@ class MonitorRunner(
         val updatedActionExecutionResults = mutableListOf<ActionExecutionResult>()
         val currentActionIds = mutableSetOf<String>()
         if (currentAlert != null) {
+            // update current alert's action execution results
             for (actionExecutionResult in currentAlert.actionExecutionResults) {
                 val actionId = actionExecutionResult.actionId
                 currentActionIds.add(actionId)
@@ -239,7 +240,8 @@ class MonitorRunner(
                     else -> updatedActionExecutionResults.add(actionExecutionResult.copy(lastExecutionTime = actionRunResult.executionTime))
                 }
             }
-            updatedActionExecutionResults.addAll(result.actionResults.filter { it -> currentActionIds.contains(it.key) }
+            // add action execution results which not exist in current alert
+            updatedActionExecutionResults.addAll(result.actionResults.filter { it -> !currentActionIds.contains(it.key) }
                     .map { it -> ActionExecutionResult(it.key, it.value.executionTime, if (it.value.throttled) 1 else 0) })
         } else {
             updatedActionExecutionResults.addAll(result.actionResults.map { it -> ActionExecutionResult(it.key, it.value.executionTime,

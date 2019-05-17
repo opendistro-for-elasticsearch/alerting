@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
+import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACKNOWLEDGED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
@@ -24,6 +25,8 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -32,8 +35,10 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.time.temporal.ChronoUnit.DAYS
 import java.time.temporal.ChronoUnit.MILLIS
+import java.time.temporal.ChronoUnit.MINUTES
 
 class MonitorRunnerIT : AlertingRestTestCase() {
 
@@ -505,6 +510,97 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val retrievedMonitor = getMonitor(monitorId = monitor.id)
         assertTrue("Monitor is not enabled", retrievedMonitor.enabled)
         assertEquals("Enabled times do not match", monitor.enabledTime, retrievedMonitor.enabledTime)
+    }
+
+    fun `test monitor with throttled action for same alert`() {
+        val actionThrottleEnabled = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name}}"),
+                destinationId = createDestination().id,
+                throttleEnabled = true, throttle = Throttle(value = 5, unit = MINUTES))
+        val actionThrottleNotEnabled = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name}}"),
+                destinationId = createDestination().id,
+                throttleEnabled = false, throttle = Throttle(value = 5, unit = MINUTES))
+        val actions = listOf(actionThrottleEnabled, actionThrottleNotEnabled)
+        val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = actions)),
+                schedule = IntervalSchedule(interval = 1, unit = ChronoUnit.MINUTES)))
+
+        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, false),
+                Pair(actionThrottleNotEnabled.id, false)))
+
+        val alerts1 = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, alerts1.size)
+        verifyAlert(alerts1.single(), monitor, ACTIVE)
+        val actionResults1 = verifyActionExecutionResultInAlert(alerts1[0],
+                mutableMapOf(Pair(actionThrottleEnabled.id, 0), Pair(actionThrottleNotEnabled.id, 0)))
+
+        assertEquals(actionResults1.size, 2)
+        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, true),
+                Pair(actionThrottleNotEnabled.id, false)))
+
+        val alerts2 = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, alerts2.size)
+        verifyAlert(alerts1.single(), monitor, ACTIVE)
+        val actionResults2 = verifyActionExecutionResultInAlert(alerts2[0],
+                mutableMapOf(Pair(actionThrottleEnabled.id, 1), Pair(actionThrottleNotEnabled.id, 0)))
+
+        assertEquals(actionResults1.size, 2)
+
+        assertEquals(actionResults1[actionThrottleEnabled.id]!!.lastExecutionTime,
+                actionResults2[actionThrottleEnabled.id]!!.lastExecutionTime)
+    }
+
+    fun `test monitor with throttled action for different alerts`() {
+        val actionThrottleEnabled = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name}}"),
+                destinationId = createDestination().id,
+                throttleEnabled = true, throttle = Throttle(value = 5, unit = MINUTES))
+        val actions = listOf(actionThrottleEnabled)
+        val trigger = randomTrigger(condition = ALWAYS_RUN, actions = actions)
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger),
+                schedule = IntervalSchedule(interval = 1, unit = ChronoUnit.MINUTES)))
+
+        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, false)))
+
+        val alerts1 = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, alerts1.size)
+        verifyAlert(alerts1.single(), monitor, ACTIVE)
+        val actionResults1 = verifyActionExecutionResultInAlert(alerts1[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
+
+        updateMonitor(monitor.copy(triggers = listOf(trigger.copy(condition = NEVER_RUN)), id = monitor.id))
+        executeMonitor(monitor.id)
+        val alerts2 = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN).single()
+        verifyAlert(alerts2, monitor, COMPLETED)
+
+        updateMonitor(monitor.copy(triggers = listOf(trigger.copy(condition = ALWAYS_RUN)), id = monitor.id))
+        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, false)))
+        val alerts3 = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, alerts1.size)
+        verifyAlert(alerts1.single(), monitor, ACTIVE)
+        assertNotEquals(alerts1[0].id, alerts3[0].id)
+
+        val actionResults3 = verifyActionExecutionResultInAlert(alerts3[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
+
+        assertNotEquals(actionResults1[actionThrottleEnabled.id]!!.lastExecutionTime,
+                actionResults3[actionThrottleEnabled.id]!!.lastExecutionTime)
+    }
+
+    private fun verifyActionExecutionResultInAlert(alert: Alert, expectedResult: Map<String, Int>):
+            MutableMap<String, ActionExecutionResult> {
+        val actionResult = mutableMapOf<String, ActionExecutionResult>()
+        for (result in alert.actionExecutionResults) {
+            val expected = expectedResult[result.actionId]
+            assertEquals(expected, result.throttledCount)
+            actionResult.put(result.actionId, result)
+        }
+        return actionResult
+    }
+
+    private fun verifyActionThrottleResults(monitoId: String, expectedResult: Map<String, Boolean>) {
+        val output = entityAsMap(executeMonitor(monitoId))
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            for (actionResult in triggerResult.objectMap("action_results").values) {
+                val expected = expectedResult[actionResult["id"]]
+                assertEquals(expected, actionResult["throttled"])
+            }
+        }
     }
 
     private fun verifyAlert(alert: Alert, monitor: Monitor, expectedState: Alert.State = ACTIVE) {
