@@ -522,30 +522,31 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val actions = listOf(actionThrottleEnabled, actionThrottleNotEnabled)
         val monitor = createMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = actions)),
                 schedule = IntervalSchedule(interval = 1, unit = ChronoUnit.MINUTES)))
-
-        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, false),
+        val monitorRunResultNotThrottled = entityAsMap(executeMonitor(monitor.id))
+        verifyActionThrottleResults(monitorRunResultNotThrottled, mutableMapOf(Pair(actionThrottleEnabled.id, false),
                 Pair(actionThrottleNotEnabled.id, false)))
 
-        val alerts1 = searchAlerts(monitor)
-        assertEquals("1 alert should be returned", 1, alerts1.size)
-        verifyAlert(alerts1.single(), monitor, ACTIVE)
-        val actionResults1 = verifyActionExecutionResultInAlert(alerts1[0],
+        val notThrottledAlert = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, notThrottledAlert.size)
+        verifyAlert(notThrottledAlert.single(), monitor, ACTIVE)
+        val notThrottledActionResults = verifyActionExecutionResultInAlert(notThrottledAlert[0],
                 mutableMapOf(Pair(actionThrottleEnabled.id, 0), Pair(actionThrottleNotEnabled.id, 0)))
 
-        assertEquals(actionResults1.size, 2)
-        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, true),
+        assertEquals(notThrottledActionResults.size, 2)
+        val monitorRunResultThrottled = entityAsMap(executeMonitor(monitor.id))
+        verifyActionThrottleResults(monitorRunResultThrottled, mutableMapOf(Pair(actionThrottleEnabled.id, true),
                 Pair(actionThrottleNotEnabled.id, false)))
 
-        val alerts2 = searchAlerts(monitor)
-        assertEquals("1 alert should be returned", 1, alerts2.size)
-        verifyAlert(alerts1.single(), monitor, ACTIVE)
-        val actionResults2 = verifyActionExecutionResultInAlert(alerts2[0],
+        val throttledAlert = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, throttledAlert.size)
+        verifyAlert(throttledAlert.single(), monitor, ACTIVE)
+        val throttledActionResults = verifyActionExecutionResultInAlert(throttledAlert[0],
                 mutableMapOf(Pair(actionThrottleEnabled.id, 1), Pair(actionThrottleNotEnabled.id, 0)))
 
-        assertEquals(actionResults1.size, 2)
+        assertEquals(notThrottledActionResults.size, 2)
 
-        assertEquals(actionResults1[actionThrottleEnabled.id]!!.lastExecutionTime,
-                actionResults2[actionThrottleEnabled.id]!!.lastExecutionTime)
+        assertEquals(notThrottledActionResults[actionThrottleEnabled.id]!!.lastExecutionTime,
+                throttledActionResults[actionThrottleEnabled.id]!!.lastExecutionTime)
     }
 
     fun `test monitor with throttled action for different alerts`() {
@@ -556,30 +557,29 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = actions)
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger),
                 schedule = IntervalSchedule(interval = 1, unit = ChronoUnit.MINUTES)))
+        val monitorRunResult1 = entityAsMap(executeMonitor(monitor.id))
+        verifyActionThrottleResults(monitorRunResult1, mutableMapOf(Pair(actionThrottleEnabled.id, false)))
 
-        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, false)))
-
-        val alerts1 = searchAlerts(monitor)
-        assertEquals("1 alert should be returned", 1, alerts1.size)
-        verifyAlert(alerts1.single(), monitor, ACTIVE)
-        val actionResults1 = verifyActionExecutionResultInAlert(alerts1[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
+        val activeAlert1 = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, activeAlert1.size)
+        verifyAlert(activeAlert1.single(), monitor, ACTIVE)
+        val actionResults1 = verifyActionExecutionResultInAlert(activeAlert1[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
 
         updateMonitor(monitor.copy(triggers = listOf(trigger.copy(condition = NEVER_RUN)), id = monitor.id))
         executeMonitor(monitor.id)
-        val alerts2 = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN).single()
-        verifyAlert(alerts2, monitor, COMPLETED)
+        val completedAlert = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN).single()
+        verifyAlert(completedAlert, monitor, COMPLETED)
 
         updateMonitor(monitor.copy(triggers = listOf(trigger.copy(condition = ALWAYS_RUN)), id = monitor.id))
-        verifyActionThrottleResults(monitor.id, mutableMapOf(Pair(actionThrottleEnabled.id, false)))
-        val alerts3 = searchAlerts(monitor)
-        assertEquals("1 alert should be returned", 1, alerts1.size)
-        verifyAlert(alerts1.single(), monitor, ACTIVE)
-        assertNotEquals(alerts1[0].id, alerts3[0].id)
+        val monitorRunResult2 = entityAsMap(executeMonitor(monitor.id))
+        verifyActionThrottleResults(monitorRunResult2, mutableMapOf(Pair(actionThrottleEnabled.id, false)))
+        val activeAlert2 = searchAlerts(monitor)
+        assertEquals("1 alert should be returned", 1, activeAlert2.size)
+        assertNotEquals(activeAlert1[0].id, activeAlert2[0].id)
 
-        val actionResults3 = verifyActionExecutionResultInAlert(alerts3[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
-
+        val actionResults2 = verifyActionExecutionResultInAlert(activeAlert2[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
         assertNotEquals(actionResults1[actionThrottleEnabled.id]!!.lastExecutionTime,
-                actionResults3[actionThrottleEnabled.id]!!.lastExecutionTime)
+                actionResults2[actionThrottleEnabled.id]!!.lastExecutionTime)
     }
 
     private fun verifyActionExecutionResultInAlert(alert: Alert, expectedResult: Map<String, Int>):
@@ -593,8 +593,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         return actionResult
     }
 
-    private fun verifyActionThrottleResults(monitoId: String, expectedResult: Map<String, Boolean>) {
-        val output = entityAsMap(executeMonitor(monitoId))
+    private fun verifyActionThrottleResults(output: MutableMap<String, Any>, expectedResult: Map<String, Boolean>) {
         for (triggerResult in output.objectMap("trigger_results").values) {
             for (actionResult in triggerResult.objectMap("action_results").values) {
                 val expected = expectedResult[actionResult["id"]]
