@@ -58,14 +58,14 @@ public class DestinationHttpClient {
     private static final int TIMEOUT_MILLISECONDS = (int) TimeValue.timeValueSeconds(5).millis();
     private static final int SOCKET_TIMEOUT_MILLISECONDS = (int)TimeValue.timeValueSeconds(50).millis();
 
-  	/**
-  	 * all valid response status
-  	 */
-  	private static final Set<Integer> VALID_RESPONSE_STATUS = Collections.unmodifiableSet(new HashSet<>(
-  	    Arrays.asList(RestStatus.OK.getStatus(), RestStatus.CREATED.getStatus(), RestStatus.ACCEPTED.getStatus(),
-  	        RestStatus.NON_AUTHORITATIVE_INFORMATION.getStatus(), RestStatus.NO_CONTENT.getStatus(),
-  	        RestStatus.RESET_CONTENT.getStatus(), RestStatus.PARTIAL_CONTENT.getStatus(),
-  	        RestStatus.MULTI_STATUS.getStatus())));
+    /**
+     * all valid response status
+     */
+    private static final Set<Integer> VALID_RESPONSE_STATUS = Collections.unmodifiableSet(new HashSet<>(
+        Arrays.asList(RestStatus.OK.getStatus(), RestStatus.CREATED.getStatus(), RestStatus.ACCEPTED.getStatus(),
+            RestStatus.NON_AUTHORITATIVE_INFORMATION.getStatus(), RestStatus.NO_CONTENT.getStatus(),
+            RestStatus.RESET_CONTENT.getStatus(), RestStatus.PARTIAL_CONTENT.getStatus(),
+            RestStatus.MULTI_STATUS.getStatus())));
     
     private static CloseableHttpClient HTTP_CLIENT = createHttpClient();
 
@@ -166,7 +166,7 @@ public class DestinationHttpClient {
     private void validateResponseStatus(HttpResponse response) throws IOException {
         int statusCode = response.getStatusLine().getStatusCode();
 
-    		if (!(VALID_RESPONSE_STATUS.contains(statusCode))) {
+        if (!(VALID_RESPONSE_STATUS.contains(statusCode))) {
             throw new IOException("Failed: " + response);
         }
     }
