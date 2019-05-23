@@ -180,8 +180,8 @@ class MonitorRunner(
 
         var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
-            alertIndices.createAlertIndex()
-            alertIndices.createInitialHistoryIndex()
+            alertIndices.createOrUpdateAlertIndex()
+            alertIndices.createOrUpdateInitialHistoryIndex()
             loadCurrentAlerts(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts

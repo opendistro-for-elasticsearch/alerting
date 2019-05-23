@@ -1,4 +1,7 @@
 {
+  "_meta" : {
+    "schema_version": 1
+  },
   "properties": {
     "monitor": {
       "dynamic": "false",

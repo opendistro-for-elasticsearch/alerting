@@ -133,6 +133,7 @@ class RestIndexMonitorAction(
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
+                scheduledJobIndices.updateScheduledJobIndex()
                 prepareMonitorIndexing()
             }
         }
