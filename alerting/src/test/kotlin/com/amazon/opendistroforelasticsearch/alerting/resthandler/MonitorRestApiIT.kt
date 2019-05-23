@@ -231,8 +231,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"]!! as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
@@ -245,8 +245,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"]!! as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
@@ -263,8 +263,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"]!! as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor found during search when no document present.", 0, numberDocsFound)
     }
 
@@ -281,8 +281,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
 
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"] as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"] as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
 
         val searchHits = hits["hits"] as List<Any>
@@ -302,8 +302,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
 
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"] as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"] as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
 
         val searchHits = hits["hits"] as List<Any>
@@ -341,7 +341,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test mappings after monitor creation`() {
         createRandomMonitor(refresh = true)
 
-        val response = client().makeRequest("GET", "/${ScheduledJob.SCHEDULED_JOBS_INDEX}/_mapping/_doc")
+        val response = client().makeRequest("GET", "/${ScheduledJob.SCHEDULED_JOBS_INDEX}/_mapping")
         val parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
         val mappingsMap = parserMap[ScheduledJob.SCHEDULED_JOBS_INDEX]!!["mappings"] as Map<String, Any>
         val expected = createParser(
@@ -426,7 +426,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test update monitor with wrong version`() {
         val monitor = createRandomMonitor(refresh = true)
         try {
-            client().makeRequest("PUT", "${monitor.relativeUrl()}?refresh=true&version=1234",
+            client().makeRequest("PUT", "${monitor.relativeUrl()}?refresh=true&if_seq_no=1234&if_primary_term=1234",
                     emptyMap(), monitor.toHttpEntity())
             fail("expected 409 ResponseException")
         } catch (e: ResponseException) {

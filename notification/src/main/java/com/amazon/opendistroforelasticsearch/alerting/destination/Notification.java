@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.factory.Destin
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.BaseResponse;
 
+import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
@@ -37,7 +38,7 @@ public class Notification {
      * @param notificationMessage
      * @return BaseResponse
      */
-    public static BaseResponse publish(BaseMessage notificationMessage) {
+    public static BaseResponse publish(BaseMessage notificationMessage) throws IOException {
             return AccessController.doPrivileged((PrivilegedAction<BaseResponse>) () -> {
                 DestinationFactory destinationFactory = DestinationFactoryProvider.getFactory(notificationMessage.getChannelType());
                 return destinationFactory.publish(notificationMessage);

@@ -23,8 +23,12 @@ import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
+import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.get.GetRequest
@@ -38,6 +42,7 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
@@ -46,9 +51,10 @@ import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
+
+private val log = LogManager.getLogger(RestIndexDestinationAction::class.java)
 
 /**
  * Rest handlers to create and update Destination
@@ -85,14 +91,15 @@ class RestIndexDestinationAction(
         val xcp = request.contentParser()
         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         val destination = Destination.parse(xcp, id)
-        val destintaionVersion = RestActions.parseVersion(request)
+        val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
+        val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
         return RestChannelConsumer { channel ->
-            IndexDestinationHandler(client, channel, id, destintaionVersion, refreshPolicy, destination).start()
+            IndexDestinationHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, destination).start()
         }
     }
 
@@ -100,7 +107,8 @@ class RestIndexDestinationAction(
         client: NodeClient,
         channel: RestChannel,
         private val destinationId: String,
-        private val destinationVersion: Long,
+        private val seqNo: Long,
+        private val primaryTerm: Long,
         private val refreshPolicy: WriteRequest.RefreshPolicy,
         private var newDestination: Destination
     ) : AsyncActionHandler(client, channel) {
@@ -116,10 +124,11 @@ class RestIndexDestinationAction(
         private fun prepareDestinationIndexing() {
             if (channel.request().method() == RestRequest.Method.PUT) updateDestination()
             else {
-                val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
+                val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(refreshPolicy)
                         .source(newDestination.toXContent(channel.newBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
-                        .version(destinationVersion)
+                        .setIfSeqNo(seqNo)
+                        .setIfPrimaryTerm(primaryTerm)
                         .timeout(indexTimeout)
                 client.index(indexRequest, indexDestinationResponse())
             }
@@ -127,17 +136,17 @@ class RestIndexDestinationAction(
 
         private fun onCreateMappingsResponse(response: CreateIndexResponse) {
             if (response.isAcknowledged) {
-                logger.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
                 prepareDestinationIndexing()
             } else {
-                logger.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
                         response.toXContent(channel.newErrorBuilder(), ToXContent.EMPTY_PARAMS)))
             }
         }
 
         private fun updateDestination() {
-            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE, destinationId)
+            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId)
             client.get(getRequest, ActionListener.wrap(::onGetResponse, ::onFailure))
         }
 
@@ -149,11 +158,12 @@ class RestIndexDestinationAction(
                         .endObject()
                 return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, ToXContent.EMPTY_PARAMS)))
             }
-            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE)
+            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newDestination.toXContent(channel.newBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
                     .id(destinationId)
-                    .version(destinationVersion)
+                    .setIfSeqNo(seqNo)
+                    .setIfPrimaryTerm(primaryTerm)
                     .timeout(indexTimeout)
             return client.index(indexRequest, indexDestinationResponse())
         }
@@ -174,6 +184,8 @@ class RestIndexDestinationAction(
                             .startObject()
                             .field(_ID, response.id)
                             .field(_VERSION, response.version)
+                            .field(_SEQ_NO, response.seqNo)
+                            .field(_PRIMARY_TERM, response.primaryTerm)
                             .field("destination", newDestination)
                             .endObject()
 

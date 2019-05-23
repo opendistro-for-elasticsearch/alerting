@@ -132,6 +132,7 @@ data class Destination(
         }
     }
 
+    @Throws(IOException::class)
     fun publish(compiledSubject: String?, compiledMessage: String): String {
         val destinationMessage: BaseMessage
         when (type) {
