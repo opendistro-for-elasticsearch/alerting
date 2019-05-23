@@ -59,14 +59,13 @@ class SchemaVersionUtils {
         }
 
         @JvmStatic
-        @Suppress("UNCHECKED_CAST")
         fun shouldUpdateIndex(index: IndexMetaData, mapping: String): Boolean {
             var oldVersion = 0
             val newVersion = getSchemaVersion(mapping)
 
             val indexMapping = index.mapping().sourceAsMap()
-            if (indexMapping.containsKey(_META)) {
-                val metaData = indexMapping[_META] as LinkedHashMap<String, Any>
+            if (indexMapping.containsKey(_META) && indexMapping[_META] is HashMap<*, *>) {
+                val metaData = indexMapping[_META] as HashMap<*, *>
                 if (metaData.containsKey(SCHEMA_VERSION)) oldVersion = metaData[SCHEMA_VERSION] as Int
             }
             return newVersion > oldVersion
