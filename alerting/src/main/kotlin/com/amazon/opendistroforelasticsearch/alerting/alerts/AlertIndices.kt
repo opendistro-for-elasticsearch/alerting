@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.alerts
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices.Companion.ALERT_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices.Companion.HISTORY_WRITE_INDEX
+import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_INDEX_MAX_AGE
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_MAX_DOCS
@@ -85,6 +86,9 @@ class AlertIndices(
         /** The index name pattern to query all the alert history indices */
         const val HISTORY_INDEX_PATTERN = "<.opendistro-alerting-alert-history-{now/d}-1>"
 
+        /** The index name prefix to query all alerting history indices */
+        const val HISTORY_INDEX_PREFIX = ".opendistro-alerting-alert-history-"
+
         /** The index name pattern to query all alerts, history and current alerts. */
         const val ALL_INDEX_PATTERN = ".opendistro-alerting-alert*"
 
@@ -151,16 +155,20 @@ class AlertIndices(
         return alertIndexInitialized && historyIndexInitialized
     }
 
-    suspend fun createAlertIndex() {
+    suspend fun createOrUpdateAlertIndex() {
         if (!alertIndexInitialized) {
             alertIndexInitialized = createIndex(ALERT_INDEX)
+        } else {
+            updateIndexMapping(ALERT_INDEX)
         }
         alertIndexInitialized
     }
 
-    suspend fun createInitialHistoryIndex() {
+    suspend fun createOrUpdateInitialHistoryIndex() {
         if (!historyIndexInitialized) {
             historyIndexInitialized = createIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX)
+        } else {
+            updateIndexMapping(HISTORY_INDEX_PREFIX, true)
         }
         historyIndexInitialized
     }
@@ -181,6 +189,16 @@ class AlertIndices(
             createIndexResponse.isAcknowledged
         } catch (e: ResourceAlreadyExistsException) {
             true
+        }
+    }
+
+    private fun updateIndexMapping(index: String, indexPrefix: Boolean = false) {
+        val clusterState = clusterService.state()
+        when {
+            indexPrefix -> clusterState.metaData.indices.keysIt().forEach {
+                key -> if (key.startsWith(index)) SchemaVersionUtils.updateIndexMapping(key, MAPPING_TYPE, alertMapping(),
+                    clusterState, client) }
+            else -> SchemaVersionUtils.updateIndexMapping(index, MAPPING_TYPE, alertMapping(), clusterState, client)
         }
     }
 

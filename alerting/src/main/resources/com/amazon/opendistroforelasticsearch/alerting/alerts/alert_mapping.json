@@ -3,6 +3,9 @@
   "_routing": {
     "required": true
   },
+  "_meta" : {
+    "schema_version": 1
+  },
   "properties": {
     "monitor_id": {
       "type": "keyword"

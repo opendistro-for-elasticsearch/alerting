@@ -117,6 +117,7 @@ class RestIndexDestinationAction(
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
+                scheduledJobIndices.updateScheduledJobIndex()
                 prepareDestinationIndexing()
             }
         }

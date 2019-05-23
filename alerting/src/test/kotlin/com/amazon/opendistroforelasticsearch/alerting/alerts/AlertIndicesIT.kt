@@ -33,7 +33,45 @@ class AlertIndicesIT : AlertingRestTestCase() {
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
     }
 
+    fun `test update alert index mapping with null original schema version`() {
+        assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
+        assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
+
+        putAlertMappings(AlertIndices.alertMapping().trimStart('{').trimEnd('}').replace("\"schema_version\": 1", ""))
+        assertIndexExists(AlertIndices.ALERT_INDEX)
+        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 0)
+
+        executeMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+        Thread.sleep(2000)
+        assertIndexExists(AlertIndices.ALERT_INDEX)
+        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 1)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 1)
+    }
+
+    fun `test update alert index mapping with new schema version`() {
+        assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
+        assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
+
+        putAlertMappings(AlertIndices.alertMapping().trimStart('{').trimEnd('}')
+                .replace("\"schema_version\": 1", "\"schema_version\": 0"))
+        assertIndexExists(AlertIndices.ALERT_INDEX)
+        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 0)
+
+        executeMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+        Thread.sleep(2000)
+        assertIndexExists(AlertIndices.ALERT_INDEX)
+        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 1)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 1)
+    }
+
     fun `test alert index gets recreated automatically if deleted`() {
+        assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
         val trueMonitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN)))
 
         executeMonitor(trueMonitor)
