@@ -40,7 +40,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = chime,
                 slack = null,
-                customWebhook = null)
+                customWebhook = null,
+                mail = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.CHIME)
@@ -70,7 +71,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = slack,
-                customWebhook = null)
+                customWebhook = null,
+                mail = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.SLACK)
@@ -100,7 +102,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
-                customWebhook = customWebhook)
+                customWebhook = customWebhook,
+                mail = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.CUSTOM_WEBHOOK)
@@ -116,7 +119,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
-                customWebhook = customWebhook)
+                customWebhook = customWebhook,
+                mail = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.CUSTOM_WEBHOOK)

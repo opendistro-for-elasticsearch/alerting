@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Mail
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.common.io.stream.BytesStreamOutput
@@ -53,6 +54,19 @@ class DestinationTests : ESTestCase() {
         }
     }
 
+    fun `test mail destination`() {
+        val mail = Mail("mail.abc", null, false, null, "test@abc.com", "test@abc.com", null, null, null)
+        assertEquals("Host is manipulated", mail.host, "mail.abc")
+    }
+
+    fun `test mail destination with out host`() {
+        try {
+            Mail("", null, false, null, "test@abc.com", "test@abc.com", null, null, null)
+            fail("Creating a mail destination with empty host did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
     fun `test custom webhook destination with url and no host`() {
         val customWebhook = CustomWebhook("http://abc.com", null, null, -1, null, emptyMap(), emptyMap(), null, null)
         assertEquals("Url is manipulated", customWebhook.url, "http://abc.com")
@@ -82,7 +96,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test chime destination create using stream`() {
         val chimeDest = Destination("1234", 0L, 1, DestinationType.CHIME, "TestChimeDest",
-                Instant.now(), Chime("test.com"), null, null)
+                Instant.now(), Chime("test.com"), null, null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -103,7 +117,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test slack destination create using stream`() {
         val chimeDest = Destination("2345", 1L, 2, DestinationType.SLACK, "TestSlackDest",
-                Instant.now(), null, Slack("mytest.com"), null)
+                Instant.now(), null, Slack("mytest.com"), null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -142,7 +156,8 @@ class DestinationTests : ESTestCase() {
                     mutableMapOf(),
                     "admin",
                     "admin"
-                )
+                ),
+                null
         )
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -181,7 +196,8 @@ class DestinationTests : ESTestCase() {
                         mutableMapOf(),
                         null,
                         null
-                )
+                ),
+                null
         )
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)

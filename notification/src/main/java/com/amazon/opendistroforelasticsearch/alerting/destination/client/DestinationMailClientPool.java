@@ -13,11 +13,18 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.alerting.destination.message;
+package com.amazon.opendistroforelasticsearch.alerting.destination.client;
 
 /**
- * Supported notification destinations
+ *  This class provides Client to the relevant destinations
  */
-public enum DestinationType {
-    CHIME, SLACK, CUSTOMWEBHOOK, MAIL
+public final class DestinationMailClientPool {
+
+    private static final DestinationMailClient mailClient = new DestinationMailClient();
+
+    private DestinationMailClientPool() { }
+
+    public static DestinationMailClient getMailClient() {
+        return mailClient;
+    }
 }
