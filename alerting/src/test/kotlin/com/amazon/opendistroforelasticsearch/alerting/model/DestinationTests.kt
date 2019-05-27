@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Mail
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.common.io.stream.BytesStreamOutput
@@ -49,6 +50,19 @@ class DestinationTests : ESTestCase() {
         try {
             Slack("")
             fail("Creating a slack destination with empty url did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
+    fun `test mail destination`() {
+        val mail = Mail("mail.abc", null, false, null, "test@abc.com", "test@abc.com", null, null, null)
+        assertEquals("Host is manipulated", mail.host, "mail.abc")
+    }
+
+    fun `test mail destination with out host`() {
+        try {
+            Mail("", null, false, null, "test@abc.com", "test@abc.com", null, null, null)
+            fail("Creating a mail destination with empty host did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
     }
