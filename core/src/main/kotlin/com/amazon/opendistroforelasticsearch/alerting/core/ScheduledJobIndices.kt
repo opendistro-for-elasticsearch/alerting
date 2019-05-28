@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUti
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.AdminClient
 import org.elasticsearch.cluster.health.ClusterIndexHealth
 import org.elasticsearch.cluster.service.ClusterService
@@ -33,6 +34,12 @@ import org.elasticsearch.common.xcontent.XContentType
  */
 class ScheduledJobIndices(private val client: AdminClient, private val clusterService: ClusterService) {
 
+    companion object {
+        @JvmStatic
+        fun scheduledJobMappings(): String {
+            return ScheduledJobIndices::class.java.classLoader.getResource("mappings/scheduled-jobs.json").readText()
+        }
+    }
     /**
      * Initialize the indices required for scheduled jobs.
      * First check if the index exists, and if not create the index with the provided callback listeners.
@@ -47,14 +54,10 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
         }
     }
 
-    fun updateScheduledJobIndex() {
+    fun updateScheduledJobIndex(actionListener: ActionListener<AcknowledgedResponse>) {
         val clusterState = clusterService.state()
         SchemaVersionUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
-                scheduledJobMappings(), clusterState, client.indices())
-    }
-
-    private fun scheduledJobMappings(): String {
-        return javaClass.classLoader.getResource("mappings/scheduled-jobs.json").readText()
+                scheduledJobMappings(), clusterState, client.indices(), actionListener)
     }
 
     fun scheduledJobIndexExists(): Boolean {

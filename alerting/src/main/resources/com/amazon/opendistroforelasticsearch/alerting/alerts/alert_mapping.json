@@ -7,6 +7,9 @@
     "schema_version": 1
   },
   "properties": {
+    "schema_version": {
+      "type": "integer"
+    },
     "monitor_id": {
       "type": "keyword"
     },

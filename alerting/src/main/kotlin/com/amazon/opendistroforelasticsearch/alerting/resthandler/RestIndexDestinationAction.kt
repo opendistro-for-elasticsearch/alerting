@@ -24,6 +24,9 @@ import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction.Companion.initScheduledSchemaVersion
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction.Companion.scheduledJobIndexUpdated
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction.Companion.scheduledJobSchemaVersion
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
@@ -36,6 +39,7 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
@@ -117,14 +121,19 @@ class RestIndexDestinationAction(
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
-                scheduledJobIndices.updateScheduledJobIndex()
-                prepareDestinationIndexing()
+                if (!scheduledJobIndexUpdated) {
+                    scheduledJobIndices.updateScheduledJobIndex(ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
+                } else {
+                    prepareDestinationIndexing()
+                }
             }
         }
 
         private fun prepareDestinationIndexing() {
             if (channel.request().method() == RestRequest.Method.PUT) updateDestination()
             else {
+                initScheduledSchemaVersion()
+                newDestination = newDestination.copy(schemaVersion = scheduledJobSchemaVersion!!)
                 val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(refreshPolicy)
                         .source(newDestination.toXContent(channel.newBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
@@ -146,6 +155,18 @@ class RestIndexDestinationAction(
             }
         }
 
+        private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
+            if (response.isAcknowledged) {
+                log.info("Updated  ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                scheduledJobIndexUpdated = true
+                prepareDestinationIndexing()
+            } else {
+                log.error("Update ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
+                        response.toXContent(channel.newErrorBuilder(), ToXContent.EMPTY_PARAMS)))
+            }
+        }
+
         private fun updateDestination() {
             val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId)
             client.get(getRequest, ActionListener.wrap(::onGetResponse, ::onFailure))
@@ -159,6 +180,8 @@ class RestIndexDestinationAction(
                         .endObject()
                 return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, ToXContent.EMPTY_PARAMS)))
             }
+            initScheduledSchemaVersion()
+            newDestination = newDestination.copy(schemaVersion = scheduledJobSchemaVersion!!)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newDestination.toXContent(channel.newBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))

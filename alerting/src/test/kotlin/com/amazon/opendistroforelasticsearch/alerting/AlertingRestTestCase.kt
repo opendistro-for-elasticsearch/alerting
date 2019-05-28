@@ -249,8 +249,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
         val mappingHack = if (mapping != null) mapping else AlertIndices.alertMapping().trimStart('{').trimEnd('}')
         val encodedHistoryIndex = URLEncoder.encode(AlertIndices.HISTORY_INDEX_PATTERN, Charsets.UTF_8.toString())
         createIndex(AlertIndices.ALERT_INDEX, Settings.EMPTY, mappingHack)
-        createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack)
-        client().makeRequest("PUT", "/$encodedHistoryIndex/_alias/${AlertIndices.HISTORY_WRITE_INDEX}")
+        createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack, "\"${AlertIndices.HISTORY_WRITE_INDEX}\" : {}")
     }
 
     fun scheduledJobMappings(): String {

@@ -15,8 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.util
 
-import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.metadata.IndexMetaData
@@ -30,8 +31,6 @@ class SchemaVersionUtils {
     companion object {
         const val _META = "_meta"
         const val SCHEMA_VERSION = "schema_version"
-
-        private val logger = LogManager.getLogger(SchemaVersionUtils::class.java)
 
         @JvmStatic
         fun getSchemaVersion(mapping: String): Int {
@@ -59,6 +58,11 @@ class SchemaVersionUtils {
         }
 
         @JvmStatic
+        fun getIndexNameWithAlias(clusterState: ClusterState, alias: String): String {
+            return clusterState.metaData.indices.first { it -> it.value.aliases.containsKey(alias) }.key
+        }
+
+        @JvmStatic
         fun shouldUpdateIndex(index: IndexMetaData, mapping: String): Boolean {
             var oldVersion = 0
             val newVersion = getSchemaVersion(mapping)
@@ -66,19 +70,29 @@ class SchemaVersionUtils {
             val indexMapping = index.mapping().sourceAsMap()
             if (indexMapping.containsKey(_META) && indexMapping[_META] is HashMap<*, *>) {
                 val metaData = indexMapping[_META] as HashMap<*, *>
-                if (metaData.containsKey(SCHEMA_VERSION)) oldVersion = metaData[SCHEMA_VERSION] as Int
+                if (metaData.containsKey(SCHEMA_VERSION)) {
+                    oldVersion = metaData[SCHEMA_VERSION] as Int
+                }
             }
             return newVersion > oldVersion
         }
 
         @JvmStatic
-        fun updateIndexMapping(index: String, type: String, mapping: String, clusterState: ClusterState, client: IndicesAdminClient) {
-            if (clusterState.metaData.indices.containsKey(index) &&
-                    shouldUpdateIndex(clusterState.metaData.indices[index], mapping)) {
-                var putMappingRequest: PutMappingRequest = PutMappingRequest(index).type(type).source(mapping, XContentType.JSON)
-                client.preparePutMapping()
-                client.putMapping(putMappingRequest)
-                logger.info("Index mapping of $index is updated")
+        fun updateIndexMapping(
+            index: String,
+            type: String,
+            mapping: String,
+            clusterState: ClusterState,
+            client: IndicesAdminClient,
+            actionListener: ActionListener<AcknowledgedResponse>
+        ) {
+            if (clusterState.metaData.indices.containsKey(index)) {
+                if (shouldUpdateIndex(clusterState.metaData.indices[index], mapping)) {
+                    var putMappingRequest: PutMappingRequest = PutMappingRequest(index).type(type).source(mapping, XContentType.JSON)
+                    client.putMapping(putMappingRequest, actionListener)
+                } else {
+                    actionListener.onResponse(AcknowledgedResponse(true))
+                }
             }
         }
     }

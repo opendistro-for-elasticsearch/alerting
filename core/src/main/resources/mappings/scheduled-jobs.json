@@ -6,6 +6,9 @@
     "monitor": {
       "dynamic": "false",
       "properties": {
+        "schema_version": {
+          "type": "integer"
+        },
         "name": {
           "type": "text",
           "fields": {
@@ -143,6 +146,9 @@
     "destination": {
       "dynamic": "false",
       "properties": {
+        "schema_version": {
+          "type": "integer"
+        },
         "name": {
           "type": "text",
           "fields": {

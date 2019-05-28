@@ -29,6 +29,7 @@ import java.time.Instant
 data class Alert(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
+    val schemaVersion: Int = 0,
     val monitorId: String,
     val monitorName: String,
     val monitorVersion: Long,
@@ -59,11 +60,12 @@ data class Alert(
         state: State = State.ACTIVE,
         errorMessage: String? = null,
         errorHistory: List<AlertError> = mutableListOf(),
-        actionExecutionResults: List<ActionExecutionResult> = mutableListOf()
+        actionExecutionResults: List<ActionExecutionResult> = mutableListOf(),
+        schemaVersion: Int = 0
     ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
             triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
             lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
-            severity = trigger.severity, actionExecutionResults = actionExecutionResults)
+            severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion)
 
     enum class State {
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR, DELETED
@@ -74,6 +76,7 @@ data class Alert(
     companion object {
 
         const val ALERT_ID_FIELD = "id"
+        const val SCHEMA_VERSION_FIELD = "schema_version"
         const val ALERT_VERSION_FIELD = "version"
         const val MONITOR_ID_FIELD = "monitor_id"
         const val MONITOR_VERSION_FIELD = "monitor_version"
@@ -98,6 +101,7 @@ data class Alert(
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Alert {
 
             lateinit var monitorId: String
+            var schemaVersion = 0
             lateinit var monitorName: String
             var monitorVersion: Long = Versions.NOT_FOUND
             lateinit var triggerId: String
@@ -119,6 +123,7 @@ data class Alert(
 
                 when (fieldName) {
                     MONITOR_ID_FIELD -> monitorId = xcp.text()
+                    SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     MONITOR_NAME_FIELD -> monitorName = xcp.text()
                     MONITOR_VERSION_FIELD -> monitorVersion = xcp.longValue()
                     TRIGGER_ID_FIELD -> triggerId = xcp.text()
@@ -145,7 +150,7 @@ data class Alert(
                 }
             }
 
-            return Alert(id = id, version = version, monitorId = requireNotNull(monitorId),
+            return Alert(id = id, version = version, schemaVersion = schemaVersion, monitorId = requireNotNull(monitorId),
                     monitorName = requireNotNull(monitorName), monitorVersion = monitorVersion,
                     triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
                     state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
@@ -158,6 +163,7 @@ data class Alert(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
                 .field(MONITOR_ID_FIELD, monitorId)
+                .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(MONITOR_VERSION_FIELD, monitorVersion)
                 .field(MONITOR_NAME_FIELD, monitorName)
                 .field(TRIGGER_ID_FIELD, triggerId)

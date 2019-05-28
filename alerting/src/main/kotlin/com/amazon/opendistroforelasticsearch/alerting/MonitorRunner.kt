@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
@@ -106,6 +107,7 @@ class MonitorRunner(
     private val logger = LogManager.getLogger(MonitorRunner::class.java)
 
     private lateinit var runnerSupervisor: Job
+    private var alertSchemaVersion: Int? = null
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + runnerSupervisor
 
@@ -248,22 +250,29 @@ class MonitorRunner(
                     if (it.value.throttled) 1 else 0) })
         }
 
+        if (alertSchemaVersion == null) {
+            alertSchemaVersion = SchemaVersionUtils.getSchemaVersion(AlertIndices.alertMapping())
+        }
+
         // Merge the alert's error message to the current alert's history
         val updatedHistory = currentAlert?.errorHistory.update(alertError)
         return if (alertError == null && !result.triggered) {
             currentAlert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
+                    schemaVersion = alertSchemaVersion!!)
         } else if (alertError == null && currentAlert?.isAcknowledged() == true) {
             null
         } else if (currentAlert != null) {
             val alertState = if (alertError == null) ACTIVE else ERROR
             currentAlert.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
+                    schemaVersion = alertSchemaVersion!!)
         } else {
             val alertState = if (alertError == null) ACTIVE else ERROR
             Alert(monitor = ctx.monitor, trigger = ctx.trigger, startTime = currentTime,
                     lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
+                    schemaVersion = alertSchemaVersion!!)
         }
     }
 

@@ -31,7 +31,9 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
+import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterStateListener
@@ -86,9 +88,6 @@ class AlertIndices(
         /** The index name pattern to query all the alert history indices */
         const val HISTORY_INDEX_PATTERN = "<.opendistro-alerting-alert-history-{now/d}-1>"
 
-        /** The index name prefix to query all alerting history indices */
-        const val HISTORY_INDEX_PREFIX = ".opendistro-alerting-alert-history-"
-
         /** The index name pattern to query all alerts, history and current alerts. */
         const val ALL_INDEX_PATTERN = ".opendistro-alerting-alert*"
 
@@ -113,6 +112,8 @@ class AlertIndices(
     private var historyIndexInitialized: Boolean = false
 
     private var alertIndexInitialized: Boolean = false
+    private var alertIndexUpdated: Boolean = false
+    private var lastUpdatedHistoryIndex: String? = null
 
     private var scheduledRollover: Cancellable? = null
 
@@ -159,7 +160,7 @@ class AlertIndices(
         if (!alertIndexInitialized) {
             alertIndexInitialized = createIndex(ALERT_INDEX)
         } else {
-            updateIndexMapping(ALERT_INDEX)
+            if (!alertIndexUpdated) updateIndexMapping(ALERT_INDEX)
         }
         alertIndexInitialized
     }
@@ -168,7 +169,7 @@ class AlertIndices(
         if (!historyIndexInitialized) {
             historyIndexInitialized = createIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX)
         } else {
-            updateIndexMapping(HISTORY_INDEX_PREFIX, true)
+            updateIndexMapping(HISTORY_WRITE_INDEX, true)
         }
         historyIndexInitialized
     }
@@ -192,13 +193,31 @@ class AlertIndices(
         }
     }
 
-    private fun updateIndexMapping(index: String, indexPrefix: Boolean = false) {
+    private suspend fun updateIndexMapping(index: String, alias: Boolean = false) {
         val clusterState = clusterService.state()
-        when {
-            indexPrefix -> clusterState.metaData.indices.keysIt().forEach {
-                key -> if (key.startsWith(index)) SchemaVersionUtils.updateIndexMapping(key, MAPPING_TYPE, alertMapping(),
-                    clusterState, client) }
-            else -> SchemaVersionUtils.updateIndexMapping(index, MAPPING_TYPE, alertMapping(), clusterState, client)
+        val mapping = alertMapping()
+        var targetIndex = index
+        if (alias) {
+            targetIndex = SchemaVersionUtils.getIndexNameWithAlias(clusterState, index)
+        }
+
+        if (targetIndex == lastUpdatedHistoryIndex) {
+            return
+        }
+
+        var putMappingRequest: PutMappingRequest = PutMappingRequest(targetIndex).type(MAPPING_TYPE)
+                .source(mapping, XContentType.JSON)
+        val updateResponse: AcknowledgedResponse = client.suspendUntil { client.putMapping(putMappingRequest, it) }
+        if (updateResponse.isAcknowledged) {
+            logger.info("Index mapping of $targetIndex is updated")
+            setIndexUpdateFlag(index, targetIndex)
+        }
+    }
+
+    private fun setIndexUpdateFlag(index: String, targetIndex: String) {
+        when (index) {
+            ALERT_INDEX -> alertIndexUpdated = true
+            HISTORY_WRITE_INDEX -> lastUpdatedHistoryIndex = targetIndex
         }
     }
 

@@ -47,6 +47,7 @@ data class Monitor(
     override val schedule: Schedule,
     override val lastUpdateTime: Instant,
     override val enabledTime: Instant?,
+    val schemaVersion: Int = 0,
     val inputs: List<Input>,
     val triggers: List<Trigger>,
     val uiMetadata: Map<String, Any>
@@ -82,6 +83,7 @@ data class Monitor(
         builder.startObject()
         if (params.paramAsBoolean("with_type", false)) builder.startObject(type)
         builder.field(TYPE_FIELD, type)
+                .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(NAME_FIELD, name)
                 .field(ENABLED_FIELD, enabled)
                 .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
@@ -99,6 +101,7 @@ data class Monitor(
     companion object {
         const val MONITOR_TYPE = "monitor"
         const val TYPE_FIELD = "type"
+        const val SCHEMA_VERSION_FIELD = "schema_version"
         const val NAME_FIELD = "name"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
@@ -126,6 +129,7 @@ data class Monitor(
             var enabledTime: Instant? = null
             var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
+            var schemaVersion = 0
             val triggers: MutableList<Trigger> = mutableListOf()
             val inputs: MutableList<Input> = mutableListOf()
 
@@ -135,6 +139,7 @@ data class Monitor(
                 xcp.nextToken()
 
                 when (fieldName) {
+                    SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     NAME_FIELD -> name = xcp.text()
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
@@ -171,6 +176,7 @@ data class Monitor(
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     lastUpdateTime ?: Instant.now(),
                     enabledTime,
+                    schemaVersion,
                     inputs.toList(),
                     triggers.toList(),
                     uiMetadata)

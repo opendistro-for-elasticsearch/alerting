@@ -103,24 +103,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
-    fun `test updating alerting config with null original schema version`() {
-        createAlertingConfigIndex(scheduledJobMappings().trimStart('{').trimEnd('}')
-                .replace("\"schema_version\": 1", ""))
-        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 0)
-
-        createRandomMonitor()
-        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 1)
-    }
-
-    fun `test updating alerting config with new schema version`() {
-        createAlertingConfigIndex(scheduledJobMappings().trimStart('{').trimEnd('}')
-                .replace("\"schema_version\": 1", "\"schema_version\": 0"))
-        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 0)
-
-        createRandomMonitor()
-        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 1)
-    }
-
     @Throws(Exception::class)
     fun `test updating search for a monitor`() {
         val monitor = createRandomMonitor()

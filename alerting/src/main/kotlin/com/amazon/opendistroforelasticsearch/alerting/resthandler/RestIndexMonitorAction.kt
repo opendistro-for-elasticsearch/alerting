@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
@@ -39,6 +40,7 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
@@ -78,9 +80,22 @@ class RestIndexMonitorAction(
 ) : BaseRestHandler(settings) {
 
     private var scheduledJobIndices: ScheduledJobIndices
+
     @Volatile private var maxMonitors = ALERTING_MAX_MONITORS.get(settings)
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
+
+    companion object {
+        var scheduledJobSchemaVersion: Int? = null
+        var scheduledJobIndexUpdated: Boolean = false
+
+        @JvmStatic
+        fun initScheduledSchemaVersion() {
+            if (scheduledJobSchemaVersion == null) {
+                scheduledJobSchemaVersion = SchemaVersionUtils.getSchemaVersion(ScheduledJobIndices.scheduledJobMappings())
+            }
+        }
+    }
 
     init {
         controller.registerHandler(POST, AlertingPlugin.MONITOR_BASE_URI, this) // Create a new monitor
@@ -133,8 +148,11 @@ class RestIndexMonitorAction(
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
-                scheduledJobIndices.updateScheduledJobIndex()
-                prepareMonitorIndexing()
+                if (!scheduledJobIndexUpdated) {
+                    scheduledJobIndices.updateScheduledJobIndex(ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
+                } else {
+                    prepareMonitorIndexing()
+                }
             }
         }
 
@@ -175,7 +193,21 @@ class RestIndexMonitorAction(
             }
         }
 
+        private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
+            if (response.isAcknowledged) {
+                log.info("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                scheduledJobIndexUpdated = true
+                prepareMonitorIndexing()
+            } else {
+                log.error("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
+                        response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)))
+            }
+        }
+
         private fun indexMonitor() {
+            initScheduledSchemaVersion()
+            newMonitor = newMonitor.copy(schemaVersion = scheduledJobSchemaVersion!!)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(refreshPolicy)
                         .source(newMonitor.toXContentWithType(channel.newBuilder()))
@@ -204,6 +236,8 @@ class RestIndexMonitorAction(
             // If both are enabled, use the current existing monitor enabled time, otherwise the next execution will be
             // incorrect.
             if (newMonitor.enabled && currentMonitor.enabled) newMonitor = newMonitor.copy(enabledTime = currentMonitor.enabledTime)
+            initScheduledSchemaVersion()
+            newMonitor = newMonitor.copy(schemaVersion = scheduledJobSchemaVersion!!)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newMonitor.toXContentWithType(channel.newBuilder()))

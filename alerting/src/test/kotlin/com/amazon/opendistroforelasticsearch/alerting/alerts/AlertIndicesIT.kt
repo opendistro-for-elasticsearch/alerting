@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.alerts
 
 import com.amazon.opendistroforelasticsearch.alerting.ALWAYS_RUN
 import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
@@ -33,24 +34,6 @@ class AlertIndicesIT : AlertingRestTestCase() {
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
     }
 
-    fun `test update alert index mapping with null original schema version`() {
-        assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
-        assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
-
-        putAlertMappings(AlertIndices.alertMapping().trimStart('{').trimEnd('}').replace("\"schema_version\": 1", ""))
-        assertIndexExists(AlertIndices.ALERT_INDEX)
-        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
-        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
-        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 0)
-
-        executeMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
-        Thread.sleep(2000)
-        assertIndexExists(AlertIndices.ALERT_INDEX)
-        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
-        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 1)
-        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 1)
-    }
-
     fun `test update alert index mapping with new schema version`() {
         assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
         assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
@@ -62,10 +45,11 @@ class AlertIndicesIT : AlertingRestTestCase() {
         verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
         verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 0)
 
-        executeMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+        executeMonitor(createRandomMonitor())
         Thread.sleep(2000)
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
+        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 1)
         verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 1)
         verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 1)
     }

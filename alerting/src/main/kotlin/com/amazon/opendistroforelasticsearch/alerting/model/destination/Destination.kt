@@ -40,6 +40,7 @@ import java.util.Locale
 data class Destination(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
+    val schemaVersion: Int = 0,
     val type: DestinationType,
     val name: String,
     val lastUpdateTime: Instant,
@@ -53,6 +54,7 @@ data class Destination(
         if (params.paramAsBoolean("with_type", false)) builder.startObject(DESTINATION)
         builder.field(TYPE_FIELD, type.value)
                 .field(NAME_FIELD, name)
+                .field(SCHEMA_VERSION, schemaVersion)
                 .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
                 .field(type.value, constructResponseForDestinationType(type))
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
@@ -69,6 +71,7 @@ data class Destination(
         const val NAME_FIELD = "name"
         const val NO_ID = ""
         const val NO_VERSION = 1L
+        const val SCHEMA_VERSION = "schema_version"
         const val LAST_UPDATE_TIME_FIELD = "last_update_time"
         const val CHIME = "chime"
         const val SLACK = "slack"
@@ -88,6 +91,7 @@ data class Destination(
             var chime: Chime? = null
             var customWebhook: CustomWebhook? = null
             var lastUpdateTime: Instant? = null
+            var schemaVersion = 0
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -116,6 +120,9 @@ data class Destination(
                     TEST_ACTION -> {
                         // This condition is for integ tests to avoid parsing
                     }
+                    SCHEMA_VERSION -> {
+                        schemaVersion = xcp.intValue()
+                    }
                     else -> {
                         xcp.skipChildren()
                     }
@@ -123,6 +130,7 @@ data class Destination(
             }
             return Destination(id,
                     version,
+                    schemaVersion,
                     DestinationType.valueOf(type.toUpperCase(Locale.ROOT)),
                     requireNotNull(name) { "Destination name is null" },
                     lastUpdateTime ?: Instant.now(),
