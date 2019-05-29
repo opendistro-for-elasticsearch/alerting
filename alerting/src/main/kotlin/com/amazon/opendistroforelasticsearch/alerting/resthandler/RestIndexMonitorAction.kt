@@ -87,6 +87,7 @@ class RestIndexMonitorAction(
 
     companion object {
         var scheduledJobSchemaVersion: Int? = null
+            private set
         var scheduledJobIndexUpdated: Boolean = false
 
         @JvmStatic
@@ -201,7 +202,9 @@ class RestIndexMonitorAction(
             } else {
                 log.error("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
-                        response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)))
+                        response.toXContent(channel.newErrorBuilder().startObject()
+                                .field("message", "Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                                .endObject(), EMPTY_PARAMS)))
             }
         }
 

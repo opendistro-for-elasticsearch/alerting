@@ -31,6 +31,7 @@ class SchemaVersionUtils {
     companion object {
         const val _META = "_meta"
         const val SCHEMA_VERSION = "schema_version"
+        const val NO_SCHEMA_VERSION = 0
 
         @JvmStatic
         fun getSchemaVersion(mapping: String): Int {
@@ -46,7 +47,9 @@ class SchemaVersionUtils {
                     } else {
                         while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                             if (xcp.currentName() == SCHEMA_VERSION) {
-                                return xcp.intValue()
+                                val version = xcp.intValue()
+                                require(version > -1)
+                                return version
                             }
                             xcp.nextToken()
                         }
@@ -54,7 +57,7 @@ class SchemaVersionUtils {
                 }
                 xcp.nextToken()
             }
-            return 0
+            return NO_SCHEMA_VERSION
         }
 
         @JvmStatic
@@ -64,7 +67,7 @@ class SchemaVersionUtils {
 
         @JvmStatic
         fun shouldUpdateIndex(index: IndexMetaData, mapping: String): Boolean {
-            var oldVersion = 0
+            var oldVersion = NO_SCHEMA_VERSION
             val newVersion = getSchemaVersion(mapping)
 
             val indexMapping = index.mapping().sourceAsMap()

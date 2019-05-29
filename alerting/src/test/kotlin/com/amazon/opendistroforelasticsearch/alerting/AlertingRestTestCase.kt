@@ -112,15 +112,14 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                 customWebhook = null)
     }
 
-    @Suppress("UNCHECKED_CAST")
     protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {
         val indexMapping = client().getIndexMapping(index)
         val indexName = indexMapping.keys.toList()[0]
-        val mappings = (indexMapping.get(indexName) as HashMap<String, Any>).get("mappings") as HashMap<String, Any>
+        val mappings = indexMapping.stringMap(indexName)?.stringMap("mappings")
         var version = 0
-        if (mappings.containsKey("_meta")) {
-            val meta = mappings.get("_meta") as HashMap<String, Any>
-            if (meta.containsKey("schema_version")) version = meta.get("schema_version") as Int
+        if (mappings!!.containsKey("_meta")) {
+            val meta = mappings.stringMap("_meta")
+            if (meta!!.containsKey("schema_version")) version = meta.get("schema_version") as Int
         }
         assertEquals(expectedVersion, version)
     }

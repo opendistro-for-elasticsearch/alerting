@@ -211,6 +211,8 @@ class AlertIndices(
         if (updateResponse.isAcknowledged) {
             logger.info("Index mapping of $targetIndex is updated")
             setIndexUpdateFlag(index, targetIndex)
+        } else {
+            logger.info("Failed to update index mapping of $targetIndex")
         }
     }
 

@@ -163,7 +163,9 @@ class RestIndexDestinationAction(
             } else {
                 log.error("Update ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
-                        response.toXContent(channel.newErrorBuilder(), ToXContent.EMPTY_PARAMS)))
+                        response.toXContent(channel.newErrorBuilder().startObject()
+                                .field("message", "Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                                .endObject(), ToXContent.EMPTY_PARAMS)))
             }
         }
 

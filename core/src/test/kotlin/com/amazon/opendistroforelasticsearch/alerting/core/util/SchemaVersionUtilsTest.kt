@@ -17,8 +17,10 @@ package com.amazon.opendistroforelasticsearch.alerting.core.util
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.XContentTestBase
 import org.elasticsearch.cluster.metadata.IndexMetaData
+import java.lang.NumberFormatException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -46,6 +48,24 @@ class SchemaVersionUtilsTest : XContentTestBase {
 
         val schemaVersion = SchemaVersionUtils.getSchemaVersion(message)
         assertEquals(0, schemaVersion)
+    }
+
+    @Test
+    fun `test get schema version with negative schema_version`() {
+        val message = "{\"user\":{ \"name\":\"test\"},\"_meta\":{\"schema_version\": -1}}"
+
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException") {
+            SchemaVersionUtils.getSchemaVersion(message)
+        }
+    }
+
+    @Test
+    fun `test get schema version with wrong schema_version`() {
+        val message = "{\"user\":{ \"name\":\"test\"},\"_meta\":{\"schema_version\": \"wrong\"}}"
+
+        assertFailsWith(NumberFormatException::class, "Expected NumberFormatException") {
+            SchemaVersionUtils.getSchemaVersion(message)
+        }
     }
 
     @Test

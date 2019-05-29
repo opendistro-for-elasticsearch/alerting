@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
@@ -47,7 +48,7 @@ data class Monitor(
     override val schedule: Schedule,
     override val lastUpdateTime: Instant,
     override val enabledTime: Instant?,
-    val schemaVersion: Int = 0,
+    val schemaVersion: Int = NO_SCHEMA_VERSION,
     val inputs: List<Input>,
     val triggers: List<Trigger>,
     val uiMetadata: Map<String, Any>
@@ -129,7 +130,7 @@ data class Monitor(
             var enabledTime: Instant? = null
             var uiMetadata: Map<String, Any> = mapOf()
             var enabled = true
-            var schemaVersion = 0
+            var schemaVersion = NO_SCHEMA_VERSION
             val triggers: MutableList<Trigger> = mutableListOf()
             val inputs: MutableList<Input> = mutableListOf()
 

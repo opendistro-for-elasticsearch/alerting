@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model.destination
 
+import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.destination.Notification
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage
@@ -40,7 +41,7 @@ import java.util.Locale
 data class Destination(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
-    val schemaVersion: Int = 0,
+    val schemaVersion: Int = NO_SCHEMA_VERSION,
     val type: DestinationType,
     val name: String,
     val lastUpdateTime: Instant,
@@ -91,7 +92,7 @@ data class Destination(
             var chime: Chime? = null
             var customWebhook: CustomWebhook? = null
             var lastUpdateTime: Instant? = null
-            var schemaVersion = 0
+            var schemaVersion = NO_SCHEMA_VERSION
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {

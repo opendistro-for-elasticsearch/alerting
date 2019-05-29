@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
+import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import org.elasticsearch.common.lucene.uid.Versions
@@ -29,7 +30,7 @@ import java.time.Instant
 data class Alert(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
-    val schemaVersion: Int = 0,
+    val schemaVersion: Int = NO_SCHEMA_VERSION,
     val monitorId: String,
     val monitorName: String,
     val monitorVersion: Long,
@@ -61,7 +62,7 @@ data class Alert(
         errorMessage: String? = null,
         errorHistory: List<AlertError> = mutableListOf(),
         actionExecutionResults: List<ActionExecutionResult> = mutableListOf(),
-        schemaVersion: Int = 0
+        schemaVersion: Int = NO_SCHEMA_VERSION
     ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
             triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
             lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
@@ -101,7 +102,7 @@ data class Alert(
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Alert {
 
             lateinit var monitorId: String
-            var schemaVersion = 0
+            var schemaVersion = NO_SCHEMA_VERSION
             lateinit var monitorName: String
             var monitorVersion: Long = Versions.NOT_FOUND
             lateinit var triggerId: String
