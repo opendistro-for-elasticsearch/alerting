@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
@@ -51,6 +50,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -93,7 +93,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
-import kotlin.properties.Delegates
 
 class MonitorRunner(
     settings: Settings,
@@ -108,7 +107,6 @@ class MonitorRunner(
     private val logger = LogManager.getLogger(MonitorRunner::class.java)
 
     private lateinit var runnerSupervisor: Job
-    private var alertSchemaVersion: Int by Delegates.notNull<Int>()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + runnerSupervisor
 
@@ -124,7 +122,6 @@ class MonitorRunner(
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
-        alertSchemaVersion = SchemaVersionUtils.getSchemaVersion(AlertIndices.alertMapping())
     }
 
     override fun doStart() {
@@ -257,20 +254,20 @@ class MonitorRunner(
         return if (alertError == null && !result.triggered) {
             currentAlert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null,
                     errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
-                    schemaVersion = alertSchemaVersion)
+                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
         } else if (alertError == null && currentAlert?.isAcknowledged() == true) {
             null
         } else if (currentAlert != null) {
             val alertState = if (alertError == null) ACTIVE else ERROR
             currentAlert.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = alertError?.message,
                     errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
-                    schemaVersion = alertSchemaVersion)
+                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
         } else {
             val alertState = if (alertError == null) ACTIVE else ERROR
             Alert(monitor = ctx.monitor, trigger = ctx.trigger, startTime = currentTime,
                     lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
                     errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
-                    schemaVersion = alertSchemaVersion)
+                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
         }
     }
 

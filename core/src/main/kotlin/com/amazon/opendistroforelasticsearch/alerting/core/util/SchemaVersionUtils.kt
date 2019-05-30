@@ -46,12 +46,14 @@ class SchemaVersionUtils {
                         xcp.skipChildren()
                     } else {
                         while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
-                            if (xcp.currentName() == SCHEMA_VERSION) {
-                                val version = xcp.intValue()
-                                require(version > -1)
-                                return version
+                            when (xcp.currentName()) {
+                                SCHEMA_VERSION -> {
+                                    val version = xcp.intValue()
+                                    require(version > -1)
+                                    return version
+                                }
+                                else -> xcp.nextToken()
                             }
-                            xcp.nextToken()
                         }
                     }
                 }

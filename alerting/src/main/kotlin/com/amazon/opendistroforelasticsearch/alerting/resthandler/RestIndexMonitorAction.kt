@@ -25,9 +25,9 @@ import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
 import org.apache.logging.log4j.LogManager
@@ -85,19 +85,6 @@ class RestIndexMonitorAction(
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
 
-    companion object {
-        var scheduledJobSchemaVersion: Int? = null
-            private set
-        var scheduledJobIndexUpdated: Boolean = false
-
-        @JvmStatic
-        fun initScheduledSchemaVersion() {
-            if (scheduledJobSchemaVersion == null) {
-                scheduledJobSchemaVersion = SchemaVersionUtils.getSchemaVersion(ScheduledJobIndices.scheduledJobMappings())
-            }
-        }
-    }
-
     init {
         controller.registerHandler(POST, AlertingPlugin.MONITOR_BASE_URI, this) // Create a new monitor
         controller.registerHandler(PUT, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}", this)
@@ -149,7 +136,7 @@ class RestIndexMonitorAction(
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
-                if (!scheduledJobIndexUpdated) {
+                if (!IndexUtils.scheduledJobIndexUpdated) {
                     scheduledJobIndices.updateScheduledJobIndex(ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
                 } else {
                     prepareMonitorIndexing()
@@ -197,7 +184,7 @@ class RestIndexMonitorAction(
         private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
             if (response.isAcknowledged) {
                 log.info("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
-                scheduledJobIndexUpdated = true
+                IndexUtils.scheduledJobIndexUpdated()
                 prepareMonitorIndexing()
             } else {
                 log.error("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
@@ -209,8 +196,7 @@ class RestIndexMonitorAction(
         }
 
         private fun indexMonitor() {
-            initScheduledSchemaVersion()
-            newMonitor = newMonitor.copy(schemaVersion = scheduledJobSchemaVersion!!)
+            newMonitor = newMonitor.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(refreshPolicy)
                         .source(newMonitor.toXContentWithType(channel.newBuilder()))
@@ -239,8 +225,7 @@ class RestIndexMonitorAction(
             // If both are enabled, use the current existing monitor enabled time, otherwise the next execution will be
             // incorrect.
             if (newMonitor.enabled && currentMonitor.enabled) newMonitor = newMonitor.copy(enabledTime = currentMonitor.enabledTime)
-            initScheduledSchemaVersion()
-            newMonitor = newMonitor.copy(schemaVersion = scheduledJobSchemaVersion!!)
+            newMonitor = newMonitor.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newMonitor.toXContentWithType(channel.newBuilder()))

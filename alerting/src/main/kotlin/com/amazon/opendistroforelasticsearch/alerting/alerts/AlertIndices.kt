@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import org.apache.logging.log4j.LogManager
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
@@ -112,8 +113,6 @@ class AlertIndices(
     private var historyIndexInitialized: Boolean = false
 
     private var alertIndexInitialized: Boolean = false
-    private var alertIndexUpdated: Boolean = false
-    private var lastUpdatedHistoryIndex: String? = null
 
     private var scheduledRollover: Cancellable? = null
 
@@ -160,7 +159,7 @@ class AlertIndices(
         if (!alertIndexInitialized) {
             alertIndexInitialized = createIndex(ALERT_INDEX)
         } else {
-            if (!alertIndexUpdated) updateIndexMapping(ALERT_INDEX)
+            if (!IndexUtils.alertIndexUpdated) updateIndexMapping(ALERT_INDEX)
         }
         alertIndexInitialized
     }
@@ -201,7 +200,7 @@ class AlertIndices(
             targetIndex = SchemaVersionUtils.getIndexNameWithAlias(clusterState, index)
         }
 
-        if (targetIndex == lastUpdatedHistoryIndex) {
+        if (targetIndex == IndexUtils.lastUpdatedHistoryIndex) {
             return
         }
 
@@ -218,8 +217,8 @@ class AlertIndices(
 
     private fun setIndexUpdateFlag(index: String, targetIndex: String) {
         when (index) {
-            ALERT_INDEX -> alertIndexUpdated = true
-            HISTORY_WRITE_INDEX -> lastUpdatedHistoryIndex = targetIndex
+            ALERT_INDEX -> IndexUtils.alertIndexUpdated()
+            HISTORY_WRITE_INDEX -> IndexUtils.lastUpdatedHistoryIndex = targetIndex
         }
     }
 

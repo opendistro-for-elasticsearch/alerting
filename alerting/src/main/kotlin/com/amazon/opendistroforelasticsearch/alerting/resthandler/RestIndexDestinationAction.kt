@@ -24,11 +24,9 @@ import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction.Companion.initScheduledSchemaVersion
-import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction.Companion.scheduledJobIndexUpdated
-import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction.Companion.scheduledJobSchemaVersion
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
 import org.apache.logging.log4j.LogManager
@@ -121,7 +119,7 @@ class RestIndexDestinationAction(
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
-                if (!scheduledJobIndexUpdated) {
+                if (!IndexUtils.scheduledJobIndexUpdated) {
                     scheduledJobIndices.updateScheduledJobIndex(ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
                 } else {
                     prepareDestinationIndexing()
@@ -132,8 +130,7 @@ class RestIndexDestinationAction(
         private fun prepareDestinationIndexing() {
             if (channel.request().method() == RestRequest.Method.PUT) updateDestination()
             else {
-                initScheduledSchemaVersion()
-                newDestination = newDestination.copy(schemaVersion = scheduledJobSchemaVersion!!)
+                newDestination = newDestination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
                 val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(refreshPolicy)
                         .source(newDestination.toXContent(channel.newBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
@@ -158,7 +155,7 @@ class RestIndexDestinationAction(
         private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
             if (response.isAcknowledged) {
                 log.info("Updated  ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
-                scheduledJobIndexUpdated = true
+                IndexUtils.scheduledJobIndexUpdated()
                 prepareDestinationIndexing()
             } else {
                 log.error("Update ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
@@ -182,8 +179,7 @@ class RestIndexDestinationAction(
                         .endObject()
                 return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, response.toXContent(builder, ToXContent.EMPTY_PARAMS)))
             }
-            initScheduledSchemaVersion()
-            newDestination = newDestination.copy(schemaVersion = scheduledJobSchemaVersion!!)
+            newDestination = newDestination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newDestination.toXContent(channel.newBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
