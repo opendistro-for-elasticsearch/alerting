@@ -80,7 +80,7 @@ class RestIndexMonitorAction(
 ) : BaseRestHandler(settings) {
 
     private var scheduledJobIndices: ScheduledJobIndices
-
+    private val clusterService: ClusterService
     @Volatile private var maxMonitors = ALERTING_MAX_MONITORS.get(settings)
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
@@ -93,6 +93,7 @@ class RestIndexMonitorAction(
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
+        this.clusterService = clusterService
     }
 
     override fun getName(): String {
@@ -137,7 +138,9 @@ class RestIndexMonitorAction(
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
                 if (!IndexUtils.scheduledJobIndexUpdated) {
-                    scheduledJobIndices.updateScheduledJobIndex(ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
+                    IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
+                            ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
+                            ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
                 } else {
                     prepareMonitorIndexing()
                 }
@@ -174,6 +177,7 @@ class RestIndexMonitorAction(
             if (response.isAcknowledged) {
                 log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
                 prepareMonitorIndexing()
+                IndexUtils.scheduledJobIndexUpdated()
             } else {
                 log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,

@@ -32,10 +32,17 @@ import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.UUIDs
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
+import org.elasticsearch.search.SearchModule
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomInt
@@ -163,4 +170,20 @@ fun RestClient.makeRequest(
         request.entity = entity
     }
     return performRequest(request)
+}
+
+fun builder(): XContentBuilder {
+    return XContentBuilder.builder(XContentType.JSON.xContent())
+}
+
+fun parser(xc: String): XContentParser {
+    val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
+    parser.nextToken()
+    return parser
+}
+
+fun xContentRegistry(): NamedXContentRegistry {
+    return NamedXContentRegistry(listOf(
+            SearchInput.XCONTENT_REGISTRY) +
+            SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
 }

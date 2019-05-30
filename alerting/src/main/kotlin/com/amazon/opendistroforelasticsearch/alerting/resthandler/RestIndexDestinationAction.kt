@@ -68,6 +68,7 @@ class RestIndexDestinationAction(
     clusterService: ClusterService
 ) : BaseRestHandler(settings) {
     private var scheduledJobIndices: ScheduledJobIndices
+    private val clusterService: ClusterService
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
 
     init {
@@ -76,6 +77,7 @@ class RestIndexDestinationAction(
         scheduledJobIndices = jobIndices
 
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
+        this.clusterService = clusterService
     }
 
     override fun getName(): String {
@@ -120,7 +122,9 @@ class RestIndexDestinationAction(
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
                 if (!IndexUtils.scheduledJobIndexUpdated) {
-                    scheduledJobIndices.updateScheduledJobIndex(ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
+                    IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
+                            ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
+                            ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
                 } else {
                     prepareDestinationIndexing()
                 }
@@ -145,6 +149,7 @@ class RestIndexDestinationAction(
             if (response.isAcknowledged) {
                 log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
                 prepareDestinationIndexing()
+                IndexUtils.scheduledJobIndexUpdated()
             } else {
                 log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,

@@ -16,11 +16,9 @@
 package com.amazon.opendistroforelasticsearch.alerting.core
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
-import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.AdminClient
 import org.elasticsearch.cluster.health.ClusterIndexHealth
 import org.elasticsearch.cluster.service.ClusterService
@@ -52,12 +50,6 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
                     .mapping(ScheduledJob.SCHEDULED_JOB_TYPE, scheduledJobMappings(), XContentType.JSON)
             client.indices().create(indexRequest, actionListener)
         }
-    }
-
-    fun updateScheduledJobIndex(actionListener: ActionListener<AcknowledgedResponse>) {
-        val clusterState = clusterService.state()
-        SchemaVersionUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
-                scheduledJobMappings(), clusterState, client.indices(), actionListener)
     }
 
     fun scheduledJobIndexExists(): Boolean {

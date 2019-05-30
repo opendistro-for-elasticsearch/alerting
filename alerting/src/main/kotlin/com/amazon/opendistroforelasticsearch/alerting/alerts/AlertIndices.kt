@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.alerting.alerts
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices.Companion.ALERT_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices.Companion.HISTORY_WRITE_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_INDEX_MAX_AGE
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_MAX_DOCS
@@ -158,6 +157,7 @@ class AlertIndices(
     suspend fun createOrUpdateAlertIndex() {
         if (!alertIndexInitialized) {
             alertIndexInitialized = createIndex(ALERT_INDEX)
+            if (alertIndexInitialized) IndexUtils.alertIndexUpdated()
         } else {
             if (!IndexUtils.alertIndexUpdated) updateIndexMapping(ALERT_INDEX)
         }
@@ -167,6 +167,8 @@ class AlertIndices(
     suspend fun createOrUpdateInitialHistoryIndex() {
         if (!historyIndexInitialized) {
             historyIndexInitialized = createIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX)
+            if (historyIndexInitialized)
+                IndexUtils.lastUpdatedHistoryIndex = IndexUtils.getIndexNameWithAlias(clusterService.state(), HISTORY_WRITE_INDEX)
         } else {
             updateIndexMapping(HISTORY_WRITE_INDEX, true)
         }
@@ -197,7 +199,7 @@ class AlertIndices(
         val mapping = alertMapping()
         var targetIndex = index
         if (alias) {
-            targetIndex = SchemaVersionUtils.getIndexNameWithAlias(clusterState, index)
+            targetIndex = IndexUtils.getIndexNameWithAlias(clusterState, index)
         }
 
         if (targetIndex == IndexUtils.lastUpdatedHistoryIndex) {

@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model.destination
 
-import com.amazon.opendistroforelasticsearch.alerting.core.util.SchemaVersionUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.destination.Notification
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage
@@ -26,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
