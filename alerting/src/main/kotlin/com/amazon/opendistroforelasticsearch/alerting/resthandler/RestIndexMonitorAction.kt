@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
 import org.apache.logging.log4j.LogManager
@@ -39,6 +40,7 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
@@ -78,6 +80,7 @@ class RestIndexMonitorAction(
 ) : BaseRestHandler(settings) {
 
     private var scheduledJobIndices: ScheduledJobIndices
+    private val clusterService: ClusterService
     @Volatile private var maxMonitors = ALERTING_MAX_MONITORS.get(settings)
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
@@ -90,6 +93,7 @@ class RestIndexMonitorAction(
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
+        this.clusterService = clusterService
     }
 
     override fun getName(): String {
@@ -133,7 +137,13 @@ class RestIndexMonitorAction(
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
-                prepareMonitorIndexing()
+                if (!IndexUtils.scheduledJobIndexUpdated) {
+                    IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
+                            ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
+                            ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
+                } else {
+                    prepareMonitorIndexing()
+                }
             }
         }
 
@@ -167,6 +177,7 @@ class RestIndexMonitorAction(
             if (response.isAcknowledged) {
                 log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
                 prepareMonitorIndexing()
+                IndexUtils.scheduledJobIndexUpdated()
             } else {
                 log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
@@ -174,7 +185,22 @@ class RestIndexMonitorAction(
             }
         }
 
+        private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
+            if (response.isAcknowledged) {
+                log.info("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                IndexUtils.scheduledJobIndexUpdated()
+                prepareMonitorIndexing()
+            } else {
+                log.error("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
+                        response.toXContent(channel.newErrorBuilder().startObject()
+                                .field("message", "Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                                .endObject(), EMPTY_PARAMS)))
+            }
+        }
+
         private fun indexMonitor() {
+            newMonitor = newMonitor.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(refreshPolicy)
                         .source(newMonitor.toXContentWithType(channel.newBuilder()))
@@ -203,6 +229,7 @@ class RestIndexMonitorAction(
             // If both are enabled, use the current existing monitor enabled time, otherwise the next execution will be
             // incorrect.
             if (newMonitor.enabled && currentMonitor.enabled) newMonitor = newMonitor.copy(enabledTime = currentMonitor.enabledTime)
+            newMonitor = newMonitor.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
             val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newMonitor.toXContentWithType(channel.newBuilder()))
