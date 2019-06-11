@@ -41,6 +41,7 @@ data class Throttle(
     companion object {
         const val VALUE_FIELD = "value"
         const val UNIT_FIELD = "unit"
+        const val MAX_THROTTLE_VALUE = 1440 // 1440 minutes = one day
 
         @JvmStatic
         @Throws(IOException::class)
@@ -65,6 +66,7 @@ data class Throttle(
                             currentToken.isValue -> {
                                 value = xcp.intValue()
                                 require(value > 0, { "Can only set positive throttle period" })
+                                require(value < MAX_THROTTLE_VALUE, { "Can only set throttle period less than 1 day" })
                             }
                             else -> {
                                 XContentParserUtils.throwUnknownToken(currentToken, xcp.tokenLocation)
