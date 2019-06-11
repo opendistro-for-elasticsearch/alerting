@@ -66,7 +66,7 @@ data class Throttle(
                             currentToken.isValue -> {
                                 value = xcp.intValue()
                                 require(value > 0, { "Can only set positive throttle period" })
-                                require(value < MAX_THROTTLE_VALUE, { "Can only set throttle period less than 1 day" })
+                                require(value <= MAX_THROTTLE_VALUE, { "Can only set throttle period less than 1 day" })
                             }
                             else -> {
                                 XContentParserUtils.throwUnknownToken(currentToken, xcp.tokenLocation)
