@@ -24,13 +24,16 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import org.apache.logging.log4j.LogManager
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
+import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterStateListener
@@ -151,16 +154,23 @@ class AlertIndices(
         return alertIndexInitialized && historyIndexInitialized
     }
 
-    suspend fun createAlertIndex() {
+    suspend fun createOrUpdateAlertIndex() {
         if (!alertIndexInitialized) {
             alertIndexInitialized = createIndex(ALERT_INDEX)
+            if (alertIndexInitialized) IndexUtils.alertIndexUpdated()
+        } else {
+            if (!IndexUtils.alertIndexUpdated) updateIndexMapping(ALERT_INDEX)
         }
         alertIndexInitialized
     }
 
-    suspend fun createInitialHistoryIndex() {
+    suspend fun createOrUpdateInitialHistoryIndex() {
         if (!historyIndexInitialized) {
             historyIndexInitialized = createIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX)
+            if (historyIndexInitialized)
+                IndexUtils.lastUpdatedHistoryIndex = IndexUtils.getIndexNameWithAlias(clusterService.state(), HISTORY_WRITE_INDEX)
+        } else {
+            updateIndexMapping(HISTORY_WRITE_INDEX, true)
         }
         historyIndexInitialized
     }
@@ -181,6 +191,36 @@ class AlertIndices(
             createIndexResponse.isAcknowledged
         } catch (e: ResourceAlreadyExistsException) {
             true
+        }
+    }
+
+    private suspend fun updateIndexMapping(index: String, alias: Boolean = false) {
+        val clusterState = clusterService.state()
+        val mapping = alertMapping()
+        var targetIndex = index
+        if (alias) {
+            targetIndex = IndexUtils.getIndexNameWithAlias(clusterState, index)
+        }
+
+        if (targetIndex == IndexUtils.lastUpdatedHistoryIndex) {
+            return
+        }
+
+        var putMappingRequest: PutMappingRequest = PutMappingRequest(targetIndex).type(MAPPING_TYPE)
+                .source(mapping, XContentType.JSON)
+        val updateResponse: AcknowledgedResponse = client.suspendUntil { client.putMapping(putMappingRequest, it) }
+        if (updateResponse.isAcknowledged) {
+            logger.info("Index mapping of $targetIndex is updated")
+            setIndexUpdateFlag(index, targetIndex)
+        } else {
+            logger.info("Failed to update index mapping of $targetIndex")
+        }
+    }
+
+    private fun setIndexUpdateFlag(index: String, targetIndex: String) {
+        when (index) {
+            ALERT_INDEX -> IndexUtils.alertIndexUpdated()
+            HISTORY_WRITE_INDEX -> IndexUtils.lastUpdatedHistoryIndex = targetIndex
         }
     }
 

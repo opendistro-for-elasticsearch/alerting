@@ -50,6 +50,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -180,8 +181,8 @@ class MonitorRunner(
 
         var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
-            alertIndices.createAlertIndex()
-            alertIndices.createInitialHistoryIndex()
+            alertIndices.createOrUpdateAlertIndex()
+            alertIndices.createOrUpdateInitialHistoryIndex()
             loadCurrentAlerts(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
@@ -252,18 +253,21 @@ class MonitorRunner(
         val updatedHistory = currentAlert?.errorHistory.update(alertError)
         return if (alertError == null && !result.triggered) {
             currentAlert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
+                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
         } else if (alertError == null && currentAlert?.isAcknowledged() == true) {
             null
         } else if (currentAlert != null) {
             val alertState = if (alertError == null) ACTIVE else ERROR
             currentAlert.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
+                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
         } else {
             val alertState = if (alertError == null) ACTIVE else ERROR
             Alert(monitor = ctx.monitor, trigger = ctx.trigger, startTime = currentTime,
                     lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults)
+                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
+                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
         }
     }
 

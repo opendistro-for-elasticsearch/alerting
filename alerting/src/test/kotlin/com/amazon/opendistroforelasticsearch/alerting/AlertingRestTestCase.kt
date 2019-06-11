@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
@@ -109,6 +110,18 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                 chime = null,
                 slack = null,
                 customWebhook = null)
+    }
+
+    protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {
+        val indexMapping = client().getIndexMapping(index)
+        val indexName = indexMapping.keys.toList()[0]
+        val mappings = indexMapping.stringMap(indexName)?.stringMap("mappings")
+        var version = 0
+        if (mappings!!.containsKey("_meta")) {
+            val meta = mappings.stringMap("_meta")
+            if (meta!!.containsKey("schema_version")) version = meta.get("schema_version") as Int
+        }
+        assertEquals(expectedVersion, version)
     }
 
     protected fun createAlert(alert: Alert): Alert {
@@ -231,12 +244,20 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
         return index
     }
 
-    fun putAlertMappings() {
-        val mappingHack = AlertIndices.alertMapping().trimStart('{').trimEnd('}')
+    fun putAlertMappings(mapping: String? = null) {
+        val mappingHack = if (mapping != null) mapping else AlertIndices.alertMapping().trimStart('{').trimEnd('}')
         val encodedHistoryIndex = URLEncoder.encode(AlertIndices.HISTORY_INDEX_PATTERN, Charsets.UTF_8.toString())
         createIndex(AlertIndices.ALERT_INDEX, Settings.EMPTY, mappingHack)
-        createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack)
-        client().makeRequest("PUT", "/$encodedHistoryIndex/_alias/${AlertIndices.HISTORY_WRITE_INDEX}")
+        createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack, "\"${AlertIndices.HISTORY_WRITE_INDEX}\" : {}")
+    }
+
+    fun scheduledJobMappings(): String {
+        return javaClass.classLoader.getResource("mappings/scheduled-jobs.json").readText()
+    }
+
+    fun createAlertingConfigIndex(mapping: String? = null) {
+        val mappingHack = if (mapping != null) mapping else scheduledJobMappings().trimStart('{').trimEnd('}')
+        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, Settings.EMPTY, mappingHack)
     }
 
     protected fun Response.restStatus(): RestStatus {
@@ -285,6 +306,12 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
 
     fun RestClient.getClusterSettings(settings: Map<String, String>): Map<String, Any> {
         val response = this.makeRequest("GET", "_cluster/settings", settings)
+        assertEquals(RestStatus.OK, response.restStatus())
+        return response.asMap()
+    }
+
+    fun RestClient.getIndexMapping(index: String): Map<String, Any> {
+        val response = this.makeRequest("GET", "$index/_mapping")
         assertEquals(RestStatus.OK, response.restStatus())
         return response.asMap()
     }

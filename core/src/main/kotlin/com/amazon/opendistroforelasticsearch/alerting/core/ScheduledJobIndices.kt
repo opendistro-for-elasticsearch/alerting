@@ -32,6 +32,12 @@ import org.elasticsearch.common.xcontent.XContentType
  */
 class ScheduledJobIndices(private val client: AdminClient, private val clusterService: ClusterService) {
 
+    companion object {
+        @JvmStatic
+        fun scheduledJobMappings(): String {
+            return ScheduledJobIndices::class.java.classLoader.getResource("mappings/scheduled-jobs.json").readText()
+        }
+    }
     /**
      * Initialize the indices required for scheduled jobs.
      * First check if the index exists, and if not create the index with the provided callback listeners.
@@ -44,10 +50,6 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
                     .mapping(ScheduledJob.SCHEDULED_JOB_TYPE, scheduledJobMappings(), XContentType.JSON)
             client.indices().create(indexRequest, actionListener)
         }
-    }
-
-    private fun scheduledJobMappings(): String {
-        return javaClass.classLoader.getResource("mappings/scheduled-jobs.json").readText()
     }
 
     fun scheduledJobIndexExists(): Boolean {

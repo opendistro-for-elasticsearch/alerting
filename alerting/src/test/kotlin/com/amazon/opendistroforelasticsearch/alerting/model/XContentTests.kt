@@ -15,10 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model
 
-import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.builder
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import com.amazon.opendistroforelasticsearch.alerting.parser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
@@ -26,14 +27,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentBuilder
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
@@ -131,21 +125,5 @@ class XContentTests : ESTestCase() {
             fail("Creating a monitor with duplicate triggers did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
-    }
-
-    private fun builder(): XContentBuilder {
-        return XContentBuilder.builder(XContentType.JSON.xContent())
-    }
-
-    private fun parser(xc: String): XContentParser {
-        val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
-        parser.nextToken()
-        return parser
-    }
-
-    override fun xContentRegistry(): NamedXContentRegistry {
-        return NamedXContentRegistry(listOf(
-                SearchInput.XCONTENT_REGISTRY) +
-                SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 }
