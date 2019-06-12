@@ -83,6 +83,13 @@ class XContentTests : ESTestCase() {
         assertFailsWith<IllegalArgumentException>("Can only set positive throttle period") { Throttle.parse(parser(throttleString)) }
     }
 
+    fun `test throttle parsing with value greater than max limitation`() {
+        val throttle = randomThrottle().copy(value = 100000)
+        val throttleString = throttle.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+
+        assertFailsWith<IllegalArgumentException>("Can only set throttle period less than 1 day") { Throttle.parse(parser(throttleString)) }
+    }
+
     fun `test monitor parsing`() {
         val monitor = randomMonitor()
 
