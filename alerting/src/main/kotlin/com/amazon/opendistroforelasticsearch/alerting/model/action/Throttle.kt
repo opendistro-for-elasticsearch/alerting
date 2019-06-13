@@ -23,7 +23,6 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import java.io.IOException
 import java.lang.IllegalStateException
-import java.time.Duration
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
@@ -42,7 +41,6 @@ data class Throttle(
     companion object {
         const val VALUE_FIELD = "value"
         const val UNIT_FIELD = "unit"
-        val MAX_THROTTLE_VALUE = Duration.of(1, ChronoUnit.DAYS) // support one day at most
 
         @JvmStatic
         @Throws(IOException::class)
@@ -79,8 +77,6 @@ data class Throttle(
                     }
                 }
             }
-            require(Duration.of(value.toLong(), unit).compareTo(MAX_THROTTLE_VALUE) <= 0,
-                    { "Can only set throttle period less than 1 day" })
             return Throttle(value = value, unit = requireNotNull(unit))
         }
     }
