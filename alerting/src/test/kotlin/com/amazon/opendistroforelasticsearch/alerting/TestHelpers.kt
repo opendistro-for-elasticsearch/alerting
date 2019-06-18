@@ -104,7 +104,7 @@ fun randomAction(
 ) = Action(name, destinationId, template, template, throttleEnabled, throttle)
 
 fun randomThrottle(
-    value: Int = randomIntBetween(1, 100),
+    value: Int = randomIntBetween(60, 120),
     unit: ChronoUnit = ChronoUnit.MINUTES
 ) = Throttle(value, unit)
 
