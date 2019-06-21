@@ -25,12 +25,12 @@ import org.elasticsearch.script.ScriptException
 import java.time.Instant
 
 data class MonitorRunResult(
-    val monitorName: String,
-    val periodStart: Instant,
-    val periodEnd: Instant,
-    val error: Exception? = null,
-    val inputResults: InputRunResults = InputRunResults(),
-    val triggerResults: Map<String, TriggerRunResult> = mapOf()
+        val monitorName: String,
+        val periodStart: Instant,
+        val periodEnd: Instant,
+        val error: Exception? = null,
+        val inputResults: InputRunResults = InputRunResults(),
+        val triggerResults: Map<String, TriggerRunResult> = mapOf()
 ) : ToXContent {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
@@ -71,16 +71,16 @@ data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val e
 }
 
 data class TriggerRunResult(
-    val triggerName: String,
-    val triggered: Boolean,
-    val error: Exception? = null,
-    val actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
+        val triggerName: String,
+        val triggered: Boolean,
+        val error: Exception? = null,
+        val actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
 ) : ToXContent {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        var msg = error?.message;
-        if(error is ScriptException){
+        var msg = error?.message
+        if (error is ScriptException) {
             msg = error.toJsonString()
-        }     
+        }
         return builder.startObject()
                 .field("name", triggerName)
                 .field("triggered", triggered)
@@ -104,12 +104,12 @@ data class TriggerRunResult(
 }
 
 data class ActionRunResult(
-    val actionId: String,
-    val actionName: String,
-    val output: Map<String, String>,
-    val throttled: Boolean = false,
-    val executionTime: Instant? = null,
-    val error: Exception? = null
+        val actionId: String,
+        val actionName: String,
+        val output: Map<String, String>,
+        val throttled: Boolean = false,
+        val executionTime: Instant? = null,
+        val error: Exception? = null
 ) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
