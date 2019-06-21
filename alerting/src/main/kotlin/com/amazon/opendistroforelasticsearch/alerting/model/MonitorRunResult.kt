@@ -77,6 +77,10 @@ data class TriggerRunResult(
     val actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
 ) : ToXContent {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        var msg = error?.message;
+        if(error is ScriptException){
+            msg = error.toJsonString()
+        }     
         return builder.startObject()
                 .field("name", triggerName)
                 .field("triggered", triggered)
