@@ -25,22 +25,22 @@ import org.elasticsearch.script.ScriptException
 import java.time.Instant
 
 data class MonitorRunResult(
-        val monitorName: String,
-        val periodStart: Instant,
-        val periodEnd: Instant,
-        val error: Exception? = null,
-        val inputResults: InputRunResults = InputRunResults(),
-        val triggerResults: Map<String, TriggerRunResult> = mapOf()
+    val monitorName: String,
+    val periodStart: Instant,
+    val periodEnd: Instant,
+    val error: Exception? = null,
+    val inputResults: InputRunResults = InputRunResults(),
+    val triggerResults: Map<String, TriggerRunResult> = mapOf()
 ) : ToXContent {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
-            .field("monitor_name", monitorName)
-            .optionalTimeField("period_start", periodStart)
-            .optionalTimeField("period_end", periodEnd)
-            .field("error", error?.message)
-            .field("input_results", inputResults)
-            .field("trigger_results", triggerResults)
-            .endObject()
+                .field("monitor_name", monitorName)
+                .optionalTimeField("period_start", periodStart)
+                .optionalTimeField("period_end", periodEnd)
+                .field("error", error?.message)
+                .field("input_results", inputResults)
+                .field("trigger_results", triggerResults)
+                .endObject()
     }
 
     /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
@@ -64,27 +64,27 @@ data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val e
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
-            .field("results", results)
-            .field("error", error?.message)
-            .endObject()
+                .field("results", results)
+                .field("error", error?.message)
+                .endObject()
     }
 }
 
 data class TriggerRunResult(
-        val triggerName: String,
-        val triggered: Boolean,
-        val error: Exception? = null,
-        val actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
+    val triggerName: String,
+    val triggered: Boolean,
+    val error: Exception? = null,
+    val actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
 ) : ToXContent {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         var msg = error?.message
         if (error is ScriptException) msg = error.toJsonString()
         return builder.startObject()
-            .field("name", triggerName)
-            .field("triggered", triggered)
-            .field("error", msg)
-            .field("action_results", actionResults as Map<String, ActionRunResult>)
-            .endObject()
+                .field("name", triggerName)
+                .field("triggered", triggered)
+                .field("error", msg)
+                .field("action_results", actionResults as Map<String, ActionRunResult>)
+                .endObject()
     }
 
     /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
@@ -102,23 +102,23 @@ data class TriggerRunResult(
 }
 
 data class ActionRunResult(
-        val actionId: String,
-        val actionName: String,
-        val output: Map<String, String>,
-        val throttled: Boolean = false,
-        val executionTime: Instant? = null,
-        val error: Exception? = null
+    val actionId: String,
+    val actionName: String,
+    val output: Map<String, String>,
+    val throttled: Boolean = false,
+    val executionTime: Instant? = null,
+    val error: Exception? = null
 ) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
-            .field("id", actionId)
-            .field("name", actionName)
-            .field("output", output)
-            .field("throttled", throttled)
-            .optionalTimeField("executionTime", executionTime)
-            .field("error", error?.message)
-            .endObject()
+                .field("id", actionId)
+                .field("name", actionName)
+                .field("output", output)
+                .field("throttled", throttled)
+                .optionalTimeField("executionTime", executionTime)
+                .field("error", error?.message)
+                .endObject()
     }
 }
 
