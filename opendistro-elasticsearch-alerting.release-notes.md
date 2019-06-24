@@ -1,4 +1,27 @@
-## Version 0.8.0 (Current)
+## Version 1.0.0 (Current)
+
+### New Features
+  * Adds support for Elasticsearch 7.0.1 - [PR #41](https://github.com/opendistro-for-elasticsearch/alerting/pull/41)
+  * Adds support for throttling on actions - [PR #48](https://github.com/opendistro-for-elasticsearch/alerting/pull/48)
+
+### Bug fixes
+  * Validate all 2XX status code in Webhook response  - [PR #50](https://github.com/opendistro-for-elasticsearch/alerting/pull/50)
+  * Allows encoding while constructing HTTP request for sending notification - [PR #35](https://github.com/opendistro-for-elasticsearch/alerting/pull/35)
+  * Convert AlertMover/MonitorRunner to coroutines - [PR #11](https://github.com/opendistro-for-elasticsearch/alerting/pull/11)
+
+## 2019-04-24, Version 0.9.0
+
+### New Features
+  * Adds support for Elasticsearch 6.7.1 - #19
+  * Add http proxy support to outgoing notifications - #23
+  * Allow encoding while constructing HTTP request for sending notification - [PR #35](https://github.com/opendistro-for-elasticsearch/alerting/pull/35)
+  * Add build for Debian - #36
+
+### Bug fixes
+  * Fix update LastFullSweepTime if the index doesn't exist - #17
+  * Adds more alert properties to templateArgs for context variable - #26
+
+## 2019-04-02, Version 0.8.0
 
 ### New Features
   * Adds support for Elasticsearch 6.6.2 - [PR #8](https://github.com/opendistro-for-elasticsearch/alerting/pull/8)
@@ -31,3 +54,4 @@ Adds API support for create, update, and deleting destinations.
 ### Commits
 
 * [[`4771e6c`](https://github.com/mauve-hedgehog/opendistro-elasticsearch-alerting/commit/4771e6c5ce6f541fc84f1290ac2fd43f64f3dcb2)] Initial release for OpenDistro Elasticsearch Alerting
+
