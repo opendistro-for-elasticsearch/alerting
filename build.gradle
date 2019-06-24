@@ -17,7 +17,7 @@ buildscript {
     apply from: 'build-tools/repositories.gradle'
 
     ext {
-        es_version = '7.0.1'
+        es_version = '7.1.1'
         kotlin_version = '1.3.21'
     }
 
@@ -41,7 +41,7 @@ apply plugin: 'jacoco'
 apply from: 'build-tools/merged-coverage.gradle'
 
 ext {
-    opendistroVersion = '1.0.0'
+    opendistroVersion = '1.1.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
