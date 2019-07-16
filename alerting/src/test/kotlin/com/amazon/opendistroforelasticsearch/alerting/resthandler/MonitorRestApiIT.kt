@@ -29,6 +29,8 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
+import com.amazon.opendistroforelasticsearch.alerting.randomAction
+import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.message.BasicHeader
@@ -46,6 +48,8 @@ import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+import org.elasticsearch.common.unit.TimeValue
 
 @TestLogging("level:DEBUG")
 @Suppress("UNCHECKED_CAST")
@@ -91,6 +95,42 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertNotEquals("response is missing Id", Monitor.NO_ID, createdId)
         assertTrue("incorrect version", createdVersion > 0)
         assertEquals("Incorrect Location header", "$ALERTING_BASE_URI/$createdId", createResponse.getHeader("Location"))
+    }
+
+    @Throws(Exception::class)
+    fun `test creating a monitor with action threshold greater than max threshold`() {
+        val monitor = randomMonitorWithThrottle(100000, ChronoUnit.MINUTES)
+
+        try {
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test creating a monitor with action threshold less than min threshold`() {
+        val monitor = randomMonitorWithThrottle(-1)
+
+        try {
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test creating a monitor with updating action threshold`() {
+        adminClient().updateSettings("opendistro.alerting.action_throttle_max_value", TimeValue.timeValueHours(1))
+
+        val monitor = randomMonitorWithThrottle(2, ChronoUnit.HOURS)
+
+        try {
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+        adminClient().updateSettings("opendistro.alerting.action_throttle_max_value", TimeValue.timeValueHours(24))
     }
 
     fun `test creating a monitor with PUT fails`() {
@@ -231,8 +271,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"]!! as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
@@ -245,8 +285,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"]!! as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
     }
 
@@ -263,8 +303,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
                 NStringEntity(search, ContentType.APPLICATION_JSON))
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"]!! as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor found during search when no document present.", 0, numberDocsFound)
     }
 
@@ -281,8 +321,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
 
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"] as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"] as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
 
         val searchHits = hits["hits"] as List<Any>
@@ -302,8 +342,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Search monitor failed", RestStatus.OK, searchResponse.restStatus())
 
         val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
-        val hits = xcp.map()["hits"] as Map<String, Any>
-        val numberDocsFound = hits["total"]
+        val hits = xcp.map()["hits"] as Map<String, Map<String, Any>>
+        val numberDocsFound = hits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, numberDocsFound)
 
         val searchHits = hits["hits"] as List<Any>
@@ -341,7 +381,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test mappings after monitor creation`() {
         createRandomMonitor(refresh = true)
 
-        val response = client().makeRequest("GET", "/${ScheduledJob.SCHEDULED_JOBS_INDEX}/_mapping/_doc")
+        val response = client().makeRequest("GET", "/${ScheduledJob.SCHEDULED_JOBS_INDEX}/_mapping")
         val parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
         val mappingsMap = parserMap[ScheduledJob.SCHEDULED_JOBS_INDEX]!!["mappings"] as Map<String, Any>
         val expected = createParser(
@@ -426,7 +466,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test update monitor with wrong version`() {
         val monitor = createRandomMonitor(refresh = true)
         try {
-            client().makeRequest("PUT", "${monitor.relativeUrl()}?refresh=true&version=1234",
+            client().makeRequest("PUT", "${monitor.relativeUrl()}?refresh=true&if_seq_no=1234&if_primary_term=1234",
                     emptyMap(), monitor.toHttpEntity())
             fail("expected 409 ResponseException")
         } catch (e: ResponseException) {
@@ -527,5 +567,12 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals("Failed", RestStatus.BAD_REQUEST, e.response.restStatus())
         }
+    }
+
+    private fun randomMonitorWithThrottle(value: Int, unit: ChronoUnit = ChronoUnit.MINUTES): Monitor {
+        val throttle = randomThrottle(value, unit)
+        val action = randomAction().copy(throttle = throttle)
+        val trigger = randomTrigger(actions = listOf(action))
+        return randomMonitor(triggers = listOf(trigger))
     }
 }

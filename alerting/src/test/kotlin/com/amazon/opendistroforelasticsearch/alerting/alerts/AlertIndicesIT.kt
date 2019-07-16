@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.alerts
 
 import com.amazon.opendistroforelasticsearch.alerting.ALWAYS_RUN
 import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
@@ -33,7 +34,27 @@ class AlertIndicesIT : AlertingRestTestCase() {
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
     }
 
+    fun `test update alert index mapping with new schema version`() {
+        assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
+        assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
+
+        putAlertMappings(AlertIndices.alertMapping().trimStart('{').trimEnd('}')
+                .replace("\"schema_version\": 1", "\"schema_version\": 0"))
+        assertIndexExists(AlertIndices.ALERT_INDEX)
+        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 0)
+        client().makeRequest("DELETE", "*")
+        executeMonitor(createRandomMonitor())
+        assertIndexExists(AlertIndices.ALERT_INDEX)
+        assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
+        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 1)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 1)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 1)
+    }
+
     fun `test alert index gets recreated automatically if deleted`() {
+        assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
         val trueMonitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN)))
 
         executeMonitor(trueMonitor)

@@ -26,14 +26,22 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
 
 1. Check out this package from version control.
 1. Launch Intellij IDEA, choose **Import Project**, and select the `settings.gradle` file in the root of this package. 
-1. To build from the command line, set `JAVA_HOME` to point to a JDK >=11 before running `./gradlew`.
+1. To build from the command line, set `JAVA_HOME` to point to a JDK >= 12 before running `./gradlew`.
+  - Unix System
+    1. `export JAVA_HOME=jdk-install-dir`: Replace `jdk-install-dir` by the JAVA_HOME directory of your system.
+    1. `export PATH=$JAVA_HOME/bin:$PATH`
+ 
+  - Windows System
+    1. Find **My Computers** from file directory, right click and select **properties**.
+    1. Select the **Advanced** tab, select **Environment variables**.
+    1. Edit **JAVA_HOME** to path of where JDK softeare is installed.
 
 
 ## Build
 
 This package is organized into subprojects, most of which contribute JARs to the top-level plugin in the `alerting` subproject.
 
-All subprojects in this package use the [Gradle](https://docs.gradle.org/4.10.2/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build. 
+All subprojects in this package use the [Gradle](https://docs.gradle.org/current/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build.
 
 However, to build the `alerting` plugin subproject, we also use the Elastic build tools for Gradle.  These tools are idiosyncratic and don't always follow the conventions and instructions for building regular Java code using Gradle. Not everything in `alerting` will work the way it's described in the Gradle documentation. If you encounter such a situation, the Elastic build tools [source code](https://github.com/elastic/elasticsearch/tree/master/buildSrc/src/main/groovy/org/elasticsearch/gradle) is your best bet for figuring out what's going on.
 
