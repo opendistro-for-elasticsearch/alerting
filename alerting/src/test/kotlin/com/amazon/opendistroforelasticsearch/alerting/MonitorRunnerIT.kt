@@ -18,14 +18,14 @@ package com.amazon.opendistroforelasticsearch.alerting
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
+import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACKNOWLEDGED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders
@@ -580,6 +580,116 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val actionResults2 = verifyActionExecutionResultInAlert(activeAlert2[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
         assertNotEquals(actionResults1[actionThrottleEnabled.id]!!.lastExecutionTime,
                 actionResults2[actionThrottleEnabled.id]!!.lastExecutionTime)
+    }
+
+    fun `test monitor HttpInput with non JSON response `() {
+        val clusterIndex = randomInt(clusterHosts.size - 1)
+        val input = randomHttpInput(
+                scheme = clusterHosts[clusterIndex].schemeName,
+                host = clusterHosts[clusterIndex].hostName,
+                port = clusterHosts[clusterIndex].port,
+                path = "_cat/indices",
+                params = mapOf(),
+                url = "",
+                connection_timeout = 5000,
+                socket_timeout = 5000)
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input)))
+        val response = executeMonitor(monitor.id)
+        val output = entityAsMap(response)
+        @Suppress("UNCHECKED_CAST")
+        val inputResults = output.stringMap("input_results")
+        @Suppress("UNCHECKED_CAST")
+        val errorMessage = inputResults?.get("error")
+        assertTrue("Error did not occur from receiving invalid format of response, error message is actually: " +
+                "$errorMessage\nOutput: $output",
+                errorMessage.toString().contains("Unrecognized token"))
+    }
+
+    fun `test monitor HttpInput with JSON response`() {
+        val clusterIndex = randomInt(clusterHosts.size - 1)
+        val input = randomHttpInput(
+                scheme = clusterHosts[clusterIndex].schemeName,
+                host = clusterHosts[clusterIndex].hostName,
+                port = clusterHosts[clusterIndex].port,
+                path = "_cluster/health",
+                params = mapOf(),
+                url = "",
+                connection_timeout = 5000,
+                socket_timeout = 5000)
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input)))
+        val response = executeMonitor(monitor.id)
+
+        val output = entityAsMap(response)
+        @Suppress("UNCHECKED_CAST")
+        val inputResults = output.stringMap("input_results")
+        val resultsContent = (inputResults?.get("results") as ArrayList<*>).get(0)
+        val errorMessage = inputResults.get("error")
+
+        assertEquals(monitor.name, output["monitor_name"])
+        @Suppress("UNCHECKED_CAST")
+        assertTrue("Monitor results should contain cluster_name field, but was actually: $resultsContent",
+                resultsContent.toString().contains("cluster_name"))
+        @Suppress("UNCHECKED_CAST")
+        assertTrue("Error message should not exist, error: $errorMessage", errorMessage == null)
+    }
+
+    fun `test monitor HttpInput with alert triggered`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+        val trigger = randomTrigger(condition = Script("""
+            return ctx.results[0].number_of_pending_tasks < 1
+        """.trimIndent()), destinationId = createDestination().id)
+        val clusterIndex = randomInt(clusterHosts.size - 1)
+        val input = randomHttpInput(
+                scheme = clusterHosts[clusterIndex].schemeName,
+                host = clusterHosts[clusterIndex].hostName,
+                port = clusterHosts[clusterIndex].port,
+                path = "_cluster/health",
+                params = mapOf(),
+                url = "",
+                connection_timeout = 5000,
+                socket_timeout = 5000)
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))
+        val response = executeMonitor(monitor.id)
+
+        val output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            assertTrue("Should be triggered.", triggerResult.objectMap("action_results").isNotEmpty())
+        }
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved, $output", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, ACTIVE)
+    }
+
+    fun `test monitor HttpInput with no alert triggered`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+        val trigger = randomTrigger(condition = Script("""
+            return ctx.results[0].status.equals("red")
+        """.trimIndent()))
+        val clusterIndex = randomInt(clusterHosts.size - 1)
+        val input = randomHttpInput(
+                scheme = clusterHosts[clusterIndex].schemeName,
+                host = clusterHosts[clusterIndex].hostName,
+                port = clusterHosts[clusterIndex].port,
+                path = "_cluster/health",
+                params = mapOf(),
+                url = "",
+                connection_timeout = 5000,
+                socket_timeout = 5000)
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))
+        val response = executeMonitor(monitor.id)
+
+        val output = entityAsMap(response)
+        assertEquals(monitor.name, output["monitor_name"])
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            val actionResults = triggerResult.objectMap("action_results")
+            @Suppress("UNCHECKED_CAST")
+            assertTrue("Should not be triggered, $actionResults", actionResults.isEmpty())
+        }
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert saved for test monitor, output: $output", 0, alerts.size)
     }
 
     private fun verifyActionExecutionResultInAlert(alert: Alert, expectedResult: Map<String, Int>):
