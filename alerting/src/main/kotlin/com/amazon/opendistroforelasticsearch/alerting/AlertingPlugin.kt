@@ -163,7 +163,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
                 AlertingSettings.ALERT_HISTORY_INDEX_MAX_AGE,
                 AlertingSettings.ALERT_HISTORY_MAX_DOCS,
                 AlertingSettings.ALERTING_MAX_MONITORS,
-                AlertingSettings.REQUEST_TIMEOUT)
+                AlertingSettings.REQUEST_TIMEOUT,
+                AlertingSettings.MAX_ACTION_THROTTLE_VALUE)
     }
 
     override fun onIndexModule(indexModule: IndexModule) {

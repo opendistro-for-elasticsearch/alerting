@@ -77,7 +77,6 @@ data class Throttle(
                     }
                 }
             }
-
             return Throttle(value = value, unit = requireNotNull(unit))
         }
     }
