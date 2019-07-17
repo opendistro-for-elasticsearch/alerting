@@ -55,7 +55,7 @@ data class HttpInput(
         val urlValidator = UrlValidator(arrayOf("http", "https"), UrlValidator.ALLOW_LOCAL_URLS)
 
         // Build url field by field if not provided as whole, and update url field.
-        val constructedUrl = if (Strings.isNullOrEmpty(url)) {
+        val constructedUrl = if (Strings.isEmpty(url)) {
             val uriBuilder = URIBuilder()
             uriBuilder.scheme = scheme
             uriBuilder.host = host
