@@ -21,7 +21,7 @@ suspend fun <C : HttpAsyncClient, T> C.suspendUntil(block: C.(FutureCallback<T>)
         suspendCancellableCoroutine { cont ->
             block(object : FutureCallback<T> {
                 override fun cancelled() {
-                    cont.resumeWith(Result.failure(CancellationException("Request cancelled")))
+                    cont.resumeWithException(CancellationException("Request cancelled"))
                 }
 
                 override fun completed(result: T) {
