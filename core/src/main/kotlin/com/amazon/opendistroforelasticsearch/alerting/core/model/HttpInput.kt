@@ -44,6 +44,10 @@ data class HttpInput(
 
     // Verify parameters are valid during creation
     init {
+        require(validateFields()) {
+            "Invalid fields, if url is set, scheme, host, port, and params should not be set.\n" +
+                    "If either scheme, host, port, or params is set, url should be empty."
+        }
         require(connection_timeout > 0) {
             "Connection timeout: $connection_timeout is not greater than 0."
         }
@@ -137,5 +141,15 @@ data class HttpInput(
             }
             return HttpInput(scheme, host, port, path, params, url, connectionTimeout, socketTimeout)
         }
+    }
+
+    /**
+     * Helper function to check whether only url field is defined or when other fields are defined, url field is not.
+     */
+    private fun validateFields(): Boolean {
+        if (url.isNotEmpty()) {
+            return (Strings.isEmpty(scheme) && Strings.isNullOrEmpty(host) && (port == -1) && params.isEmpty())
+        }
+        return true
     }
 }

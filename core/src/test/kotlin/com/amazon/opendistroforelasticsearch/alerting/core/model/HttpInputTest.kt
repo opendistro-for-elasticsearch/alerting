@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.model
 
-import org.junit.Assert
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.fail
@@ -29,42 +28,50 @@ class HttpInputTest {
             HttpInput("notAValidScheme", "localhost", 9200, "_cluster/health", mapOf(), "", 5000, 5000)
             fail("Invalid scheme when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: notAValidScheme://localhost:9200/_cluster/health", e.message)
+            assertEquals("Invalid url: notAValidScheme://localhost:9200/_cluster/health", e.message)
         }
         try {
             // Invalid host
             HttpInput("http", "loco//host", 9200, "_cluster/health", mapOf(), "", 5000, 5000)
             fail("Invalid host when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: http://loco//host:9200/_cluster/health", e.message)
+            assertEquals("Invalid url: http://loco//host:9200/_cluster/health", e.message)
         }
         try {
             // Invalid path
             HttpInput("http", "localhost", 9200, "///", mapOf(), "", 5000, 5000)
             fail("Invalid path when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: http://localhost:9200///", e.message)
+            assertEquals("Invalid url: http://localhost:9200///", e.message)
         }
         try {
             // Invalid url
-            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", 5000, 5000)
+            HttpInput("", "", -1, "", mapOf(), "¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", 5000, 5000)
             fail("Invalid url when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: ¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", e.message)
+            assertEquals("Invalid url: ¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", e.message)
         }
         try {
             // Invalid connection timeout
             HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "", -5000, 5000)
             fail("Invalid connection timeout when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Connection timeout: -5000 is not greater than 0.", e.message)
+            assertEquals("Connection timeout: -5000 is not greater than 0.", e.message)
         }
         try {
             // Invalid socket timeout
             HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "", 5000, -5000)
             fail("Invalid socket timeout when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Socket timeout: -5000 is not greater than 0.", e.message)
+            assertEquals("Socket timeout: -5000 is not greater than 0.", e.message)
+        }
+        try {
+            // Setting other fields along with url field is not allowed
+            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "http://localhost:9200/_cluster/health", 5000, 5000)
+            fail("Setting url and other fields at the same time should fail.")
+        } catch (e: IllegalArgumentException) {
+            assertEquals("Invalid fields, if url is set, scheme, host, port, and params should not be set.\n" +
+                    "If either scheme, host, port, or params is set, url should be empty.", e.message)
         }
     }
 
@@ -93,6 +100,7 @@ class HttpInputTest {
         assertEquals(validHttpInput.port, 9200)
         assertEquals(validHttpInput.path, "_cluster/health")
         assertEquals(validHttpInput.params, mapOf("value" to "x", "secondVal" to "second"))
+        assertEquals(validHttpInput.url, "")
         assertEquals(validHttpInput.connection_timeout, 5000)
         assertEquals(validHttpInput.socket_timeout, 2500)
     }
