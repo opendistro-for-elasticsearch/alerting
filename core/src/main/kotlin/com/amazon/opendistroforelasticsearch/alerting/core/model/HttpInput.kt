@@ -47,11 +47,11 @@ data class HttpInput(
         require(validateFields()) {
             "Either one of url or scheme + host + port+ + path + params can be set."
         }
-        require(connection_timeout > 0) {
-            "Connection timeout: $connection_timeout is not greater than 0."
+        require(connection_timeout in 1..60) {
+            "Connection timeout: $connection_timeout is not in the range of 1 - 60"
         }
-        require(socket_timeout > 0) {
-            "Socket timeout: $socket_timeout is not greater than 0."
+        require(socket_timeout in 1..60) {
+            "Socket timeout: $socket_timeout is not in the range of 1 - 60"
         }
 
         // Create an UrlValidator that only accepts "http" and "https" as valid scheme and allows local URLs.
