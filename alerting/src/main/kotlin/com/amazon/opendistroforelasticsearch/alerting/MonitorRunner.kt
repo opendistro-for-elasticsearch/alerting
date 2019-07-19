@@ -137,6 +137,7 @@ class MonitorRunner(
 
     override fun doStop() {
         runnerSupervisor.cancel()
+        httpClient.client.close()
     }
 
     override fun doClose() { }

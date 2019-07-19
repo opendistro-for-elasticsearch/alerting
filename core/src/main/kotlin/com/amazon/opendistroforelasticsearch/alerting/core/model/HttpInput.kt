@@ -47,8 +47,8 @@ data class HttpInput(
         require(validateFields()) {
             "Either one of url or scheme + host + port+ + path + params can be set."
         }
-        require(connection_timeout in 1..60) {
-            "Connection timeout: $connection_timeout is not in the range of 1 - 60"
+        require(connection_timeout in 1..5) {
+            "Connection timeout: $connection_timeout is not in the range of 1 - 5"
         }
         require(socket_timeout in 1..60) {
             "Socket timeout: $socket_timeout is not in the range of 1 - 60"

@@ -58,7 +58,7 @@ class HttpInputTest {
             HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "", 70, 5)
             fail("Invalid connection timeout when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            assertEquals("Connection timeout: 70 is not in the range of 1 - 60", e.message)
+            assertEquals("Connection timeout: 70 is not in the range of 1 - 5", e.message)
         }
         try {
             // Invalid socket timeout
