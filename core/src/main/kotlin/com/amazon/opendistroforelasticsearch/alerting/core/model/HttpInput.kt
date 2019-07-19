@@ -45,8 +45,7 @@ data class HttpInput(
     // Verify parameters are valid during creation
     init {
         require(validateFields()) {
-            "Invalid fields, if url is set, scheme, host, port, and params should not be set.\n" +
-                    "If either scheme, host, port, or params is set, url should be empty."
+            "Either one of url or scheme + host + port+ + path + params can be set."
         }
         require(connection_timeout > 0) {
             "Connection timeout: $connection_timeout is not greater than 0."
@@ -58,7 +57,7 @@ data class HttpInput(
         // Create an UrlValidator that only accepts "http" and "https" as valid scheme and allows local URLs.
         val urlValidator = UrlValidator(arrayOf("http", "https"), UrlValidator.ALLOW_LOCAL_URLS)
 
-        // Build url field by field if not provided as whole, and update url field.
+        // Build url field by field if not provided as whole.
         val constructedUrl = if (Strings.isEmpty(url)) {
             val uriBuilder = URIBuilder()
             uriBuilder.scheme = scheme
@@ -67,12 +66,19 @@ data class HttpInput(
             uriBuilder.path = path
             for (e in params.entries)
                 uriBuilder.addParameter(e.key, e.value)
-            uriBuilder.build().toString()
+            uriBuilder.build()
         } else {
-            url
+            URIBuilder(url).build()
         }
 
-        require(urlValidator.isValid(constructedUrl)) {
+        // Make sure that when host is "localhost", only port 9200 is allowed.
+        if (constructedUrl.host == "localhost") {
+            require(constructedUrl.port == 9200) {
+                "Host: ${constructedUrl.host} is restricted to port 9200."
+            }
+        }
+
+        require(urlValidator.isValid(constructedUrl.toString())) {
             "Invalid url: $constructedUrl"
         }
     }
@@ -148,7 +154,7 @@ data class HttpInput(
      */
     private fun validateFields(): Boolean {
         if (url.isNotEmpty()) {
-            return (Strings.isEmpty(scheme) && Strings.isNullOrEmpty(host) && (port == -1) && params.isEmpty())
+            return (Strings.isNullOrEmpty(host) && (port == -1) && path.isNullOrEmpty() && params.isEmpty())
         }
         return true
     }

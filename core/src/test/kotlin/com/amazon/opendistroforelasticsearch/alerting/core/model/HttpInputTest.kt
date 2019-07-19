@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.model
 
+import java.net.URISyntaxException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 class HttpInputTest {
@@ -48,8 +50,8 @@ class HttpInputTest {
             // Invalid url
             HttpInput("", "", -1, "", mapOf(), "¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", 5000, 5000)
             fail("Invalid url when creating HttpInput should fail.")
-        } catch (e: IllegalArgumentException) {
-            assertEquals("Invalid url: ¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", e.message)
+        } catch (e: URISyntaxException) {
+            assertTrue(e.message.toString().contains("Illegal character in path at index"), "Error message is : ${e.message}")
         }
         try {
             // Invalid connection timeout
@@ -70,8 +72,13 @@ class HttpInputTest {
             HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "http://localhost:9200/_cluster/health", 5000, 5000)
             fail("Setting url and other fields at the same time should fail.")
         } catch (e: IllegalArgumentException) {
-            assertEquals("Invalid fields, if url is set, scheme, host, port, and params should not be set.\n" +
-                    "If either scheme, host, port, or params is set, url should be empty.", e.message)
+            assertEquals("Either one of url or scheme + host + port+ + path + params can be set.", e.message)
+        }
+        try {
+            HttpInput("http", "localhost", 30678, "_cluster/health", mapOf(), "", 5000, 5000)
+            fail("localhost with invalid port number should fail.")
+        } catch(e: IllegalArgumentException) {
+            assertEquals("Host: localhost is restricted to port 9200.", e.message)
         }
     }
 
