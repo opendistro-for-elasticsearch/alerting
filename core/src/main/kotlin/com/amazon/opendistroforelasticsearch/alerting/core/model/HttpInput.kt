@@ -150,7 +150,7 @@ data class HttpInput(
     }
 
     /**
-     * Helper function to check whether only url field is defined or when other fields are defined, url field is not.
+     * Helper function to check whether one of url or scheme+host+port+path+params is defined.
      */
     private fun validateFields(): Boolean {
         if (url.isNotEmpty()) {
