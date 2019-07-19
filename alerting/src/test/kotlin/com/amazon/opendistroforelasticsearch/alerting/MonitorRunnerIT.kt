@@ -591,8 +591,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 path = "_cat/indices",
                 params = mapOf(),
                 url = "",
-                connection_timeout = 5000,
-                socket_timeout = 5000)
+                connection_timeout = 5,
+                socket_timeout = 5)
         val monitor = createMonitor(randomMonitor(inputs = listOf(input)))
         val response = executeMonitor(monitor.id)
         val output = entityAsMap(response)
@@ -614,8 +614,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 path = "_cluster/health",
                 params = mapOf(),
                 url = "",
-                connection_timeout = 5000,
-                socket_timeout = 5000)
+                connection_timeout = 5,
+                socket_timeout = 5)
         val monitor = createMonitor(randomMonitor(inputs = listOf(input)))
         val response = executeMonitor(monitor.id)
 
@@ -646,8 +646,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 path = "_cluster/health",
                 params = mapOf(),
                 url = "",
-                connection_timeout = 5000,
-                socket_timeout = 5000)
+                connection_timeout = 5,
+                socket_timeout = 5)
         val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))
         val response = executeMonitor(monitor.id)
 
@@ -675,8 +675,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 path = "_cluster/health",
                 params = mapOf(),
                 url = "",
-                connection_timeout = 5000,
-                socket_timeout = 5000)
+                connection_timeout = 5,
+                socket_timeout = 5)
         val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))
         val response = executeMonitor(monitor.id)
 

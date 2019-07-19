@@ -74,8 +74,8 @@ fun randomHttpInput(
     path: String = ESRestTestCase.randomAlphaOfLength(10),
     params: Map<String, String> = mapOf(),
     url: String = "",
-    connection_timeout: Int = randomInt(10000),
-    socket_timeout: Int = randomInt(10000)
+    connection_timeout: Int = randomInt(10),
+    socket_timeout: Int = randomInt(10)
 ): HttpInput {
     return HttpInput(
         scheme = scheme,
