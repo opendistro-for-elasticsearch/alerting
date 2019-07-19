@@ -111,7 +111,7 @@ class MonitorRunner(
 ) : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
     private val logger = LogManager.getLogger(MonitorRunner::class.java)
-    private val httpClient = HttpInputClient()
+    private var httpClient: HttpInputClient
     private lateinit var runnerSupervisor: Job
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + runnerSupervisor
@@ -128,15 +128,17 @@ class MonitorRunner(
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
-        httpClient.client.start()
+        httpClient = HttpInputClient()
     }
 
     override fun doStart() {
         runnerSupervisor = SupervisorJob()
+        httpClient.client.start()
     }
 
     override fun doStop() {
         runnerSupervisor.cancel()
+        httpClient.client.close()
     }
 
     override fun doClose() { }
@@ -302,6 +304,20 @@ class MonitorRunner(
                     is HttpInput -> {
                         val response: HttpResponse = httpClient.client.suspendUntil {
                             httpClient.client.execute(input.toGetRequest(), it) }
+                        // Check response content length is not larger than 100MB
+                        val contentLengthHeader = response.getFirstHeader("Content-Length").value
+                        val contentLength = if (contentLengthHeader != null) {
+                            logger.info("Content length is $contentLengthHeader")
+                            contentLengthHeader.toInt()
+                        } else {
+                            logger.info("Content-Length header does not exist, check estimate size of content.")
+                            val content = response.entity.content
+                            logger.info("Content has estimate number of ${content.available()} bytes.")
+                            content.available()
+                        }
+                        if (contentLength > httpClient.MAX_CONTENT_LENGTH) {
+                            throw Exception("Response content size: $contentLength, is larger than ${httpClient.MAX_CONTENT_LENGTH}.")
+                        }
                         results += response.toMap()
                     } else -> {
                         throw IllegalArgumentException("Unsupported input type: ${input.name()}.")

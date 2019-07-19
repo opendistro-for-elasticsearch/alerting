@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.HttpInput
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
+import org.elasticsearch.common.unit.ByteSizeUnit
 import org.elasticsearch.common.unit.TimeValue
 import java.security.AccessController
 import java.security.PrivilegedAction
@@ -29,9 +30,10 @@ import java.security.PrivilegedAction
 class HttpInputClient {
 
     // TODO: If possible, these settings should be implemented as changeable via the "_cluster/settings" API.
-    private val CONNECTION_TIMEOUT_MILLISECONDS = TimeValue.timeValueSeconds(10).millis().toInt()
+    private val CONNECTION_TIMEOUT_MILLISECONDS = TimeValue.timeValueSeconds(5).millis().toInt()
     private val REQUEST_TIMEOUT_MILLISECONDS = TimeValue.timeValueSeconds(10).millis().toInt()
     private val SOCKET_TIMEOUT_MILLISECONDS = TimeValue.timeValueSeconds(10).millis().toInt()
+    val MAX_CONTENT_LENGTH = ByteSizeUnit.MB.toBytes(100)
 
     val client = createHttpClient()
 

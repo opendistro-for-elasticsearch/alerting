@@ -20,7 +20,6 @@ import org.apache.http.client.utils.URIBuilder
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -47,8 +46,8 @@ data class HttpInput(
         require(validateFields()) {
             "Either one of url or scheme + host + port+ + path + params can be set."
         }
-        require(connection_timeout in 1..60) {
-            "Connection timeout: $connection_timeout is not in the range of 1 - 60"
+        require(connection_timeout in 1..5) {
+            "Connection timeout: $connection_timeout is not in the range of 1 - 5"
         }
         require(socket_timeout in 1..60) {
             "Socket timeout: $socket_timeout is not in the range of 1 - 60"
@@ -126,8 +125,8 @@ data class HttpInput(
             var path: String? = null
             var params: Map<String, String> = mutableMapOf()
             var url = ""
-            var connectionTimeout = TimeValue.timeValueSeconds(10).millis().toInt()
-            var socketTimeout = TimeValue.timeValueSeconds(10).millis().toInt()
+            var connectionTimeout = 5
+            var socketTimeout = 10
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
 
