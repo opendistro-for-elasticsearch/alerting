@@ -111,7 +111,7 @@ class MonitorRunner(
 ) : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
     private val logger = LogManager.getLogger(MonitorRunner::class.java)
-
+    private val httpClient = HttpInputClient()
     private lateinit var runnerSupervisor: Job
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + runnerSupervisor
@@ -128,6 +128,7 @@ class MonitorRunner(
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
+        httpClient.client.start()
     }
 
     override fun doStart() {
@@ -299,11 +300,8 @@ class MonitorRunner(
                         results += searchResponse.convertToMap()
                     }
                     is HttpInput -> {
-                        val httpClient = HttpInputClient()
-                        httpClient.client.start()
                         val response: HttpResponse = httpClient.client.suspendUntil {
                             httpClient.client.execute(input.toGetRequest(), it) }
-                        httpClient.client.close()
                         results += response.toMap()
                     } else -> {
                         throw IllegalArgumentException("Unsupported input type: ${input.name()}.")

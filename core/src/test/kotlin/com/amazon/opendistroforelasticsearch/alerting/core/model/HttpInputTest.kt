@@ -15,9 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.model
 
-import org.junit.Assert
+import java.net.URISyntaxException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 class HttpInputTest {
@@ -26,55 +27,68 @@ class HttpInputTest {
     fun `test invalid urls`() {
         try {
             // Invalid scheme
-            HttpInput("notAValidScheme", "localhost", 9200, "_cluster/health", mapOf(), "", 5000, 5000)
+            HttpInput("notAValidScheme", "localhost", 9200, "_cluster/health", mapOf(), "", 5, 5)
             fail("Invalid scheme when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: notAValidScheme://localhost:9200/_cluster/health", e.message)
+            assertEquals("Invalid url: notAValidScheme://localhost:9200/_cluster/health", e.message)
         }
         try {
             // Invalid host
-            HttpInput("http", "loco//host", 9200, "_cluster/health", mapOf(), "", 5000, 5000)
+            HttpInput("http", "loco//host", 9200, "_cluster/health", mapOf(), "", 5, 5)
             fail("Invalid host when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: http://loco//host:9200/_cluster/health", e.message)
+            assertEquals("Invalid url: http://loco//host:9200/_cluster/health", e.message)
         }
         try {
             // Invalid path
-            HttpInput("http", "localhost", 9200, "///", mapOf(), "", 5000, 5000)
+            HttpInput("http", "localhost", 9200, "///", mapOf(), "", 5, 5)
             fail("Invalid path when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: http://localhost:9200///", e.message)
+            assertEquals("Invalid url: http://localhost:9200///", e.message)
         }
         try {
             // Invalid url
-            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", 5000, 5000)
+            HttpInput("", "", -1, "", mapOf(), "¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", 5, 5)
             fail("Invalid url when creating HttpInput should fail.")
-        } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Invalid url: ¯¯\\_( ͡° ͜ʖ ͡°)_//¯ ", e.message)
+        } catch (e: URISyntaxException) {
+            assertTrue(e.message.toString().contains("Illegal character in path at index"), "Error message is : ${e.message}")
         }
         try {
             // Invalid connection timeout
-            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "", -5000, 5000)
+            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "", 70, 5)
             fail("Invalid connection timeout when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Connection timeout: -5000 is not greater than 0.", e.message)
+            assertEquals("Connection timeout: 70 is not in the range of 1 - 60", e.message)
         }
         try {
             // Invalid socket timeout
-            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "", 5000, -5000)
+            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "", 5, -5)
             fail("Invalid socket timeout when creating HttpInput should fail.")
         } catch (e: IllegalArgumentException) {
-            Assert.assertEquals("Socket timeout: -5000 is not greater than 0.", e.message)
+            assertEquals("Socket timeout: -5 is not in the range of 1 - 60", e.message)
+        }
+        try {
+            // Setting other fields along with url field is not allowed
+            HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "http://localhost:9200/_cluster/health", 5, 5)
+            fail("Setting url and other fields at the same time should fail.")
+        } catch (e: IllegalArgumentException) {
+            assertEquals("Either one of url or scheme + host + port+ + path + params can be set.", e.message)
+        }
+        try {
+            HttpInput("http", "localhost", 30678, "_cluster/health", mapOf(), "", 5, 5)
+            fail("localhost with invalid port number should fail.")
+        } catch (e: IllegalArgumentException) {
+            assertEquals("Host: localhost is restricted to port 9200.", e.message)
         }
     }
 
     // Test valid url with complete url
     @Test
     fun `test valid HttpInput using url`() {
-        val validHttpInput = HttpInput("", "", -1, "", mapOf(), "http://localhost:9200/_cluster/health/", 5000, 5000)
+        val validHttpInput = HttpInput("", "", -1, "", mapOf(), "http://localhost:9200/_cluster/health/", 5, 5)
         assertEquals(validHttpInput.url, "http://localhost:9200/_cluster/health/")
-        assertEquals(validHttpInput.connection_timeout, 5000)
-        assertEquals(validHttpInput.socket_timeout, 5000)
+        assertEquals(validHttpInput.connection_timeout, 5)
+        assertEquals(validHttpInput.socket_timeout, 5)
     }
 
     @Test
@@ -86,14 +100,15 @@ class HttpInputTest {
                 path = "_cluster/health",
                 params = mapOf("value" to "x", "secondVal" to "second"),
                 url = "",
-                connection_timeout = 5000,
-                socket_timeout = 2500)
+                connection_timeout = 5,
+                socket_timeout = 10)
         assertEquals(validHttpInput.scheme, "http")
         assertEquals(validHttpInput.host, "localhost")
         assertEquals(validHttpInput.port, 9200)
         assertEquals(validHttpInput.path, "_cluster/health")
         assertEquals(validHttpInput.params, mapOf("value" to "x", "secondVal" to "second"))
-        assertEquals(validHttpInput.connection_timeout, 5000)
-        assertEquals(validHttpInput.socket_timeout, 2500)
+        assertEquals(validHttpInput.url, "")
+        assertEquals(validHttpInput.connection_timeout, 5)
+        assertEquals(validHttpInput.socket_timeout, 10)
     }
 }

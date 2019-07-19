@@ -21,7 +21,7 @@ suspend fun <C : HttpAsyncClient, T> C.suspendUntil(block: C.(FutureCallback<T>)
         suspendCancellableCoroutine { cont ->
             block(object : FutureCallback<T> {
                 override fun cancelled() {
-                    cont.resumeWith(Result.failure(CancellationException("Request cancelled")))
+                    cont.resumeWithException(CancellationException("Request cancelled"))
                 }
 
                 override fun completed(result: T) {
@@ -41,9 +41,10 @@ fun HttpResponse.toMap(): Map<String, Any> {
 }
 
 fun HttpInput.toGetRequest(): HttpGet {
+    // Change timeout values to settings specified from input, multiply by 1000 to convert to milliseconds.
     val requestConfig = RequestConfig.custom()
-            .setConnectTimeout(this.connection_timeout)
-            .setSocketTimeout(this.socket_timeout)
+            .setConnectTimeout(this.connection_timeout * 1000)
+            .setSocketTimeout(this.socket_timeout * 1000)
             .build()
     // If url field is null or empty, construct an url field by field.
     val constructedUrl = if (Strings.isNullOrEmpty(this.url)) {

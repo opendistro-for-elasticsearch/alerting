@@ -34,7 +34,7 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
   - Windows System
     1. Find **My Computers** from file directory, right click and select **properties**.
     1. Select the **Advanced** tab, select **Environment variables**.
-    1. Edit **JAVA_HOME** to path of where JDK softeare is installed.
+    1. Edit **JAVA_HOME** to path of where JDK software is installed.
 
 
 ## Build
