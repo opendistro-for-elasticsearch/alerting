@@ -307,12 +307,12 @@ class MonitorRunner(
                         // Check response content length is not larger than 100MB
                         val contentLengthHeader = response.getFirstHeader("Content-Length").value
                         val contentLength = if (contentLengthHeader != null) {
-                            logger.info("Content length is $contentLengthHeader")
+                            logger.debug("Content length is $contentLengthHeader")
                             contentLengthHeader.toInt()
                         } else {
-                            logger.info("Content-Length header does not exist, check estimate size of content.")
+                            logger.debug("Content-Length header does not exist, check estimate size of content.")
                             val content = response.entity.content
-                            logger.info("Content has estimate number of ${content.available()} bytes.")
+                            logger.debug("Content has estimate number of ${content.available()} bytes.")
                             content.available()
                         }
                         if (contentLength > httpClient.MAX_CONTENT_LENGTH) {
