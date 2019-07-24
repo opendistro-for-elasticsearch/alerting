@@ -1,4 +1,12 @@
-## Version 1.1.0 (Current)
+## Version 1.2.0 (Current)
+
+### New Features
+  * Adds support for Elasticsearch 7.2.0 - [PR #89](https://github.com/opendistro-for-elasticsearch/alerting/pull/89)
+
+### Bug fixes
+  * Fixes integTestRunner build task - [PR #83](https://github.com/opendistro-for-elasticsearch/alerting/pull/83)
+
+## 2019-07-25, Version 1.1.0
 
 ### New Features
   * Adds support for Elasticsearch 7.1.1 - [PR #74](https://github.com/opendistro-for-elasticsearch/alerting/pull/74)
