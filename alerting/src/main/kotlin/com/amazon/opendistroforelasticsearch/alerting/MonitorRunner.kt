@@ -303,23 +303,28 @@ class MonitorRunner(
                     }
                     is HttpInput -> {
                         val response: HttpResponse = httpClient.client.suspendUntil {
-                            httpClient.client.execute(input.toGetRequest(), it) }
-                        // Check response content length is not larger than 100MB
+                            httpClient.client.execute(input.toGetRequest(), it)
+                        }
+                        // Make sure response content length is not larger than 100MB
                         val contentLengthHeader = response.getFirstHeader("Content-Length").value
-                        val contentLength = if (contentLengthHeader != null) {
-                            logger.info("Content length is $contentLengthHeader")
-                            contentLengthHeader.toInt()
+
+                        // Use content-length header to check size. If content-length header does not exist, set Alert in Error state.
+                        if (contentLengthHeader != null) {
+                            logger.debug("Content length is $contentLengthHeader")
+                            val contentLength = contentLengthHeader.toInt()
+                            if (contentLength > httpClient.MAX_CONTENT_LENGTH) {
+                                throw Exception("Response content size: $contentLength, is larger than ${httpClient.MAX_CONTENT_LENGTH}.")
+                            }
                         } else {
-                            logger.info("Content-Length header does not exist, check estimate size of content.")
-                            val content = response.entity.content
-                            logger.info("Content has estimate number of ${content.available()} bytes.")
-                            content.available()
+                            logger.debug("Content-length header does not exist, set alert to error state.")
+                            throw IllegalArgumentException("Response does not contain content-length header.")
                         }
-                        if (contentLength > httpClient.MAX_CONTENT_LENGTH) {
-                            throw Exception("Response content size: $contentLength, is larger than ${httpClient.MAX_CONTENT_LENGTH}.")
+
+                        results += withContext(Dispatchers.IO) {
+                            response.toMap()
                         }
-                        results += response.toMap()
-                    } else -> {
+                    }
+                    else -> {
                         throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
                     }
                 }
