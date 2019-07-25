@@ -64,7 +64,7 @@ class RestExecuteMonitorAction(
             val requestEnd = request.paramAsTime("period_end", TimeValue(Instant.now().toEpochMilli()))
 
             val executeMonitor = fun(monitor: Monitor) {
-                runner.launch {
+                runner.launch(Dispatchers.Unconfined) {
                     val (periodStart, periodEnd) =
                             monitor.schedule.getPeriodEndingAt(Instant.ofEpochMilli(requestEnd.millis))
                     try {
