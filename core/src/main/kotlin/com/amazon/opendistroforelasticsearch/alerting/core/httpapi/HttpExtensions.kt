@@ -10,7 +10,6 @@ import org.apache.http.client.utils.URIBuilder
 import org.apache.http.concurrent.FutureCallback
 import org.apache.http.nio.client.HttpAsyncClient
 import org.apache.http.util.EntityUtils
-import org.elasticsearch.common.Strings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentType
@@ -36,7 +35,7 @@ suspend fun <C : HttpAsyncClient, T> C.suspendUntil(block: C.(FutureCallback<T>)
 
 fun HttpResponse.toMap(): Map<String, Any> {
     val xcp = XContentType.JSON.xContent().createParser(
-            NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, EntityUtils.toString(this.entity))
+            NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, EntityUtils.toString(entity))
     return xcp.map()
 }
 
@@ -47,7 +46,7 @@ fun HttpInput.toGetRequest(): HttpGet {
             .setSocketTimeout(this.socket_timeout * 1000)
             .build()
     // If url field is null or empty, construct an url field by field.
-    val constructedUrl = if (Strings.isNullOrEmpty(this.url)) {
+    val constructedUrl = if (url.isEmpty()) {
         val uriBuilder = URIBuilder()
         uriBuilder.scheme = this.scheme
         uriBuilder.host = this.host
