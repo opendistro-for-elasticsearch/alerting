@@ -32,9 +32,9 @@ import java.io.IOException
  */
 data class HttpInput(
     val scheme: String,
-    val host: String?,
+    val host: String,
     val port: Int,
-    val path: String?,
+    val path: String,
     val params: Map<String, String>,
     val url: String,
     val connection_timeout: Int,
@@ -113,9 +113,9 @@ data class HttpInput(
         @JvmStatic @Throws(IOException::class)
         private fun parseInner(xcp: XContentParser): HttpInput {
             var scheme = "http"
-            var host: String? = null
+            var host = ""
             var port: Int = -1
-            var path: String? = null
+            var path = ""
             var params: Map<String, String> = mutableMapOf()
             var url = ""
             var connectionTimeout = 5
@@ -146,7 +146,7 @@ data class HttpInput(
      */
     private fun validateFields(): Boolean {
         if (url.isNotEmpty()) {
-            return (Strings.isNullOrEmpty(host) && (port == -1) && path.isNullOrEmpty() && params.isEmpty())
+            return (host.isEmpty() && (port == -1) && path.isEmpty() && params.isEmpty())
         }
         return true
     }
