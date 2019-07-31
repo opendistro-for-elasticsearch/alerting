@@ -74,12 +74,6 @@ class HttpInputTest {
         } catch (e: IllegalArgumentException) {
             assertEquals("Either one of url or scheme + host + port+ + path + params can be set.", e.message)
         }
-        try {
-            HttpInput("http", "localhost", 30678, "_cluster/health", mapOf(), "", 5, 5)
-            fail("localhost with invalid port number should fail.")
-        } catch (e: IllegalArgumentException) {
-            assertEquals("Host: localhost is restricted to port 9200.", e.message)
-        }
     }
 
     // Test valid url with complete url

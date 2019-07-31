@@ -25,12 +25,14 @@ import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.core.model.HttpInput
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
+import org.apache.http.client.utils.URIBuilder
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -44,6 +46,7 @@ import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -76,7 +79,7 @@ private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
  * Rest handlers to create and update monitors.
  */
 class RestIndexMonitorAction(
-    settings: Settings,
+    val settings: Settings,
     controller: RestController,
     jobIndices: ScheduledJobIndices,
     clusterService: ClusterService
@@ -159,6 +162,7 @@ class RestIndexMonitorAction(
          */
         private fun prepareMonitorIndexing() {
             validateActionThrottle(newMonitor, maxActionThrottle, TimeValue.timeValueMinutes(1))
+            validateLocalPort(newMonitor, settings.get("http.port").toInt())
             if (channel.request().method() == PUT) return updateMonitor()
             val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
             val searchSource = SearchSourceBuilder().query(query).timeout(requestTimeout)
@@ -177,6 +181,36 @@ class RestIndexMonitorAction(
                                 .compareTo(minValue) >= 0, { "Can only set throttle period greater than or equal to $minValue" })
                     }
                 }
+            }
+        }
+
+        /**
+         * This function checks whether the [Monitor] has an [HttpInput] with localhost. If so, make sure the port is same as specified in settings.
+         */
+        private fun validateLocalPort(monitor: Monitor, settingsPort: Int) {
+            if (monitor.inputs.isNotEmpty() && monitor.inputs.single() is HttpInput) {
+                val httpInput = monitor.inputs.single() as HttpInput
+                // Build url field by field if not provided as whole.
+                val constructedUrl = if (Strings.isEmpty(httpInput.url)) {
+                    val uriBuilder = URIBuilder()
+                    uriBuilder.scheme = httpInput.scheme
+                    uriBuilder.host = httpInput.host
+                    uriBuilder.port = httpInput.port
+                    uriBuilder.path = httpInput.path
+                    for (e in httpInput.params.entries)
+                        uriBuilder.addParameter(e.key, e.value)
+                    uriBuilder.build()
+                } else {
+                    URIBuilder(httpInput.url).build()
+                }
+                // Make sure that when host is "localhost", only port number specified in settings is allowed.
+                if (constructedUrl.host == "localhost") {
+                    require(constructedUrl.port == settingsPort) {
+                        "Host: ${constructedUrl.host} is restricted to port $settingsPort."
+                    }
+                }
+            } else {
+                return
             }
         }
 

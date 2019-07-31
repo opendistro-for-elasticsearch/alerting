@@ -70,13 +70,6 @@ data class HttpInput(
             URIBuilder(url).build()
         }
 
-        // Make sure that when host is "localhost", only port 9200 is allowed.
-        if (constructedUrl.host == "localhost") {
-            require(constructedUrl.port == 9200) {
-                "Host: ${constructedUrl.host} is restricted to port 9200."
-            }
-        }
-
         require(urlValidator.isValid(constructedUrl.toString())) {
             "Invalid url: $constructedUrl"
         }
