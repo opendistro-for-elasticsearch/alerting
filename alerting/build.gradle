@@ -49,7 +49,10 @@ configurations.all {
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
-        
+        force "commons-collections:commons-collections:3.2.2"
+        force "org.apache.httpcomponents:httpcore-nio:4.4.11"
+        force "org.apache.httpcomponents:httpclient:4.5.7"
+
         // This is required because kotlin coroutines core-1.1.1 still requires kotin stdlib 1.3.20 and we're using 1.3.21
         force "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
         force "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
@@ -58,6 +61,7 @@ configurations.all {
 
 dependencies {
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
+    compile "org.apache.httpcomponents:httpasyncclient:4.1.4"
 
     // Elasticsearch Nanny state
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
