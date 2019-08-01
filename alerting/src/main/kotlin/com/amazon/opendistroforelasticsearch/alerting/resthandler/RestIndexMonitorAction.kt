@@ -187,20 +187,16 @@ class RestIndexMonitorAction(
          * This function checks whether the [Monitor] has an [HttpInput] with localhost. If so, make sure the port is same as specified in settings.
          */
         private fun validateLocalPort(monitor: Monitor, settingsPort: Int) {
-            if (monitor.inputs.isNotEmpty()) {
-                        for (input in monitor.inputs) {
-                            if (input is HttpInput) {
-                                val constructedUrl = input.toConstructedUrl()
-                                // Make sure that when host is "localhost", only port number specified in settings is allowed.
-                                if (constructedUrl.host == "localhost") {
-                                    require(constructedUrl.port == settingsPort) {
-                                        "Host: ${constructedUrl.host} is restricted to port $settingsPort."
-                                    }
-                                }
-                            }
+            for (input in monitor.inputs) {
+                if (input is HttpInput) {
+                    val constructedUrl = input.toConstructedUrl()
+                    // Make sure that when host is "localhost", only port number specified in settings is allowed.
+                    if (constructedUrl.host == "localhost") {
+                        require(constructedUrl.port == settingsPort) {
+                            "Host: ${constructedUrl.host} is restricted to port $settingsPort."
                         }
-            } else {
-                return
+                    }
+                }
             }
         }
 
