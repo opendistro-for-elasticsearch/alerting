@@ -13,6 +13,7 @@ import org.apache.http.util.EntityUtils
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentType
+import java.net.URI
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -45,20 +46,26 @@ fun HttpInput.toGetRequest(): HttpGet {
             .setConnectTimeout(this.connection_timeout * 1000)
             .setSocketTimeout(this.socket_timeout * 1000)
             .build()
-    // If url field is null or empty, construct an url field by field.
-    val constructedUrl = if (url.isEmpty()) {
-        val uriBuilder = URIBuilder()
-        uriBuilder.scheme = this.scheme
-        uriBuilder.host = this.host
-        uriBuilder.port = this.port
-        uriBuilder.path = this.path
-        for (e in this.params.entries)
-            uriBuilder.addParameter(e.key, e.value)
-        uriBuilder.build().toString()
-    } else {
-        this.url
-    }
+    val constructedUrl = this.toConstructedUrl().toString()
     val httpGetRequest = HttpGet(constructedUrl)
     httpGetRequest.config = requestConfig
     return httpGetRequest
+}
+
+/**
+ * Construct url either by url or by scheme+host+port+path+params.
+ */
+fun HttpInput.toConstructedUrl(): URI {
+    return if (url.isEmpty()) {
+        val uriBuilder = URIBuilder()
+        uriBuilder.scheme = scheme
+        uriBuilder.host = host
+        uriBuilder.port = port
+        uriBuilder.path = path
+        for (e in params.entries)
+            uriBuilder.addParameter(e.key, e.value)
+        uriBuilder.build()
+    } else {
+        URIBuilder(url).build()
+    }
 }

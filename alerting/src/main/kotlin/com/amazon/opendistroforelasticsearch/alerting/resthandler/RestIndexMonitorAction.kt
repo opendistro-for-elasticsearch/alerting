@@ -14,25 +14,25 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
+import com.amazon.opendistroforelasticsearch.alerting.core.httpapi.toConstructedUrl
+import com.amazon.opendistroforelasticsearch.alerting.core.model.HttpInput
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERTING_MAX_MONITORS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
-import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
-import com.amazon.opendistroforelasticsearch.alerting.util._ID
-import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
-import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import com.amazon.opendistroforelasticsearch.alerting.core.model.HttpInput
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
+import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
-import org.apache.http.client.utils.URIBuilder
+import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -46,7 +46,6 @@ import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -188,27 +187,18 @@ class RestIndexMonitorAction(
          * This function checks whether the [Monitor] has an [HttpInput] with localhost. If so, make sure the port is same as specified in settings.
          */
         private fun validateLocalPort(monitor: Monitor, settingsPort: Int) {
-            if (monitor.inputs.isNotEmpty() && monitor.inputs.single() is HttpInput) {
-                val httpInput = monitor.inputs.single() as HttpInput
-                // Build url field by field if not provided as whole.
-                val constructedUrl = if (Strings.isEmpty(httpInput.url)) {
-                    val uriBuilder = URIBuilder()
-                    uriBuilder.scheme = httpInput.scheme
-                    uriBuilder.host = httpInput.host
-                    uriBuilder.port = httpInput.port
-                    uriBuilder.path = httpInput.path
-                    for (e in httpInput.params.entries)
-                        uriBuilder.addParameter(e.key, e.value)
-                    uriBuilder.build()
-                } else {
-                    URIBuilder(httpInput.url).build()
-                }
-                // Make sure that when host is "localhost", only port number specified in settings is allowed.
-                if (constructedUrl.host == "localhost") {
-                    require(constructedUrl.port == settingsPort) {
-                        "Host: ${constructedUrl.host} is restricted to port $settingsPort."
-                    }
-                }
+            if (monitor.inputs.isNotEmpty()) {
+                        for (input in monitor.inputs) {
+                            if (input is HttpInput) {
+                                val constructedUrl = input.toConstructedUrl()
+                                // Make sure that when host is "localhost", only port number specified in settings is allowed.
+                                if (constructedUrl.host == "localhost") {
+                                    require(constructedUrl.port == settingsPort) {
+                                        "Host: ${constructedUrl.host} is restricted to port $settingsPort."
+                                    }
+                                }
+                            }
+                        }
             } else {
                 return
             }
