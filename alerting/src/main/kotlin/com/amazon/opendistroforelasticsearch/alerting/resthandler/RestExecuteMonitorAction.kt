@@ -67,8 +67,7 @@ class RestExecuteMonitorAction(
             val executeMonitor = fun(monitor: Monitor) {
                 // Launch the coroutine with the clients threadContext. This is needed to preserve authentication information
                 // stored on the threadContext set by the security plugin when using the Alerting plugin with the Security plugin.
-                runner.launch(ElasticThreadContextElement(client.threadPool().threadContext,
-                        client.threadPool().threadContext.newStoredContext(true))) {
+                runner.launch(ElasticThreadContextElement(client.threadPool().threadContext)) {
                     val (periodStart, periodEnd) =
                             monitor.schedule.getPeriodEndingAt(Instant.ofEpochMilli(requestEnd.millis))
                     try {
