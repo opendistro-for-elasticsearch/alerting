@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.MonitorRunner
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.ElasticThreadContextElement
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -64,7 +65,9 @@ class RestExecuteMonitorAction(
             val requestEnd = request.paramAsTime("period_end", TimeValue(Instant.now().toEpochMilli()))
 
             val executeMonitor = fun(monitor: Monitor) {
-                runner.launch {
+                // Launch the coroutine with the clients threadContext. This is needed to preserve authentication information
+                // stored on the threadContext set by the security plugin when using the Alerting plugin with the Security plugin.
+                runner.launch(ElasticThreadContextElement(client.threadPool().threadContext)) {
                     val (periodStart, periodEnd) =
                             monitor.schedule.getPeriodEndingAt(Instant.ofEpochMilli(requestEnd.millis))
                     try {
