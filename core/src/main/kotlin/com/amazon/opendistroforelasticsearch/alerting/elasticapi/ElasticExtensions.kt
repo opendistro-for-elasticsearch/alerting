@@ -38,6 +38,10 @@ import java.time.Instant
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.ThreadContextElement
+import org.elasticsearch.common.util.concurrent.ThreadContext
+import org.elasticsearch.common.util.concurrent.ThreadContext.StoredContext
+import kotlin.coroutines.CoroutineContext
 
 /** Convert an object to maps and lists representation */
 fun ToXContent.convertToMap(): Map<String, Any> {
@@ -145,3 +149,32 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
             override fun onFailure(e: Exception) = cont.resumeWithException(e)
         })
     }
+
+/**
+ * Store a [ThreadContext] and restore a [ThreadContext] when the coroutine resumes on a different thread.
+ *
+ * @param threadContext - The context to store when switching to a coroutine.
+ * @param initialContext - The old context to restore upon completion of the coroutine.
+ */
+class ElasticThreadContextElement(
+    private val threadContext: ThreadContext
+) : ThreadContextElement<StoredContext> {
+
+    companion object Key : CoroutineContext.Key<ElasticThreadContextElement>
+    private var initialContext: StoredContext? = threadContext.newStoredContext(true)
+
+    override val key: CoroutineContext.Key<*>
+        get() = Key
+
+    override fun restoreThreadContext(context: CoroutineContext, oldState: StoredContext) {
+        initialContext = threadContext.stashContext()
+    }
+
+    override fun updateThreadContext(context: CoroutineContext): StoredContext {
+        if (initialContext != null) {
+            initialContext!!.close()
+            initialContext = null
+        }
+        return threadContext.newRestorableContext(true).get()
+    }
+}
