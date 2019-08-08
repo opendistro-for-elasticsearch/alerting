@@ -336,5 +336,9 @@ class ScheduleTest : XContentTestBase {
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException") {
             IntervalSchedule(1, ChronoUnit.MONTHS)
         }
+
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException") {
+            IntervalSchedule(-1, ChronoUnit.MINUTES)
+        }
     }
 }
