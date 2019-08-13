@@ -31,6 +31,10 @@ import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
+import com.amazon.opendistroforelasticsearch.alerting.MonitorRunner
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -64,6 +68,7 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
@@ -79,7 +84,8 @@ class RestIndexMonitorAction(
     settings: Settings,
     controller: RestController,
     jobIndices: ScheduledJobIndices,
-    clusterService: ClusterService
+    clusterService: ClusterService,
+    private val runner: MonitorRunner
 ) : BaseRestHandler(settings) {
 
     private var scheduledJobIndices: ScheduledJobIndices
@@ -124,7 +130,9 @@ class RestIndexMonitorAction(
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
         return RestChannelConsumer { channel ->
-            IndexMonitorHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, monitor).start()
+            GlobalScope.launch {
+                IndexMonitorHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, monitor).start()
+            }
         }
     }
 
@@ -138,26 +146,50 @@ class RestIndexMonitorAction(
         private var newMonitor: Monitor
     ) : AsyncActionHandler(client, channel) {
 
-        fun start() {
-            if (!scheduledJobIndices.scheduledJobIndexExists()) {
-                scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
-            } else {
-                if (!IndexUtils.scheduledJobIndexUpdated) {
-                    IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
-                            ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
-                            ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
-                } else {
-                    prepareMonitorIndexing()
-                }
-            }
+        suspend fun start() {
+            prepareMonitorIndexing()
+//            if (!scheduledJobIndices.scheduledJobIndexExists()) {
+//                scheduledJobIndices.initScheduledJobIndex(onCreateMappingsResponse2(channel))
+//            } else {
+//                if (!IndexUtils.scheduledJobIndexUpdated) {
+//                    IndexUtils.updateIndexMapping(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE,
+//                            ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
+//                            onUpdateMappingsResponse2(channel))
+//                } else {
+//                    prepareMonitorIndexing()
+//                }
+//            }
         }
 
         /**
          * This function prepares for indexing a new monitor.
+         * Prior to indexing a new monitor we execute it to ensure the monitor will not violate the security plugin authentication.
          * If this is an update request we can simply update the monitor. Otherwise we first check to see how many monitors already exist,
          * and compare this to the [maxMonitorCount]. Requests that breach this threshold will be rejected.
          */
-        private fun prepareMonitorIndexing() {
+        suspend fun prepareMonitorIndexing() {
+            val (periodStart, periodEnd) = newMonitor.schedule.getPeriodEndingAt(Instant.now())
+            try {
+                runner.runMonitor(newMonitor, periodStart, periodEnd)
+            } catch (e: Exception) {
+                log.error("Failed to index monitor because it was unable to run.")
+                channel.sendResponse(BytesRestResponse(channel, e))
+                return
+            }
+//            try {
+//                runner.launch {
+//                    try {
+//                        val result = runner.runMonitor(newMonitor, periodStart, periodEnd)
+//                    } catch (e: Exception) {
+//                        log.error("Failed to index monitor because it was unable to run.")
+//                        channel.sendResponse(BytesRestResponse(channel, e))
+//                    }
+//                }
+//            } catch (e: Exception) {
+//                log.error("Failed to index monitor because it was unable to run.")
+//                channel.sendResponse(BytesRestResponse(channel, e))
+//                return
+//            }
             validateActionThrottle(newMonitor, maxActionThrottle, TimeValue.timeValueMinutes(1))
             if (channel.request().method() == PUT) return updateMonitor()
             val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
@@ -192,7 +224,23 @@ class RestIndexMonitorAction(
             }
         }
 
-        private fun onCreateMappingsResponse(response: CreateIndexResponse) {
+        private fun onCreateMappingsResponse2(channel: RestChannel): RestActionListener<CreateIndexResponse> {
+            return object : RestActionListener<CreateIndexResponse>(channel) {
+                override fun processResponse(response: CreateIndexResponse) {
+                    if (response.isAcknowledged) {
+                        log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+//                        prepareMonitorIndexing()
+                        IndexUtils.scheduledJobIndexUpdated()
+                    } else {
+                        log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                        channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
+                                response.toXContent(channel.newErrorBuilder(), EMPTY_PARAMS)))
+                    }
+                }
+            }
+        }
+
+        suspend fun onCreateMappingsResponse(response: CreateIndexResponse) {
             if (response.isAcknowledged) {
                 log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
                 prepareMonitorIndexing()
@@ -204,7 +252,25 @@ class RestIndexMonitorAction(
             }
         }
 
-        private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
+        private fun onUpdateMappingsResponse2(channel: RestChannel): RestActionListener<AcknowledgedResponse> {
+            return object: RestActionListener<AcknowledgedResponse>(channel) {
+                override fun processResponse(response: AcknowledgedResponse) {
+                    if (response.isAcknowledged) {
+                        log.info("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                        IndexUtils.scheduledJobIndexUpdated()
+//                        prepareMonitorIndexing()
+                    } else {
+                        log.error("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                        channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
+                                response.toXContent(channel.newErrorBuilder().startObject()
+                                        .field("message", "Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                                        .endObject(), EMPTY_PARAMS)))
+                    }
+                }
+            }
+        }
+
+        suspend fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
             if (response.isAcknowledged) {
                 log.info("Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
                 IndexUtils.scheduledJobIndexUpdated()

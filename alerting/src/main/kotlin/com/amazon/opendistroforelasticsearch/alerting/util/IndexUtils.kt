@@ -27,6 +27,7 @@ import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.rest.action.RestActionListener
 
 class IndexUtils {
 
@@ -102,7 +103,7 @@ class IndexUtils {
 
             val indexMapping = index.mapping().sourceAsMap()
             if (indexMapping.containsKey(_META) && indexMapping[_META] is HashMap<*, *>) {
-                val metaData = indexMapping[_META] as HashMap<*, *>
+                val metaData = indexMapping[_META] as HashMap<String, *>
                 if (metaData.containsKey(SCHEMA_VERSION)) {
                     oldVersion = metaData[SCHEMA_VERSION] as Int
                 }
@@ -117,7 +118,7 @@ class IndexUtils {
             mapping: String,
             clusterState: ClusterState,
             client: IndicesAdminClient,
-            actionListener: ActionListener<AcknowledgedResponse>
+            actionListener: RestActionListener<AcknowledgedResponse>
         ) {
             if (clusterState.metaData.indices.containsKey(index)) {
                 if (shouldUpdateIndex(clusterState.metaData.indices[index], mapping)) {
