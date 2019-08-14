@@ -289,8 +289,6 @@ class MonitorRunner(
                         XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
                             searchRequest.source(SearchSourceBuilder.fromXContent(it))
                         }
-                        logger.info("About to run search")
-                        logger.info("User is: ${client.threadPool().threadContext.getTransient<Any>("_opendistro_security_user")}")
                         val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
                         results += searchResponse.convertToMap()
                     }
