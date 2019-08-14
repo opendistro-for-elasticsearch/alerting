@@ -21,9 +21,9 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
@@ -53,6 +53,7 @@ import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 
@@ -119,12 +120,12 @@ class RestIndexDestinationAction(
 
         fun start() {
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
-                scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
+                scheduledJobIndices.initScheduledJobIndex(onCreateMappingsResponse(channel))
             } else {
                 if (!IndexUtils.scheduledJobIndexUpdated) {
-                    IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
+                    IndexUtils.updateIndexMapping(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE,
                             ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
-                            ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
+                            onUpdateMappingsResponse(channel))
                 } else {
                     prepareDestinationIndexing()
                 }
@@ -145,29 +146,37 @@ class RestIndexDestinationAction(
             }
         }
 
-        private fun onCreateMappingsResponse(response: CreateIndexResponse) {
-            if (response.isAcknowledged) {
-                log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
-                prepareDestinationIndexing()
-                IndexUtils.scheduledJobIndexUpdated()
-            } else {
-                log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
-                channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
-                        response.toXContent(channel.newErrorBuilder(), ToXContent.EMPTY_PARAMS)))
+        private fun onCreateMappingsResponse(channel: RestChannel): RestActionListener<CreateIndexResponse> {
+            return object : RestActionListener<CreateIndexResponse>(channel) {
+                override fun processResponse(response: CreateIndexResponse) {
+                    if (response.isAcknowledged) {
+                        log.info("Created $SCHEDULED_JOBS_INDEX with mappings.")
+                        prepareDestinationIndexing()
+                        IndexUtils.scheduledJobIndexUpdated()
+                    } else {
+                        log.error("Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
+                        channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
+                                response.toXContent(channel.newErrorBuilder(), ToXContent.EMPTY_PARAMS)))
+                    }
+                }
             }
         }
 
-        private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
-            if (response.isAcknowledged) {
-                log.info("Updated  ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
-                IndexUtils.scheduledJobIndexUpdated()
-                prepareDestinationIndexing()
-            } else {
-                log.error("Update ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
-                channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
-                        response.toXContent(channel.newErrorBuilder().startObject()
-                                .field("message", "Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
-                                .endObject(), ToXContent.EMPTY_PARAMS)))
+        private fun onUpdateMappingsResponse(channel: RestChannel): RestActionListener<AcknowledgedResponse> {
+            return object : RestActionListener<AcknowledgedResponse>(channel) {
+                override fun processResponse(response: AcknowledgedResponse) {
+                    if (response.isAcknowledged) {
+                        log.info("Updated  $SCHEDULED_JOBS_INDEX with mappings.")
+                        IndexUtils.scheduledJobIndexUpdated()
+                        prepareDestinationIndexing()
+                    } else {
+                        log.error("Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
+                        channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
+                                response.toXContent(channel.newErrorBuilder().startObject()
+                                        .field("message", "Updated $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
+                                        .endObject(), ToXContent.EMPTY_PARAMS)))
+                    }
+                }
             }
         }
 

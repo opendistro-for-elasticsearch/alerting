@@ -53,6 +53,20 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
         }
     }
 
+    /**
+     * Initialize the indices required for scheduled jobs.
+     * First check if the index exists, and if not create the index with the provided callback listeners.
+     *
+     * @param actionListener A callback listener for the index creation call. Generally in the form of onSuccess, onFailure
+     */
+    fun initScheduledJobIndex(actionListener: ActionListener<CreateIndexResponse>) {
+        if (!scheduledJobIndexExists()) {
+            var indexRequest = CreateIndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
+                    .mapping(ScheduledJob.SCHEDULED_JOB_TYPE, scheduledJobMappings(), XContentType.JSON)
+            client.indices().create(indexRequest, actionListener)
+        }
+    }
+
     fun scheduledJobIndexExists(): Boolean {
         val clusterState = clusterService.state()
         return clusterState.routingTable.hasIndex(ScheduledJob.SCHEDULED_JOBS_INDEX)
