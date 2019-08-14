@@ -454,8 +454,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
 
         val alerts = searchAlerts(monitor)
         val allAlerts = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN)
-        logger.info("All alerts: $allAlerts")
-        logger.info("Monitor : $monitor")
         // We have two alerts from above, 1 for each trigger, there should be only 1 left in active index
         assertEquals("One alert should be in active index", 1, alerts.size)
         assertEquals("Wrong alert in active index", alertKeep, alerts.single())

@@ -133,7 +133,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     fun `test create monitor with no index error`() {
-        // use a non-existent index to trigger an input error
+        // use a non-existent index to fail monitor creation
         val input = SearchInput(indices = listOf("foo"), query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
 
         assertFailsWith(ResponseException::class, "Expected IndexNotFoundException") {

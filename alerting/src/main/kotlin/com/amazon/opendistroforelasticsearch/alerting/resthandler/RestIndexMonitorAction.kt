@@ -186,7 +186,7 @@ class RestIndexMonitorAction(
          * If this is an update request we can simply update the monitor. Otherwise we first check to see how many monitors already exist,
          * and compare this to the [maxMonitorCount]. Requests that breach this threshold will be rejected.
          */
-        fun prepareMonitorIndexing() {
+        private fun prepareMonitorIndexing() {
             validateActionThrottle(newMonitor, maxActionThrottle, TimeValue.timeValueMinutes(1))
             if (channel.request().method() == PUT) return updateMonitor()
             val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
