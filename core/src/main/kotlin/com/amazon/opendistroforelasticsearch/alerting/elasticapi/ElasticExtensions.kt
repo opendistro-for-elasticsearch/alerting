@@ -158,14 +158,14 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
 class ElasticThreadContextElement(private val threadContext: ThreadContext) : ThreadContextElement<Unit> {
 
     companion object Key : CoroutineContext.Key<ElasticThreadContextElement>
-    private var initialContext: StoredContext = threadContext.newStoredContext(true)
+    private var context: StoredContext = threadContext.newStoredContext(true)
 
     override val key: CoroutineContext.Key<*>
         get() = Key
 
     override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
-        initialContext = threadContext.stashContext()
+        this.context = threadContext.stashContext()
     }
 
-    override fun updateThreadContext(context: CoroutineContext) = initialContext.close()
+    override fun updateThreadContext(context: CoroutineContext) = this.context.close()
 }
