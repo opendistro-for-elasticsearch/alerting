@@ -15,6 +15,8 @@
 
 apply plugin: 'java'
 apply plugin: 'jacoco'
+apply plugin: 'maven-publish'
+
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
@@ -23,4 +25,67 @@ dependencies {
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.easymock:easymock:4.0.1"
+}
+
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+publishing {
+    publications {
+        publishNotification(MavenPublication) {
+            groupId = 'com.amazon.opendistroforelasticsearch'
+            artifactId = 'notification'
+
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+
+            pom {
+                name = "Open Distro for Elasticsearch Notification"
+                packaging = "jar"
+                url = "https://github.com/opendistro-for-elasticsearch/alerting"
+                description = "Open Distro for Elasticsearch Notification"
+                scm {
+                    connection = "scm:git@github.com:opendistro-for-elasticsearch/alerting.git"
+                    developerConnection = "scm:git@github.com:opendistro-for-elasticsearch/alerting.git"
+                    url = "git@github.com:opendistro-for-elasticsearch/alerting.git"
+                }
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "amazonwebservices"
+                        organization = "Amazon Web Services"
+                        organizationUrl = "https://aws.amazon.com"
+                    }
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "sonatype-staging"
+            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            credentials {
+                username project.hasProperty('ossrhUsername') ? project.property('ossrhUsername') : ''
+                password project.hasProperty('ossrhPassword') ? project.property('ossrhPassword') : ''
+            }
+        }
+    }
+
+    // TODO - enabled debug logging for the time being, remove this eventually
+    gradle.startParameter.setShowStacktrace(ShowStacktrace.ALWAYS)
+    gradle.startParameter.setLogLevel(LogLevel.DEBUG)
 }
