@@ -16,13 +16,13 @@
 package com.amazon.opendistroforelasticsearch.alerting.core
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.client.AdminClient
 import org.elasticsearch.cluster.health.ClusterIndexHealth
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.rest.action.RestActionListener
 
 /**
  * Initialize the Elasticsearch components required to run [ScheduledJobs].
@@ -44,7 +44,7 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
      *
      * @param actionListener A callback listener for the index creation call. Generally in the form of onSuccess, onFailure
      */
-    fun initScheduledJobIndex(actionListener: ActionListener<CreateIndexResponse>) {
+    fun initScheduledJobIndex(actionListener: RestActionListener<CreateIndexResponse>) {
         if (!scheduledJobIndexExists()) {
             var indexRequest = CreateIndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
                     .mapping(ScheduledJob.SCHEDULED_JOB_TYPE, scheduledJobMappings(), XContentType.JSON)
