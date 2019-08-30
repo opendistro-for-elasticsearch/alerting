@@ -13,10 +13,11 @@
  *   permissions and limitations under the License.
  */
 
+apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'java'
 apply plugin: 'jacoco'
 apply plugin: 'maven-publish'
-
+apply plugin: 'signing'
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
@@ -25,6 +26,13 @@ dependencies {
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.easymock:easymock:4.0.1"
+}
+
+shadowJar {
+    relocate 'org.apache.httpcomponents', 'com.amazon.opendistroforelasticsearch.notification.repackage.org.apache.httpcomponents'
+    relocate 'commons-logging', 'com.amazon.opendistroforelasticsearch.notification.repackage.commons-logging'
+    relocate 'commons-codec', 'com.amazon.opendistroforelasticsearch.notification.repackage.commons-codec'
+    classifier = null
 }
 
 task sourcesJar(type: Jar) {
@@ -39,11 +47,11 @@ task javadocJar(type: Jar) {
 
 publishing {
     publications {
-        publishNotification(MavenPublication) {
+        shadow(MavenPublication) {
+            project.shadow.component(it)
             groupId = 'com.amazon.opendistroforelasticsearch'
             artifactId = 'notification'
 
-            from components.java
             artifact sourcesJar
             artifact javadocJar
 
@@ -88,4 +96,9 @@ publishing {
     // TODO - enabled debug logging for the time being, remove this eventually
     gradle.startParameter.setShowStacktrace(ShowStacktrace.ALWAYS)
     gradle.startParameter.setLogLevel(LogLevel.DEBUG)
+
+    signing {
+        required { gradle.taskGraph.hasTask("publishShadowPublicationToSonatype-stagingRepository") }
+        sign publishing.publications.shadow
+    }
 }
