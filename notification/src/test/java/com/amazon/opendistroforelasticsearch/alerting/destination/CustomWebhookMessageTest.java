@@ -39,9 +39,6 @@ import static org.junit.Assert.assertEquals;
 
     @RunWith(Parameterized.class)
 public class CustomWebhookMessageTest {
-
-    //private static class CustomWebhookMessageParamTest {
-
         @Parameterized.Parameters(name = "Param: {0}={1}")
         public static Object[][] params() {
             return new Object[][]{
@@ -58,9 +55,7 @@ public class CustomWebhookMessageTest {
 
         @Parameterized.Parameter(1)
         public Class<HttpUriRequest> expectedHttpClass;
-
-
-
+        
         @Test
         public void testCustomWebhookMessage() throws Exception {
 
