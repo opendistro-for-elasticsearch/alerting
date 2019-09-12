@@ -38,6 +38,10 @@ import java.time.Instant
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.ThreadContextElement
+import org.elasticsearch.common.util.concurrent.ThreadContext
+import org.elasticsearch.common.util.concurrent.ThreadContext.StoredContext
+import kotlin.coroutines.CoroutineContext
 
 /** Convert an object to maps and lists representation */
 fun ToXContent.convertToMap(): Map<String, Any> {
@@ -145,3 +149,23 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
             override fun onFailure(e: Exception) = cont.resumeWithException(e)
         })
     }
+
+/**
+ * Store a [ThreadContext] and restore a [ThreadContext] when the coroutine resumes on a different thread.
+ *
+ * @param threadContext - a [ThreadContext] instance
+ */
+class ElasticThreadContextElement(private val threadContext: ThreadContext) : ThreadContextElement<Unit> {
+
+    companion object Key : CoroutineContext.Key<ElasticThreadContextElement>
+    private var context: StoredContext = threadContext.newStoredContext(true)
+
+    override val key: CoroutineContext.Key<*>
+        get() = Key
+
+    override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
+        this.context = threadContext.stashContext()
+    }
+
+    override fun updateThreadContext(context: CoroutineContext) = this.context.close()
+}
