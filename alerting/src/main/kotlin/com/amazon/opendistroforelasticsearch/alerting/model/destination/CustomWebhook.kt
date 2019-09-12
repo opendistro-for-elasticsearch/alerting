@@ -33,6 +33,7 @@ data class CustomWebhook(
     val host: String?,
     val port: Int,
     val path: String?,
+    val method: String?,
     val queryParams: Map<String, String>,
     val headerParams: Map<String, String>,
     val username: String?,
@@ -52,6 +53,7 @@ data class CustomWebhook(
                 .field(HOST_FIELD, host)
                 .field(PORT_FIELD, port)
                 .field(PATH_FIELD, path)
+                .field(METHOD_FIELD, method)
                 .field(QUERY_PARAMS_FIELD, queryParams)
                 .field(HEADER_PARAMS_FIELD, headerParams)
                 .field(USERNAME_FIELD, username)
@@ -66,6 +68,7 @@ data class CustomWebhook(
         const val HOST_FIELD = "host"
         const val PORT_FIELD = "port"
         const val PATH_FIELD = "path"
+        const val METHOD_FIELD = "method"
         const val QUERY_PARAMS_FIELD = "query_params"
         const val HEADER_PARAMS_FIELD = "header_params"
         const val USERNAME_FIELD = "username"
@@ -79,6 +82,7 @@ data class CustomWebhook(
             var host: String? = null
             var port: Int = -1
             var path: String? = null
+            var method: String? = null
             var queryParams: Map<String, String> = mutableMapOf()
             var headerParams: Map<String, String> = mutableMapOf()
             var username: String? = null
@@ -94,6 +98,7 @@ data class CustomWebhook(
                     HOST_FIELD -> host = xcp.textOrNull()
                     PORT_FIELD -> port = xcp.intValue()
                     PATH_FIELD -> path = xcp.textOrNull()
+                    METHOD_FIELD -> method = xcp.textOrNull()
                     QUERY_PARAMS_FIELD -> queryParams = xcp.mapStrings()
                     HEADER_PARAMS_FIELD -> headerParams = xcp.mapStrings()
                     USERNAME_FIELD -> username = xcp.textOrNull()
@@ -103,7 +108,7 @@ data class CustomWebhook(
                     }
                 }
             }
-            return CustomWebhook(url, scheme, host, port, path, queryParams, headerParams, username, password)
+            return CustomWebhook(url, scheme, host, port, path, method, queryParams, headerParams, username, password)
         }
     }
 }

@@ -22,62 +22,86 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMe
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.*;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicStatusLine;
 import org.easymock.EasyMock;
 import org.elasticsearch.rest.RestStatus;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
+
+    @RunWith(Parameterized.class)
 public class CustomWebhookMessageTest {
 
-    @Test
-    public void testCustomWebhookMessage() throws Exception {
+    //private static class CustomWebhookMessageParamTest {
 
-        CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
+        @Parameterized.Parameters(name = "Param: {0}={1}")
+        public static Object[][] params() {
+            return new Object[][]{
+                    {"POST", HttpPost.class},
+                    {"PUT", HttpPut.class},
+                    {"PATCH", HttpPatch.class},
+                    {"GET", HttpGet.class},
+                    {"DELETE", HttpDelete.class}
+            };
+        }
 
-        DestinationHttpResponse expectedCustomWebhookResponse = new DestinationHttpResponse.Builder().withResponseContent("{}")
-                .withStatusCode(RestStatus.OK.getStatus()).build();
-        CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
-        EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse);
+        @Parameterized.Parameter(0)
+        public String method;
 
-        BasicStatusLine mockStatusLine = EasyMock.createMock(BasicStatusLine.class);
+        @Parameterized.Parameter(1)
+        public Class<HttpUriRequest> expectedHttpClass;
 
-        EasyMock.expect(httpResponse.getStatusLine()).andReturn(mockStatusLine);
-        EasyMock.expect(httpResponse.getEntity()).andReturn(null).anyTimes();
-        EasyMock.expect(mockStatusLine.getStatusCode()).andReturn(RestStatus.OK.getStatus());
-        EasyMock.replay(mockHttpClient);
-        EasyMock.replay(httpResponse);
-        EasyMock.replay(mockStatusLine);
 
-        DestinationHttpClient httpClient = new DestinationHttpClient();
-        httpClient.setHttpClient(mockHttpClient);
-        CustomWebhookDestinationFactory customDestinationFactory = new CustomWebhookDestinationFactory();
-        customDestinationFactory.setClient(httpClient);
 
-        DestinationFactoryProvider.setFactory(DestinationType.CUSTOMWEBHOOK, customDestinationFactory);
+        @Test
+        public void testCustomWebhookMessage() throws Exception {
 
-        Map<String, String> queryParams = new HashMap<String, String>();
-        queryParams.put("token", "R2x1UlN4ZHF8MXxxVFJpelJNVDgzdGNwMnVRenJwRFBHUkR0NlhROWhXOVVTZXpiTWx2azVr");
+            CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
 
-        String message = "{\"Content\":\"Message gughjhjlkh Body emoji test: :) :+1: " +
-                "link test: http://sample.com email test: marymajor@example.com " +
-                "All member callout: @All All Present member callout: @Present\"}";
-        BaseMessage bm = new CustomWebhookMessage.Builder("abc").withHost("hooks.chime.aws").
-                withPath("incomingwebhooks/383c0e2b-d028-44f4-8d38-696754bc4574").
-                withMessage(message).
-                withQueryParams(queryParams).build();
-        DestinationHttpResponse actualCustomResponse = (DestinationHttpResponse) Notification.publish(bm);
+            DestinationHttpResponse expectedCustomWebhookResponse = new DestinationHttpResponse.Builder().withResponseContent("{}")
+                    .withStatusCode(RestStatus.OK.getStatus()).build();
+            CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
+            EasyMock.expect(mockHttpClient.execute(EasyMock.isA(expectedHttpClass))).andReturn(httpResponse);
 
-        assertEquals(expectedCustomWebhookResponse.getResponseContent(), actualCustomResponse.getResponseContent());
-        assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
-    }
+            BasicStatusLine mockStatusLine = EasyMock.createMock(BasicStatusLine.class);
+
+            EasyMock.expect(httpResponse.getStatusLine()).andReturn(mockStatusLine);
+            EasyMock.expect(httpResponse.getEntity()).andReturn(null).anyTimes();
+            EasyMock.expect(mockStatusLine.getStatusCode()).andReturn(RestStatus.OK.getStatus());
+            EasyMock.replay(mockHttpClient);
+            EasyMock.replay(httpResponse);
+            EasyMock.replay(mockStatusLine);
+
+            DestinationHttpClient httpClient = new DestinationHttpClient();
+            httpClient.setHttpClient(mockHttpClient);
+            CustomWebhookDestinationFactory customDestinationFactory = new CustomWebhookDestinationFactory();
+            customDestinationFactory.setClient(httpClient);
+
+            DestinationFactoryProvider.setFactory(DestinationType.CUSTOMWEBHOOK, customDestinationFactory);
+
+            Map<String, String> queryParams = new HashMap<String, String>();
+            queryParams.put("token", "R2x1UlN4ZHF8MXxxVFJpelJNVDgzdGNwMnVRenJwRFBHUkR0NlhROWhXOVVTZXpiTWx2azVr");
+
+            String message = "{\"Content\":\"Message gughjhjlkh Body emoji test: :) :+1: " +
+                    "link test: http://sample.com email test: marymajor@example.com " +
+                    "All member callout: @All All Present member callout: @Present\"}";
+            BaseMessage bm = new CustomWebhookMessage.Builder("abc").withHost("hooks.chime.aws").
+                    withPath("incomingwebhooks/383c0e2b-d028-44f4-8d38-696754bc4574").
+                    withMessage(message).withMethod(method).
+                    withQueryParams(queryParams).build();
+            DestinationHttpResponse actualCustomResponse = (DestinationHttpResponse) Notification.publish(bm);
+
+            assertEquals(expectedCustomWebhookResponse.getResponseContent(), actualCustomResponse.getResponseContent());
+            assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
+        }
 
     @Test(expected = IllegalArgumentException.class)
     public void testUrlMissingMessage() {

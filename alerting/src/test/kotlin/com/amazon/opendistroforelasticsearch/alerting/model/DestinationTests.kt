@@ -49,13 +49,13 @@ class DestinationTests : ESTestCase() {
     }
 
     fun `test custom webhook destination with url and no host`() {
-        val customWebhook = CustomWebhook("http://abc.com", null, null, -1, null, emptyMap(), emptyMap(), null, null)
+        val customWebhook = CustomWebhook("http://abc.com", null, null, -1, null, null, emptyMap(), emptyMap(), null, null)
         assertEquals("Url is manipulated", customWebhook.url, "http://abc.com")
     }
 
     fun `test custom webhook destination with host and no url`() {
         try {
-            val customWebhook = CustomWebhook(null, null, "abc.com", 80, null, emptyMap(), emptyMap(), null, null)
+            val customWebhook = CustomWebhook(null, null, "abc.com", 80, null, null, emptyMap(), emptyMap(), null, null)
             assertEquals("host is manipulated", customWebhook.host, "abc.com")
         } catch (ignored: IllegalArgumentException) {
         }
@@ -63,13 +63,13 @@ class DestinationTests : ESTestCase() {
 
     fun `test custom webhook destination with url and host`() {
         // In this case, url will be given priority
-        val customWebhook = CustomWebhook("http://abc.com", null, null, -1, null, emptyMap(), emptyMap(), null, null)
+        val customWebhook = CustomWebhook("http://abc.com", null, null, -1, null, null, emptyMap(), emptyMap(), null, null)
         assertEquals("Url is manipulated", customWebhook.url, "http://abc.com")
     }
 
     fun `test custom webhook destination with no url and no host`() {
         try {
-            CustomWebhook("", null, null, 80, null, emptyMap(), emptyMap(), null, null)
+            CustomWebhook("", null, null, 80, null, null, emptyMap(), emptyMap(), null, null)
             fail("Creating a custom webhook destination with empty url did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
