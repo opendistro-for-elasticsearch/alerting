@@ -36,10 +36,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 
 @RunWith(Parameterized.class)
@@ -190,6 +195,68 @@ public class CustomWebhookMessageTest {
 
         assertEquals(expectedCustomWebhookResponse.getResponseContent(), actualCustomResponse.getResponseContent());
         assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
+    }
+
+    @Test
+    public void testCustomWebhookMessageBlackList() throws Exception {
+        CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
+
+        CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
+        EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse).anyTimes();
+
+        BasicStatusLine mockStatusLine = EasyMock.createMock(BasicStatusLine.class);
+
+        EasyMock.expect(httpResponse.getStatusLine()).andReturn(mockStatusLine).anyTimes();
+        EasyMock.expect(httpResponse.getEntity()).andReturn(null).anyTimes();
+        EasyMock.expect(mockStatusLine.getStatusCode()).andReturn(RestStatus.OK.getStatus()).anyTimes();
+        EasyMock.replay(mockHttpClient);
+        EasyMock.replay(httpResponse);
+        EasyMock.replay(mockStatusLine);
+
+        DestinationHttpClient httpClient = new DestinationHttpClient();
+        httpClient.setHttpClient(mockHttpClient);
+        CustomWebhookDestinationFactory customDestinationFactory = new CustomWebhookDestinationFactory();
+        customDestinationFactory.setClient(httpClient);
+
+        DestinationFactoryProvider.setFactory(DestinationType.CUSTOMWEBHOOK, customDestinationFactory);
+
+        Map<String, String> queryParams = new HashMap<String, String>();
+        queryParams.put("token", "R2x1UlN4ZHF8MXxxVFJpelJNVDgzdGNwMnVRenJwRFBHUkR0NlhROWhXOVVTZXpiTWx2azVr");
+
+        String message = "{\"Content\":\"Message gughjhjlkh Body emoji test: :) :+1: " +
+                "link test: http://sample.com email test: marymajor@example.com " +
+                "All member callout: @All All Present member callout: @Present\"}";
+        BaseMessage bm;
+
+        final List<String> blacklistIps = new ArrayList<>(
+                Arrays.asList(
+                        "127.0.0.1", // 127.0.0.0/8
+                        "169.254.0.1", // 169.254.0.0/16
+                        "0.0.0.1", // 0.0.0.0/8
+                        "100.64.0.1", // 100.64.0.0/10
+                        "192.0.0.1", // 192.0.0.0/24
+                        "192.0.2.1", // 192.0.2.0/24
+                        "198.18.0.1", // 198.18.0.0/15
+                        "192.88.99.1", // 192.88.99.0/24
+                        "198.51.100.1", // 198.51.100.0/24
+                        "203.0.113.1", // 203.0.113.0/24
+                        "224.0.0.1", // 224.0.0.0/4
+                        "240.0.0.1") // 240.0.0.0/4
+                );
+
+        for (String ip : blacklistIps) {
+            bm = new CustomWebhookMessage.Builder("foo").withHost(ip).
+                    withPath("foo/bar").
+                    withMessage(message).
+                    withQueryParams(queryParams).build();
+            try {
+                Notification.publish(bm);
+                fail();
+            } catch (Exception e) {
+                assertTrue(e.getMessage().contains("The destination address is invalid."));
+                continue;
+            }
+        }
     }
 
     @Test(expected = IllegalArgumentException.class)

@@ -40,14 +40,18 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestStatus;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import org.apache.commons.net.util.SubnetUtils;
 
 
 /**
@@ -62,6 +66,23 @@ public class DestinationHttpClient {
     private static final int TIMEOUT_MILLISECONDS = (int) TimeValue.timeValueSeconds(5).millis();
     private static final int SOCKET_TIMEOUT_MILLISECONDS = (int)TimeValue.timeValueSeconds(50).millis();
 
+    private static final List<String> blacklistRanges = new ArrayList<>(
+            Arrays.asList(
+                //Loopback
+                "127.0.0.0/8",
+                //AWS internal IP range
+                "169.254.0.0/16",
+                //Reserved IP address
+                "0.0.0.0/8",
+                "100.64.0.0/10",
+                "192.0.0.0/24",
+                "192.0.2.0/24",
+                "198.18.0.0/15",
+                "192.88.99.0/24",
+                "198.51.100.0/24",
+                "203.0.113.0/24",
+                "224.0.0.0/4",
+                "240.0.0.0/4"));
     /**
      * all valid response status
      */
@@ -70,7 +91,7 @@ public class DestinationHttpClient {
             RestStatus.NON_AUTHORITATIVE_INFORMATION.getStatus(), RestStatus.NO_CONTENT.getStatus(),
             RestStatus.RESET_CONTENT.getStatus(), RestStatus.PARTIAL_CONTENT.getStatus(),
             RestStatus.MULTI_STATUS.getStatus())));
-    
+
     private static CloseableHttpClient HTTP_CLIENT = createHttpClient();
 
     private static CloseableHttpClient createHttpClient() {
@@ -87,6 +108,7 @@ public class DestinationHttpClient {
         return HttpClientBuilder.create()
                 .setDefaultRequestConfig(config)
                 .setConnectionManager(connectionManager)
+                .disableRedirectHandling()
                 .setRetryHandler(new DefaultHttpRequestRetryHandler())
                 .useSystemProperties()
                 .build();
@@ -127,6 +149,15 @@ public class DestinationHttpClient {
              uri = buildUri(message.getUrl().trim(), null, null, -1, null, null);
         }
 
+        SubnetUtils utils;
+        for (String range : blacklistRanges) {
+            utils = new SubnetUtils(range);
+            if (utils.getInfo().isInRange(InetAddress.getByName(uri.getHost()).getHostAddress())) {
+                logger.error("Host: {} resolves to: {} which is in blacklist: {}.", uri.getHost(), InetAddress.getByName(uri.getHost()), range);
+                throw new IllegalArgumentException("The destination address is invalid.");
+            }
+        }
+
         httpRequest.setURI(uri);
         if (httpRequest instanceof HttpEntityEnclosingRequestBase){
             StringEntity entity = new StringEntity(extractBody(message), StandardCharsets.UTF_8);
@@ -149,9 +180,7 @@ public class DestinationHttpClient {
         }
     }
 
-    private URI buildUri(String endpoint, String scheme, String host,
-                         int port, String path, Map<String, String> queryParams)
-            throws Exception {
+    private URI buildUri(String endpoint, String scheme, String host, int port, String path, Map<String, String> queryParams) throws Exception {
         try {
             if(Strings.isNullOrEmpty(endpoint)) {
                 logger.info("endpoint empty. Fall back to host:port/path");

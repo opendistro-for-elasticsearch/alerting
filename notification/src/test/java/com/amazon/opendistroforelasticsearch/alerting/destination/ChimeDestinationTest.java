@@ -67,7 +67,7 @@ public class ChimeDestinationTest {
                 "link test: http://sample.com email test: marymajor@example.com All member callout: " +
                 "@All All Present member callout: @Present\"}";
         BaseMessage bm = new ChimeMessage.Builder("abc").withMessage(message).
-                withUrl("https://abc/com").build();
+                withUrl("https://abc.com").build();
         DestinationResponse actualChimeResponse = (DestinationResponse) Notification.publish(bm);
 
         assertEquals(expectedChimeResponse.getResponseContent(), actualChimeResponse.getResponseContent());
@@ -105,7 +105,7 @@ public class ChimeDestinationTest {
                 "link test: http://sample.com email test: marymajor@example.com All member callout: " +
                 "@All All Present member callout: @Present\"}";
         BaseMessage bm = new ChimeMessage.Builder("abc").withMessage(message).
-                withUrl("https://abc/com").build();
+                withUrl("https://abc.com").build();
         DestinationResponse actualChimeResponse = (DestinationResponse) Notification.publish(bm);
 
         assertEquals(expectedChimeResponse.getResponseContent(), actualChimeResponse.getResponseContent());
@@ -143,7 +143,7 @@ public class ChimeDestinationTest {
                 "link test: http://sample.com email test: marymajor@example.com All member callout: " +
                 "@All All Present member callout: @Present\"}";
         BaseMessage bm = new ChimeMessage.Builder("abc").withMessage(message).
-                withUrl("https://abc/com").build();
+                withUrl("https://abc.com").build();
         DestinationResponse actualChimeResponse = (DestinationResponse) Notification.publish(bm);
 
         assertEquals(expectedChimeResponse.getResponseContent(), actualChimeResponse.getResponseContent());
@@ -153,8 +153,7 @@ public class ChimeDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testUrlMissingMessage() {
         try {
-            ChimeMessage message = new ChimeMessage.Builder("chime")
-                    .withMessage("dummyMessage").build();
+            ChimeMessage message = new ChimeMessage.Builder("chime").withMessage("dummyMessage").build();
         } catch (Exception ex) {
             assertEquals("url is invalid or empty", ex.getMessage());
             throw ex;
@@ -164,8 +163,7 @@ public class ChimeDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testContentMissingMessage() {
         try {
-            ChimeMessage message = new ChimeMessage.Builder("chime")
-                    .withUrl("abc.com").build();
+            ChimeMessage message = new ChimeMessage.Builder("chime").withUrl("abc.com").build();
         } catch (Exception ex) {
             assertEquals("Message content is missing", ex.getMessage());
             throw ex;
