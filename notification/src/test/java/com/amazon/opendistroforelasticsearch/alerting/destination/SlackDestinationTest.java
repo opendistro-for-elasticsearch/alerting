@@ -29,12 +29,27 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicStatusLine;
 import org.easymock.EasyMock;
 import org.elasticsearch.rest.RestStatus;
-import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
+import java.net.InetAddress;
+
+import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
+import static org.powermock.api.easymock.PowerMock.mockStatic;
+import static org.powermock.api.easymock.PowerMock.replayAll;
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({DestinationHttpClient.class, SlackDestinationFactory.class, InetAddress.class})
+@PowerMockIgnore({"javax.net.ssl.*"})
 public class SlackDestinationTest {
+
+    @Mock
+    InetAddress inetAddress;
 
     @Test
     public void testSlackMessage_NullEntityResponse() throws Exception {
@@ -56,6 +71,11 @@ public class SlackDestinationTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
+
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
+        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -95,6 +115,11 @@ public class SlackDestinationTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
+
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
+        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -137,6 +162,11 @@ public class SlackDestinationTest {
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
 
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
+        replayAll();
+
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
         SlackDestinationFactory slackDestinationFactory = new SlackDestinationFactory();
@@ -159,10 +189,9 @@ public class SlackDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testUrlMissingMessage() {
         try {
-            SlackMessage message = new SlackMessage.Builder("slack")
-                    .withMessage("dummyMessage").build();
+            SlackMessage message = new SlackMessage.Builder("slack").withMessage("dummyMessage").build();
         } catch (Exception ex) {
-            Assert.assertEquals("url is invalid or empty", ex.getMessage());
+            assertEquals("url is invalid or empty", ex.getMessage());
             throw ex;
         }
     }
@@ -170,8 +199,7 @@ public class SlackDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testContentMissingMessage() {
         try {
-            SlackMessage message = new SlackMessage.Builder("slack")
-                    .withUrl("abc.com").build();
+            SlackMessage message = new SlackMessage.Builder("slack").withUrl("abc.com").build();
         } catch (Exception ex) {
             assertEquals("Message content is missing", ex.getMessage());
             throw ex;
