@@ -30,10 +30,26 @@ import org.apache.http.message.BasicStatusLine;
 import org.easymock.EasyMock;
 import org.elasticsearch.rest.RestStatus;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
+import java.net.InetAddress;
+
+import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
+import static org.powermock.api.easymock.PowerMock.mockStatic;
+import static org.powermock.api.easymock.PowerMock.replayAll;
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({DestinationHttpClient.class, ChimeDestinationFactory.class, InetAddress.class})
+@PowerMockIgnore({"javax.net.ssl.*"})
 public class ChimeDestinationTest {
+
+    @Mock
+    InetAddress inetAddress;
 
     @Test
     public void testChimeMessage_NullEntityResponse() throws Exception {
@@ -55,6 +71,11 @@ public class ChimeDestinationTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
+
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("34.216.127.34").anyTimes(); // abc.com IP
+        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -131,6 +152,11 @@ public class ChimeDestinationTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
+
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("34.216.127.34").anyTimes(); // abc.com IP
+        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);

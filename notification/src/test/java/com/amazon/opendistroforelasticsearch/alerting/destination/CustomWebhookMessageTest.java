@@ -35,19 +35,32 @@ import org.elasticsearch.rest.RestStatus;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.mockito.Mock;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.powermock.api.easymock.PowerMock.mockStatic;
+import static org.powermock.api.easymock.PowerMock.replayAll;
+import static org.powermock.api.easymock.PowerMock.reset;
 
 
-@RunWith(Parameterized.class)
+@RunWith(PowerMockRunner.class)
+@PowerMockRunnerDelegate(Parameterized.class)
+@PrepareForTest({DestinationHttpClient.class, InetAddress.class})
+@PowerMockIgnore({"javax.net.ssl.*"})
 public class CustomWebhookMessageTest {
     @Parameterized.Parameters(name = "Param: {0}={1}")
     public static Object[][] params() {
@@ -63,6 +76,9 @@ public class CustomWebhookMessageTest {
 
     @Parameterized.Parameter(1)
     public Class<HttpUriRequest> expectedHttpClass;
+
+    @Mock
+    InetAddress inetAddress;
 
     @Test
     public void testCustomWebhookMessage_NullEntityResponse() throws Exception {
@@ -85,6 +101,11 @@ public class CustomWebhookMessageTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
+
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
+        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -128,6 +149,11 @@ public class CustomWebhookMessageTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
+
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
+        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -173,6 +199,11 @@ public class CustomWebhookMessageTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
+
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
+        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -245,6 +276,10 @@ public class CustomWebhookMessageTest {
                 );
 
         for (String ip : blacklistIps) {
+            mockStatic(InetAddress.class);
+            expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+            expect(inetAddress.getHostAddress()).andReturn(ip).anyTimes();
+            replayAll();
             bm = new CustomWebhookMessage.Builder("foo").withHost(ip).
                     withPath("foo/bar").
                     withMessage(message).
@@ -254,6 +289,7 @@ public class CustomWebhookMessageTest {
                 fail();
             } catch (Exception e) {
                 assertTrue(e.getMessage().contains("The destination address is invalid."));
+                reset(InetAddress.class);
                 continue;
             }
         }
@@ -262,8 +298,7 @@ public class CustomWebhookMessageTest {
     @Test(expected = IllegalArgumentException.class)
     public void testUrlMissingMessage() {
         try {
-            CustomWebhookMessage message = new CustomWebhookMessage.Builder("custom")
-                    .withMessage("dummyMessage").build();
+            CustomWebhookMessage message = new CustomWebhookMessage.Builder("custom").withMessage("dummyMessage").build();
         } catch (Exception ex) {
             assertEquals("Either fully qualified URL or host name should be provided", ex.getMessage());
             throw ex;
@@ -273,8 +308,7 @@ public class CustomWebhookMessageTest {
     @Test(expected = IllegalArgumentException.class)
     public void testContentMissingMessage() {
         try {
-            CustomWebhookMessage message = new CustomWebhookMessage.Builder("custom")
-                    .withUrl("abc.com").build();
+            CustomWebhookMessage message = new CustomWebhookMessage.Builder("custom").withUrl("abc.com").build();
         } catch (Exception ex) {
             assertEquals("Message content is missing", ex.getMessage());
             throw ex;

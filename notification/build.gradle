@@ -29,6 +29,9 @@ dependencies {
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.powermock:powermock-api-easymock:1.7.4"
     testImplementation "org.easymock:easymock:4.0.1"
+    testCompile group: 'org.powermock', name: 'powermock-easymock-release-full', version: '1.6.4', ext: 'pom'
+    testCompile group: 'org.powermock', name: 'powermock-api-easymock', version: '2.0.2'
+    testCompile group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
 }
 
 shadowJar {
