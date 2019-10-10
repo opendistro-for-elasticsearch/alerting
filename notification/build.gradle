@@ -29,9 +29,9 @@ dependencies {
 }
 
 shadowJar {
-    relocate 'org.apache.httpcomponents', 'com.amazon.opendistroforelasticsearch.notification.repackage.org.apache.httpcomponents'
-    relocate 'commons-logging', 'com.amazon.opendistroforelasticsearch.notification.repackage.commons-logging'
-    relocate 'commons-codec', 'com.amazon.opendistroforelasticsearch.notification.repackage.commons-codec'
+    relocate 'org.apache.http', 'com.amazon.opendistroforelasticsearch.notification.repackage.org.apache.http'
+    relocate 'org.apache.commons.logging', 'com.amazon.opendistroforelasticsearch.notification.repackage.org.apache.commons.logging'
+    relocate 'org.apache.commons.codec', 'com.amazon.opendistroforelasticsearch.notification.repackage.org.apache.commons.codec'
     classifier = null
 }
 
