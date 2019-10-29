@@ -3,7 +3,8 @@ name: Master Workflow
 on:
   pull_request:
     branches:
-      - '*'
+      - master
+      - opendistro-*
 
 jobs:
   build:
