@@ -10,6 +10,9 @@ assignees: lucaswin-amzn
 **Describe the bug**
 A clear and concise description of what the bug is.
 
+**Other plugins installed**
+Please mention if you are using this plugin along side any other plugin. Security for example.
+
 **To Reproduce**
 Steps to reproduce the behavior:
 1. Go to '...'
