@@ -68,8 +68,8 @@ class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStat
         this.scheduledJobIndices = scheduledJobIndices
     }
 
-    override fun newNodeRequest(nodeId: String, request: ScheduledJobsStatsRequest): ScheduledJobStatusRequest {
-        return ScheduledJobStatusRequest(nodeId, request)
+    override fun newNodeRequest(request: ScheduledJobsStatsRequest): ScheduledJobStatusRequest {
+        return ScheduledJobStatusRequest(request)
     }
 
     override fun newNodeResponse(): ScheduledJobStats {
@@ -128,7 +128,7 @@ class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStat
         lateinit var request: ScheduledJobsStatsRequest
 
         constructor() : super()
-        constructor(nodeId: String, request: ScheduledJobsStatsRequest) : super(nodeId) {
+        constructor(request: ScheduledJobsStatsRequest) : super() {
             this.request = request
         }
 
