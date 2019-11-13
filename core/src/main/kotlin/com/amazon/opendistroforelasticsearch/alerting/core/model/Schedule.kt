@@ -249,6 +249,10 @@ data class IntervalSchedule(
         if (!SUPPORTED_UNIT.contains(unit)) {
             throw IllegalArgumentException("Timezone $unit is not supported expected $SUPPORTED_UNIT")
         }
+
+        if (interval <= 0) {
+            throw IllegalArgumentException("Interval is not allowed to be 0 or negative")
+        }
     }
 
     @Transient
