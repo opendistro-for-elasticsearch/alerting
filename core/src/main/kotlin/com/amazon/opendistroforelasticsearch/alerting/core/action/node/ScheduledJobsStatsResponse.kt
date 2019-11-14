@@ -57,7 +57,7 @@ class ScheduledJobsStatsResponse : BaseNodesResponse<ScheduledJobStats>, ToXCont
     }
 
     override fun readNodesFrom(si: StreamInput): MutableList<ScheduledJobStats> {
-        return si.readList<ScheduledJobStats> { ScheduledJobStats.readScheduledJobStatus(it) }
+        return si.readList { ScheduledJobStats.readScheduledJobStatus(it) }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

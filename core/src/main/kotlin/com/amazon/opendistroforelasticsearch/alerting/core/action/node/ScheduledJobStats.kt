@@ -43,6 +43,7 @@ class ScheduledJobStats : BaseNodeResponse, ToXContentFragment {
     lateinit var status: ScheduleStatus
     var jobSweeperMetrics: JobSweeperMetrics? = null
     var jobInfos: Array<JobSchedulerMetrics>? = null
+    val nodeRoles = node.roles.map { it.roleName().toUpperCase() }
 
     constructor()
 
@@ -83,7 +84,7 @@ class ScheduledJobStats : BaseNodeResponse, ToXContentFragment {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.field("name", node.name)
         builder.field("schedule_status", status)
-        builder.field("roles", node.roles.toTypedArray())
+        builder.field("roles", nodeRoles)
         if (jobSweeperMetrics != null) {
             builder.startObject(RestScheduledJobStatsHandler.JOB_SCHEDULING_METRICS)
             jobSweeperMetrics!!.toXContent(builder, params)
