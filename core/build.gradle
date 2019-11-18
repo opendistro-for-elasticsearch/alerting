@@ -22,7 +22,9 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1'
     compile "com.cronutils:cron-utils:7.0.5"
-
+    compile "org.apache.httpcomponents:httpasyncclient:4.1.4"
+    compile 'commons-validator:commons-validator:1.6'
+    
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"

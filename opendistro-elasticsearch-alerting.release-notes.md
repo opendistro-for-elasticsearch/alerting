@@ -1,13 +1,8 @@
-## Version 1.3.0 (Current)
+## Version 1.3.0.0 (Current)
 
 ## Bug Fixes
   * Fixes allowing interval to be set with 0 or negative values - [PR #92](https://github.com/opendistro-for-elasticsearch/alerting/pull/92)
   * Cleanup ElasticThreadContextElement - [PR #95](https://github.com/opendistro-for-elasticsearch/alerting/pull/95)
-
-## 2019-09-20, Version 1.2.0
-
-## New Features
-  * Adds support for Elasticsearch 7.2.1 - [PR #110](https://github.com/opendistro-for-elasticsearch/alerting/pull/110)
 
 ## 2019-09-24, Version 1.2.0.1
 
