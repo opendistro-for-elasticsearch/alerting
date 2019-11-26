@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.resthandler.RestScheduledJobStatsHandler
 import com.amazon.opendistroforelasticsearch.alerting.core.schedule.JobScheduler
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
+import com.amazon.opendistroforelasticsearch.alerting.model.AnomalyDetectorInput
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestAcknowledgeAlertAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteDestinationAction
@@ -68,7 +69,7 @@ import java.util.function.Supplier
 /**
  * Entry point of the OpenDistro for Elasticsearch alerting plugin
  * This class initializes the [RestGetMonitorAction], [RestDeleteMonitorAction], [RestIndexMonitorAction] rest handlers.
- * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY] to the
+ * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [AnomalyDetectorInput.XCONTENT_REGISTRY] to the
  * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
 internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin() {
@@ -118,7 +119,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
     }
 
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {
-        return listOf(Monitor.XCONTENT_REGISTRY, SearchInput.XCONTENT_REGISTRY)
+        return listOf(Monitor.XCONTENT_REGISTRY, SearchInput.XCONTENT_REGISTRY, AnomalyDetectorInput.XCONTENT_REGISTRY)
     }
 
     override fun createComponents(

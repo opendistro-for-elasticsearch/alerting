@@ -15,6 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.elasticsearch.ad.transport.AnomalyResultAction
+import com.amazon.elasticsearch.ad.transport.AnomalyResultRequest
+import com.amazon.elasticsearch.ad.transport.AnomalyResultResponse
+import com.amazon.elasticsearch.ad.transport.exception.EndRunException
+import com.amazon.elasticsearch.ad.transport.exception.InternalFailure
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
@@ -34,6 +39,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.DELETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
+import com.amazon.opendistroforelasticsearch.alerting.model.AnomalyDetectorInput
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
@@ -292,6 +298,10 @@ class MonitorRunner(
                         val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
                         results += searchResponse.convertToMap()
                     }
+                    is AnomalyDetectorInput -> {
+                        val detectorId = input.detectorId
+                        results += executeAnomalyDetector(monitor, detectorId, periodStart, periodEnd)
+                    }
                     else -> {
                         throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
                     }
@@ -301,6 +311,23 @@ class MonitorRunner(
         } catch (e: Exception) {
             logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
             InputRunResults(emptyList(), e)
+        }
+    }
+
+    private fun executeAnomalyDetector(monitor: Monitor, detectorId: String, start: Instant, end: Instant): Map<String, Any> {
+        try {
+            val request = AnomalyResultRequest(detectorId, start.toEpochMilli(), end.toEpochMilli())
+            val future = client.execute(AnomalyResultAction.INSTANCE, request)
+            val result = AnomalyResultResponse.fromActionResponse(future.actionGet())
+            return result.convertToMap()
+        } catch (e: Exception) { // TODO: stop monitor for EndRunException and InternalFailure
+            when (e) {
+                is EndRunException, is InternalFailure -> {
+                    logger.error("Fail to execute AD $detectorId for monitor ${monitor.id}: ${e.cause}")
+                }
+                else -> logger.error("Fail to execute AD $detectorId for monitor ${monitor.id}", e)
+            }
+            return emptyMap()
         }
     }
 

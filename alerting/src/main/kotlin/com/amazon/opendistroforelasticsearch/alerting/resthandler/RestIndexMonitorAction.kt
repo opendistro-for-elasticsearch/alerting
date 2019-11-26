@@ -25,6 +25,11 @@ import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
+import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule.Companion.INTERVAL_FIELD
+import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule.Companion.PERIOD_FIELD
+import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule.Companion.UNIT_FIELD
+import com.amazon.opendistroforelasticsearch.alerting.model.AnomalyDetectorInput
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
@@ -32,6 +37,7 @@ import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
 import org.apache.logging.log4j.LogManager
+import org.apache.lucene.search.join.ScoreMode
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.get.GetRequest
@@ -64,11 +70,15 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Locale
+import kotlin.collections.HashMap
 
 private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
 
@@ -88,6 +98,11 @@ class RestIndexMonitorAction(
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
+
+    val ANOMALY_DETECTORS_INDEX: String = ".opendistro-anomaly-detectors"
+    val DETECTION_INTERVAL = "detection_interval"
+    val MONITOR_INPUTS_ANOMALY_DETECTOR_ID = "monitor.inputs.anomaly_detector.detector_id"
+    val MONITOR_INPUTS = "monitor.inputs"
 
     init {
         controller.registerHandler(POST, AlertingPlugin.MONITOR_BASE_URI, this) // Create a new monitor
@@ -123,6 +138,7 @@ class RestIndexMonitorAction(
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
+
         return RestChannelConsumer { channel ->
             IndexMonitorHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, monitor).start()
         }
@@ -159,12 +175,77 @@ class RestIndexMonitorAction(
          */
         private fun prepareMonitorIndexing() {
             validateActionThrottle(newMonitor, maxActionThrottle, TimeValue.timeValueMinutes(1))
+            val anomalyDetectorInput = newMonitor.inputs.find { input -> input is AnomalyDetectorInput }
+            if (anomalyDetectorInput != null && anomalyDetectorInput is AnomalyDetectorInput) {
+                val getAdRequest = GetRequest(ANOMALY_DETECTORS_INDEX, anomalyDetectorInput.detectorId)
+                client.get(getAdRequest, processGetAdResponse(channel, ::processMonitorIndexing))
+            } else {
+                processMonitorIndexing()
+            }
+        }
+
+        private fun processMonitorIndexing() {
             if (channel.request().method() == PUT) return updateMonitor()
             val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
             val searchSource = SearchSourceBuilder().query(query).timeout(requestTimeout)
             val searchRequest = SearchRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
                     .source(searchSource)
             client.search(searchRequest, ActionListener.wrap(::onSearchResponse, ::onFailure))
+        }
+
+        private fun processGetAdResponse(channel: RestChannel, indexMonitor: () -> Unit): RestActionListener<GetResponse> {
+            return object : RestActionListener<GetResponse>(channel) {
+                override fun processResponse(response: GetResponse) {
+                    if (!response.isExists) {
+                        val ret = this.channel.newErrorBuilder().startObject()
+                                .field("message", "Can't find anomaly detector with id: ${response.id}")
+                                .endObject()
+                        this.channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, ret))
+                        return
+                    }
+                    val detectorInterval: HashMap<String, Any> = response.sourceAsMap.get(DETECTION_INTERVAL) as HashMap<String, Any>
+                    val period: HashMap<String, Any> = detectorInterval.get(PERIOD_FIELD) as HashMap<String, Any>
+                    val interval: Int = period.get(INTERVAL_FIELD) as Int
+                    val unit: String = period.get(UNIT_FIELD) as String
+                    val monitorSchedule = IntervalSchedule(interval, ChronoUnit.valueOf(unit.toUpperCase(Locale.ROOT)))
+                    newMonitor = newMonitor.copy(schedule = monitorSchedule)
+
+                    val booleanQuery = QueryBuilders.boolQuery()
+                    booleanQuery.must(QueryBuilders.termQuery(MONITOR_INPUTS_ANOMALY_DETECTOR_ID, response.id))
+                    val queryBuilder = QueryBuilders.nestedQuery(MONITOR_INPUTS, booleanQuery, ScoreMode.None)
+                    val searchSourceBuilder = SearchSourceBuilder()
+                    searchSourceBuilder.query(queryBuilder).size(1)
+                    val searchRequest = SearchRequest()
+                    searchRequest.indices(SCHEDULED_JOBS_INDEX).source(searchSourceBuilder)
+
+                    if (channel.request().method() == POST) {
+                        client.search(searchRequest, processSearchMonitorsWithAdResponse(channel, indexMonitor, response.id))
+                    } else {
+                        indexMonitor()
+                    }
+                }
+            }
+        }
+
+        private fun processSearchMonitorsWithAdResponse(
+            channel: RestChannel,
+            indexMonitor: () -> Unit,
+            detectorId: String
+        ): RestActionListener<SearchResponse> {
+            return object : RestActionListener<SearchResponse>(channel) {
+                override fun processResponse(response: SearchResponse) {
+                    if (response.getHits().getTotalHits().value > 0) {
+                        val monitorId = response.hits.getAt(0).id
+                        val ret = this.channel.newErrorBuilder().startObject()
+                                .field("message", "There is already one monitor: $monitorId for detector: $detectorId. " +
+                                        "Can only create one monitor for one detector")
+                                .endObject()
+                        this.channel.sendResponse(BytesRestResponse(RestStatus.BAD_REQUEST, ret))
+                        return
+                    }
+                    indexMonitor()
+                }
+            }
         }
 
         private fun validateActionThrottle(monitor: Monitor, maxValue: TimeValue, minValue: TimeValue) {
@@ -184,6 +265,7 @@ class RestIndexMonitorAction(
          * After searching for all existing monitors we validate the system can support another monitor to be created.
          */
         private fun onSearchResponse(response: SearchResponse) {
+            // TODO: can't create more than 1 monitor on same detector
             if (response.hits.totalHits.value >= maxMonitors) {
                 log.error("This request would create more than the allowed monitors [$maxMonitors].")
                 onFailure(IllegalArgumentException("This request would create more than the allowed monitors [$maxMonitors]."))
