@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.amazon.elasticsearch.ad.model.FeatureData;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.common.io.stream.InputStreamStreamInput;
 import org.elasticsearch.common.io.stream.OutputStreamStreamOutput;
@@ -13,8 +14,6 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-
-import com.amazon.elasticsearch.ad.model.FeatureData;
 
 public class AnomalyResultResponse extends ActionResponse implements ToXContentObject {
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
@@ -39,10 +38,10 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         int size = in.readVInt();
         features = new ArrayList<FeatureData>();
         for (int i=0; i<size; i++) {
+            String featureId = in.readString();
             String featureName = in.readString();
             double featureValue = in.readDouble();
-            // the client does not need feature id, so we make it null
-            features.add(new FeatureData(null, featureName, featureValue));
+            features.add(new FeatureData(featureId, featureName, featureValue));
         }
     }
 
@@ -65,7 +64,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         out.writeDouble(confidence);
         out.writeVInt(features.size());
         for(FeatureData feature : features) {
-            // the client does not need feature id, so we omit it
+            out.writeString(feature.getFeatureId());
             out.writeString(feature.getFeatureName());
             out.writeDouble(feature.getData());
         }
