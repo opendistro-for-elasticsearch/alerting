@@ -106,6 +106,7 @@ class RestExecuteMonitorAction(
                             .field("message", "Can't find monitor with id: ${response.id}")
                             .endObject()
                     this.channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, ret))
+                    return
                 }
 
                 val xcp = (this.channel.request().xContentType ?: XContentType.JSON).xContent()

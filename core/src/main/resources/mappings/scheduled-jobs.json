@@ -75,6 +75,13 @@
                   "enabled": false
                 }
               }
+            },
+            "anomaly_detector": {
+              "properties": {
+                "detector_id": {
+                  "type": "keyword"
+                }
+              }
             }
           }
         },

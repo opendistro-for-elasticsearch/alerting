@@ -153,19 +153,28 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
 /**
  * Store a [ThreadContext] and restore a [ThreadContext] when the coroutine resumes on a different thread.
  *
- * @param threadContext - a [ThreadContext] instance
+ * @param threadContext - The context to store when switching to a coroutine.
+ * @param initialContext - The old context to restore upon completion of the coroutine.
  */
-class ElasticThreadContextElement(private val threadContext: ThreadContext) : ThreadContextElement<Unit> {
+class ElasticThreadContextElement(
+    private val threadContext: ThreadContext
+) : ThreadContextElement<StoredContext> {
 
     companion object Key : CoroutineContext.Key<ElasticThreadContextElement>
-    private var context: StoredContext = threadContext.newStoredContext(true)
+    private var initialContext: StoredContext? = threadContext.newStoredContext(true)
 
     override val key: CoroutineContext.Key<*>
         get() = Key
 
-    override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
-        this.context = threadContext.stashContext()
+    override fun restoreThreadContext(context: CoroutineContext, oldState: StoredContext) {
+        initialContext = threadContext.stashContext()
     }
 
-    override fun updateThreadContext(context: CoroutineContext) = this.context.close()
+    override fun updateThreadContext(context: CoroutineContext): StoredContext {
+        if (initialContext != null) {
+            initialContext!!.close()
+            initialContext = null
+        }
+        return threadContext.newRestorableContext(true).get()
+    }
 }
