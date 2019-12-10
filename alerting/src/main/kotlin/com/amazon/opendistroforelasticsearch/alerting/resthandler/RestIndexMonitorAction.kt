@@ -14,10 +14,7 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
-import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
-import com.amazon.opendistroforelasticsearch.alerting.core.httpapi.toConstructedUrl
-import com.amazon.opendistroforelasticsearch.alerting.core.model.HttpInput
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
@@ -34,15 +31,11 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule.Compan
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule.Companion.UNIT_FIELD
 import com.amazon.opendistroforelasticsearch.alerting.model.AnomalyDetectorInput
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
-import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
-import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
-import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import org.apache.logging.log4j.LogManager
 import org.apache.lucene.search.join.ScoreMode
 import org.elasticsearch.action.ActionListener
@@ -93,7 +86,7 @@ private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
  * Rest handlers to create and update monitors.
  */
 class RestIndexMonitorAction(
-    val settings: Settings,
+    settings: Settings,
     controller: RestController,
     jobIndices: ScheduledJobIndices,
     clusterService: ClusterService
@@ -263,23 +256,6 @@ class RestIndexMonitorAction(
                                 .compareTo(maxValue) <= 0, { "Can only set throttle period less than or equal to $maxValue" })
                         require(TimeValue(Duration.of(action.throttle.value.toLong(), action.throttle.unit).toMillis())
                                 .compareTo(minValue) >= 0, { "Can only set throttle period greater than or equal to $minValue" })
-                    }
-                }
-            }
-        }
-
-        /**
-         * This function checks whether the [Monitor] has an [HttpInput] with localhost. If so, make sure the port is same as specified in settings.
-         */
-        private fun validateLocalPort(monitor: Monitor, settingsPort: Int) {
-            for (input in monitor.inputs) {
-                if (input is HttpInput) {
-                    val constructedUrl = input.toConstructedUrl()
-                    // Make sure that when host is "localhost", only port number specified in settings is allowed.
-                    if (constructedUrl.host == "localhost") {
-                        require(constructedUrl.port == settingsPort) {
-                            "Host: ${constructedUrl.host} is restricted to port $settingsPort."
-                        }
                     }
                 }
             }
