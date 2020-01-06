@@ -59,10 +59,7 @@ class ScheduledJobStats : BaseNodeResponse, ToXContentFragment {
 
     companion object {
         @JvmStatic
-        fun readScheduledJobStatus(si: StreamInput): ScheduledJobStats {
-            val scheduledJobStatus = ScheduledJobStats(si)
-            return scheduledJobStatus
-        }
+        fun readScheduledJobStatus(si: StreamInput) = ScheduledJobStats(si)
     }
 
     override fun writeTo(out: StreamOutput) {

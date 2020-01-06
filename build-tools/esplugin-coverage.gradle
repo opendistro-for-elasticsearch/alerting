@@ -54,7 +54,7 @@ task dummyIntegTest(type: Test) {
 }
 
 integTestCluster {
-//    jvmArgs += " ${dummyIntegTest.jacoco.getAsJvmArg()}"
+    jvmArgs += " ${dummyIntegTest.jacoco.getAsJvmArg()}"
     systemProperty 'com.sun.management.jmxremote', "true"
     systemProperty 'com.sun.management.jmxremote.authenticate', "false"
     systemProperty 'com.sun.management.jmxremote.port', "7777"
@@ -62,16 +62,16 @@ integTestCluster {
     systemProperty 'java.rmi.server.hostname', "127.0.0.1"
 }
 
-//jacocoTestReport {
-//    dependsOn integTest, test
-//    executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
-//    sourceDirectories = sourceSets.main.allSource
-//    classDirectories = sourceSets.main.output
-//    reports {
-//        html.enabled = true // human readable
-//        xml.enabled = true // for coverlay
-//    }
-//}
+jacocoTestReport {
+    dependsOn integTest, test
+    executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
+    sourceDirectories = sourceSets.main.allSource
+    classDirectories = sourceSets.main.output
+    reports {
+        html.enabled = true // human readable
+        xml.enabled = true // for coverlay
+    }
+}
 
 // See https://www.eclemma.org/jacoco/trunk/doc/api/org/jacoco/agent/rt/IAgent.html
 task dumpCoverage {
