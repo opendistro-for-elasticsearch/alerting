@@ -160,9 +160,11 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
                 AlertingSettings.ALERT_BACKOFF_COUNT,
                 AlertingSettings.MOVE_ALERTS_BACKOFF_MILLIS,
                 AlertingSettings.MOVE_ALERTS_BACKOFF_COUNT,
+                AlertingSettings.ALERT_HISTORY_ENABLED,
                 AlertingSettings.ALERT_HISTORY_ROLLOVER_PERIOD,
                 AlertingSettings.ALERT_HISTORY_INDEX_MAX_AGE,
                 AlertingSettings.ALERT_HISTORY_MAX_DOCS,
+                AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD,
                 AlertingSettings.ALERTING_MAX_MONITORS,
                 AlertingSettings.REQUEST_TIMEOUT,
                 AlertingSettings.MAX_ACTION_THROTTLE_VALUE)

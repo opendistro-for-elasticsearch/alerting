@@ -24,15 +24,19 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import org.apache.logging.log4j.LogManager
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_ENABLED
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.elasticsearch.ResourceAlreadyExistsException
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
+import org.elasticsearch.action.admin.indices.get.GetIndexRequest
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
+import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterChangedEvent
@@ -65,11 +69,15 @@ class AlertIndices(
     init {
         clusterService.addListener(this)
         clusterService.addLocalNodeMasterListener(this)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_ENABLED) { historyEnabled = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_MAX_DOCS) { historyMaxDocs = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_INDEX_MAX_AGE) { historyMaxAge = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_ROLLOVER_PERIOD) {
             historyRolloverPeriod = it
             rescheduleRollover()
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD) {
+            historyRetentionPeriod = it
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
     }
@@ -85,7 +93,10 @@ class AlertIndices(
         /** The alias of the index in which to write alert history */
         const val HISTORY_WRITE_INDEX = ".opendistro-alerting-alert-history-write"
 
-        /** The index name pattern to query all the alert history indices */
+        /** The index name pattern referring to all alert history indices */
+        const val HISTORY_ALL = ".opendistro-alerting-alert-history*"
+
+        /** The index name pattern to create alert history indices */
         const val HISTORY_INDEX_PATTERN = "<.opendistro-alerting-alert-history-{now/d}-1>"
 
         /** The index name pattern to query all alerts, history and current alerts. */
@@ -98,11 +109,15 @@ class AlertIndices(
         private val logger = LogManager.getLogger(AlertIndices::class.java)
     }
 
+    @Volatile private var historyEnabled = AlertingSettings.ALERT_HISTORY_ENABLED.get(settings)
+
     @Volatile private var historyMaxDocs = AlertingSettings.ALERT_HISTORY_MAX_DOCS.get(settings)
 
     @Volatile private var historyMaxAge = AlertingSettings.ALERT_HISTORY_INDEX_MAX_AGE.get(settings)
 
     @Volatile private var historyRolloverPeriod = AlertingSettings.ALERT_HISTORY_ROLLOVER_PERIOD.get(settings)
+
+    @Volatile private var historyRetentionPeriod = AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD.get(settings)
 
     @Volatile private var requestTimeout = AlertingSettings.REQUEST_TIMEOUT.get(settings)
 
@@ -120,8 +135,7 @@ class AlertIndices(
             // try to rollover immediately as we might be restarting the cluster
             rolloverHistoryIndex()
             // schedule the next rollover for approx MAX_AGE later
-            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() },
-                    historyRolloverPeriod, executorName())
+            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() }, historyRolloverPeriod, executorName())
         } catch (e: Exception) {
             // This should be run on cluster startup
             logger.error("Error creating alert indices. " +
@@ -153,6 +167,8 @@ class AlertIndices(
     fun isInitialized(): Boolean {
         return alertIndexInitialized && historyIndexInitialized
     }
+
+    fun isHistoryEnabled(): Boolean = historyEnabled
 
     suspend fun createOrUpdateAlertIndex() {
         if (!alertIndexInitialized) {
@@ -224,6 +240,8 @@ class AlertIndices(
         }
     }
 
+    // Add rolloverAndDeleteHistoryIndices()
+
     fun rolloverHistoryIndex(): Boolean {
         if (!historyIndexInitialized) {
             return false
@@ -243,4 +261,8 @@ class AlertIndices(
         }
         return response.isRolledOver
     }
+
+    // Add deleteOldHistoryIndices()
+
+    // Add addHistory()
 }

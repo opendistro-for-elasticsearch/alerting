@@ -401,13 +401,17 @@ class MonitorRunner(
                     throw IllegalStateException("Unexpected attempt to save ${alert.state} alert: $alert")
                 }
                 COMPLETED -> {
-                    listOf<DocWriteRequest<*>>(
+                    listOfNotNull<DocWriteRequest<*>>(
                             DeleteRequest(AlertIndices.ALERT_INDEX, alert.id)
                                     .routing(alert.monitorId),
-                            IndexRequest(AlertIndices.HISTORY_WRITE_INDEX)
-                                    .routing(alert.monitorId)
-                                    .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
-                                    .id(alert.id))
+                            // Only add completed alert to history index if history is enabled
+                            if (alertIndices.isHistoryEnabled()) {
+                                IndexRequest(AlertIndices.HISTORY_WRITE_INDEX)
+                                        .routing(alert.monitorId)
+                                        .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+                                        .id(alert.id)
+                            } else null
+                    )
                 }
             }
         }
