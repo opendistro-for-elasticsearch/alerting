@@ -24,8 +24,7 @@ class ScheduledJobsStatsAction : ActionType<ScheduledJobsStatsResponse>(NAME, re
         const val NAME = "cluster:admin/opendistro/_scheduled_jobs/stats"
 
         val reader = Writeable.Reader {
-            val response = ScheduledJobsStatsResponse()
-            response.readFrom(it)
+            val response = ScheduledJobsStatsResponse(it)
             response
         }
     }

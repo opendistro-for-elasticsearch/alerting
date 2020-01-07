@@ -25,7 +25,6 @@ import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
@@ -46,7 +45,7 @@ import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 /**
  * This class consists of the REST handler to retrieve a monitor .
  */
-class RestGetMonitorAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestGetMonitorAction(controller: RestController) : BaseRestHandler() {
 
     init {
         // Get a specific monitor

@@ -103,15 +103,15 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         indexNameExpressionResolver: IndexNameExpressionResolver?,
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
-        return listOf(RestGetMonitorAction(settings, restController),
-                RestDeleteMonitorAction(settings, restController),
+        return listOf(RestGetMonitorAction(restController),
+                RestDeleteMonitorAction(restController),
                 RestIndexMonitorAction(settings, restController, scheduledJobIndices, clusterService),
-                RestSearchMonitorAction(settings, restController),
+                RestSearchMonitorAction(restController),
                 RestExecuteMonitorAction(settings, restController, runner),
-                RestAcknowledgeAlertAction(settings, restController),
-                RestScheduledJobStatsHandler(settings, restController, "_alerting"),
+                RestAcknowledgeAlertAction(restController),
+                RestScheduledJobStatsHandler(restController, "_alerting"),
                 RestIndexDestinationAction(settings, restController, scheduledJobIndices, clusterService),
-                RestDeleteDestinationAction(settings, restController))
+                RestDeleteDestinationAction(restController))
     }
 
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {

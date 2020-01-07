@@ -51,7 +51,7 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import org.elasticsearch.common.unit.TimeValue
 
-@TestLogging("level:DEBUG")
+@TestLogging("level:DEBUG", reason = "Debug for tests.")
 @Suppress("UNCHECKED_CAST")
 class MonitorRestApiIT : AlertingRestTestCase() {
 

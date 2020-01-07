@@ -82,7 +82,7 @@ class RestIndexMonitorAction(
     controller: RestController,
     jobIndices: ScheduledJobIndices,
     clusterService: ClusterService
-) : BaseRestHandler(settings) {
+) : BaseRestHandler() {
 
     private var scheduledJobIndices: ScheduledJobIndices
     private val clusterService: ClusterService
