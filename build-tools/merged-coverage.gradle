@@ -16,7 +16,7 @@
 allprojects {
     plugins.withId('jacoco') {
         // 0.8.2 doesn't show missing coverage of Kotlin generated methods. Remove once this becomes gradle's default
-        jacoco.toolVersion = '0.8.2'
+        jacoco.toolVersion = '0.8.5'
         tasks.withType(Test) { 
             jacoco { append = false }
         }

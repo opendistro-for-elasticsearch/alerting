@@ -58,8 +58,8 @@ class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStat
         clusterService,
         transportService,
         actionFilters,
-        { ScheduledJobsStatsRequest() },
-        { ScheduledJobStatusRequest() },
+        { ScheduledJobsStatsRequest(it) },
+        { ScheduledJobStatusRequest(it) },
         ThreadPool.Names.MANAGEMENT,
         ScheduledJobStats::class.java
     ) {
@@ -72,8 +72,8 @@ class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStat
         return ScheduledJobStatusRequest(request)
     }
 
-    override fun newNodeResponse(): ScheduledJobStats {
-        return ScheduledJobStats()
+    override fun newNodeResponse(si: StreamInput): ScheduledJobStats {
+        return ScheduledJobStats(si)
     }
 
     override fun newResponse(
@@ -128,15 +128,13 @@ class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStat
         lateinit var request: ScheduledJobsStatsRequest
 
         constructor() : super()
-        constructor(request: ScheduledJobsStatsRequest) : super() {
-            this.request = request
+
+        constructor(si: StreamInput): super(si) {
+            request = ScheduledJobsStatsRequest(si)
         }
 
-        @Throws(IOException::class)
-        override fun readFrom(si: StreamInput) {
-            super.readFrom(si)
-            request = ScheduledJobsStatsRequest()
-            request.readFrom(si)
+        constructor(request: ScheduledJobsStatsRequest) : super() {
+            this.request = request
         }
 
         @Throws(IOException::class)

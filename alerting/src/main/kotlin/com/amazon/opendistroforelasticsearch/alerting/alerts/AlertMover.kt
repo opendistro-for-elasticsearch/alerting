@@ -70,7 +70,7 @@ suspend fun moveAlerts(client: Client, monitorId: String, monitor: Monitor? = nu
     val response: SearchResponse = client.suspendUntil { search(activeAlertsRequest, it) }
 
     // If no alerts are found, simply return
-    if (response.hits.totalHits.value == 0L) return
+    if (response.hits.totalHits?.value == 0L) return
     val indexRequests = response.hits.map { hit ->
         IndexRequest(AlertIndices.HISTORY_WRITE_INDEX)
             .routing(monitorId)

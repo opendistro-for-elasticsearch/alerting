@@ -35,7 +35,6 @@ import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -63,7 +62,7 @@ private val log: Logger = LogManager.getLogger(RestAcknowledgeAlertAction::class
  * The user provides the monitorID to which these alerts pertain and in the content of the request provides
  * the ids to the alerts he would like to acknowledge.
  */
-class RestAcknowledgeAlertAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestAcknowledgeAlertAction(controller: RestController) : BaseRestHandler() {
 
     init {
         // Acknowledge alerts

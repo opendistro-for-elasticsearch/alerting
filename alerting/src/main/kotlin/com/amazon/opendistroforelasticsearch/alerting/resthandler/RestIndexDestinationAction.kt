@@ -66,7 +66,7 @@ class RestIndexDestinationAction(
     controller: RestController,
     jobIndices: ScheduledJobIndices,
     clusterService: ClusterService
-) : BaseRestHandler(settings) {
+) : BaseRestHandler() {
     private var scheduledJobIndices: ScheduledJobIndices
     private val clusterService: ClusterService
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
