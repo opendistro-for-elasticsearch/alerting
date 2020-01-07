@@ -38,7 +38,7 @@ class ScheduledJobsStatsResponse : BaseNodesResponse<ScheduledJobStats>, ToXCont
     constructor(si: StreamInput): super(si) {
         this.scheduledJobEnabled = si.readBoolean()
         this.indexExists = si.readBoolean()
-        this.indexHealth = si.readOptionalWriteable { ClusterIndexHealth(si)}
+        this.indexHealth = si.readOptionalWriteable { ClusterIndexHealth(si) }
     }
 
     constructor(
