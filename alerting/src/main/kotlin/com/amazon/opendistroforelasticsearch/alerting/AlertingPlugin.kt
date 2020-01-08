@@ -135,7 +135,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
     ): Collection<Any> {
         // Need to figure out how to use the Elasticsearch DI classes rather than handwiring things here.
         val settings = environment.settings()
-        alertIndices = AlertIndices(settings, client.admin().indices(), threadPool, clusterService)
+        alertIndices = AlertIndices(settings, client, threadPool, clusterService)
         runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices, clusterService)
         scheduledJobIndices = ScheduledJobIndices(client.admin(), clusterService)
         scheduler = JobScheduler(threadPool, runner)
