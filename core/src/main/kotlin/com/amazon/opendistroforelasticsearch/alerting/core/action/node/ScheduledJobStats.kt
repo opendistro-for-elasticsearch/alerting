@@ -40,11 +40,15 @@ class ScheduledJobStats : BaseNodeResponse, ToXContentFragment {
         }
     }
 
-    lateinit var status: ScheduleStatus
+    var status: ScheduleStatus
     var jobSweeperMetrics: JobSweeperMetrics? = null
     var jobInfos: Array<JobSchedulerMetrics>? = null
 
-    constructor(si: StreamInput): super(si)
+    constructor(si: StreamInput): super(si) {
+        this.status = si.readEnum(ScheduleStatus::class.java)
+        this.jobSweeperMetrics = JobSweeperMetrics(si)
+        this.jobInfos = si.readList { JobSchedulerMetrics(it) }.toTypedArray()
+    }
 
     constructor(
         node: DiscoveryNode,

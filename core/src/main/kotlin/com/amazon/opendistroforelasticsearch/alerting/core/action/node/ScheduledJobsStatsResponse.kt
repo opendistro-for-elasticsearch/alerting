@@ -35,7 +35,11 @@ class ScheduledJobsStatsResponse : BaseNodesResponse<ScheduledJobStats>, ToXCont
     private var indexExists: Boolean? = null
     private var indexHealth: ClusterIndexHealth? = null
 
-    constructor(si: StreamInput): super(si)
+    constructor(si: StreamInput): super(si) {
+        this.scheduledJobEnabled = si.readBoolean()
+        this.indexExists = si.readBoolean()
+        this.indexHealth = si.readOptionalWriteable { ClusterIndexHealth(si) }
+    }
 
     constructor(
         clusterName: ClusterName,
