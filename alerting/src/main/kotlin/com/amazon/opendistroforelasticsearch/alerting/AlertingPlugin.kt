@@ -195,7 +195,14 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
                 AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD,
                 AlertingSettings.ALERTING_MAX_MONITORS,
                 AlertingSettings.REQUEST_TIMEOUT,
-                AlertingSettings.MAX_ACTION_THROTTLE_VALUE)
+                AlertingSettings.MAX_ACTION_THROTTLE_VALUE,
+                AlertingSettings.DESTINATION_MAIL_HOST,
+                AlertingSettings.DESTINATION_MAIL_PORT,
+                AlertingSettings.DESTINATION_MAIL_METHOD,
+                AlertingSettings.DESTINATION_MAIL_FROM,
+                AlertingSettings.DESTINATION_MAIL_USERNAME,
+                AlertingSettings.DESTINATION_MAIL_PASSWORD
+            )
     }
 
     override fun onIndexModule(indexModule: IndexModule) {

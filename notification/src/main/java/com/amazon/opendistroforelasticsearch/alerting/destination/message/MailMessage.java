@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.destination.message;
 
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.settings.SecureString;
 
 import java.util.Map;
 
@@ -32,20 +33,19 @@ public class MailMessage extends BaseMessage {
     private String from;
     private String recipients;
     private String subject;
-    private final String userName;
-    private final String password;
+    private final SecureString username;
+    private final SecureString password;
 
     private MailMessage(final DestinationType destinationType,
                                  final String destinationName,
                                  final String host,
                                  final Integer port,
-                                 final Boolean auth,
                                  final String method,
                                  final String from,
                                  final String recipients,
                                  final String subject,
-                                 final String userName,
-                                 final String password,
+                                 final SecureString username,
+                                 final SecureString password,
                                  final String message) {
 
         super(destinationType, destinationName, message);
@@ -72,13 +72,12 @@ public class MailMessage extends BaseMessage {
 
         this.message = message;
         this.host = host;
-        this.port = port==null ? 25 : port;
-        this.method = method==null ? "plain" : method;
-        this.auth = auth==null ? false : auth;
+        this.port = port == null ? 25 : port;
+        this.method = method == null ? "none" : method;
         this.from = from;
         this.recipients = recipients;
         this.subject = subject == "" ? destinationName : subject;
-        this.userName = userName;
+        this.username = username;
         this.password = password;
     }
 
@@ -99,8 +98,8 @@ public class MailMessage extends BaseMessage {
         private String from;
         private String recipients;
         private String subject;
-        private String userName;
-        private String password;
+        private SecureString username;
+        private SecureString password;
 
         public Builder(String destinationName) {
             this.destinationName = destinationName;
@@ -114,11 +113,6 @@ public class MailMessage extends BaseMessage {
 
         public MailMessage.Builder withPort(Integer port) {
             this.port = port;
-            return this;
-        }
-
-        public MailMessage.Builder withAuth(Boolean auth) {
-            this.auth = auth;
             return this;
         }
 
@@ -147,12 +141,12 @@ public class MailMessage extends BaseMessage {
             return this;
         }
 
-        public MailMessage.Builder withUserName(String userName) {
-            this.userName = userName;
+        public MailMessage.Builder withUserName(SecureString username) {
+            this.username = username;
             return this;
         }
 
-        public MailMessage.Builder withPassword(String password) {
+        public MailMessage.Builder withPassword(SecureString password) {
             this.password = password;
             return this;
         }
@@ -160,9 +154,9 @@ public class MailMessage extends BaseMessage {
         public MailMessage build() {
             MailMessage mailMessage = new MailMessage(
                     this.destinationType, this.destinationName,
-                    this.host, this.port, this.auth, this.method,
+                    this.host, this.port, this.method,
                     this.from, this.recipients, this.subject,
-                    this.userName, this.password, this.message);
+                    this.username, this.password, this.message);
             return mailMessage;
         }
     }
@@ -173,10 +167,6 @@ public class MailMessage extends BaseMessage {
 
     public int getPort() {
         return port;
-    }
-
-    public Boolean getAuthEnable() {
-        return auth;
     }
 
     public String getMethod() {
@@ -195,11 +185,11 @@ public class MailMessage extends BaseMessage {
         return subject;
     }
 
-    public String getUsername() {
-        return userName;
+    public SecureString getUsername() {
+        return username;
     }
 
-    public String getPassword() {
+    public SecureString getPassword() {
         return password;
     }
 }
