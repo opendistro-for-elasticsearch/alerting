@@ -54,15 +54,10 @@ class DestinationTests : ESTestCase() {
         }
     }
 
-    fun `test mail destination`() {
-        val mail = Mail("mail.abc", null, false, null, "test@abc.com", "test@abc.com", null, null, null)
-        assertEquals("Host is manipulated", mail.host, "mail.abc")
-    }
-
-    fun `test mail destination with out host`() {
+    fun `test mail destination without recipient`() {
         try {
-            Mail("", null, false, null, "test@abc.com", "test@abc.com", null, null, null)
-            fail("Creating a mail destination with empty host did not fail.")
+            Mail("")
+            fail("Creating a mail destination with empty recipient did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
     }

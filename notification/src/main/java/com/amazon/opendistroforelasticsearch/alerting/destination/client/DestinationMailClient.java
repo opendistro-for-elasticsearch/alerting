@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMe
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.MailMessage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.common.Strings;
 import java.util.Properties;
 import javax.mail.*;
@@ -44,11 +45,16 @@ public class DestinationMailClient {
             prop.put("mail.smtp.host", mailMessage.getHost());
             prop.put("mail.smtp.port", mailMessage.getPort());
 
-            prop.put("mail.smtp.auth", mailMessage.getAuthEnable());
-            if ( mailMessage.getAuthEnable() ) {
+            if ( mailMessage.getUsername() != null && !mailMessage.getUsername().equals("".toCharArray())) {
+                prop.put("mail.smtp.auth", true);
                 session = Session.getInstance(prop, new javax.mail.Authenticator() {
 	    	        protected PasswordAuthentication getPasswordAuthentication() {
-		    	        return new PasswordAuthentication(mailMessage.getUsername(), mailMessage.getPassword());
+                        try (
+                            SecureString username = mailMessage.getUsername().clone();
+                            SecureString password = mailMessage.getPassword().clone())
+                        {
+     		    	        return new PasswordAuthentication(username.toString(), password.toString());
+                        }
 		            }
 	            });
             } else {
@@ -69,13 +75,8 @@ public class DestinationMailClient {
                 mailmsg.setFrom(new InternetAddress(mailMessage.getFrom()));
                 mailmsg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(mailMessage.getRecipients()));
                 mailmsg.setSubject(mailMessage.getSubject());
+                mailmsg.setText(mailMessage.getMessageContent());
 
-                MimeBodyPart mimeBodyPart = new MimeBodyPart();
-                mimeBodyPart.setContent(message.getMessageContent(), "text/html");
-                Multipart multipart = new MimeMultipart();
-                multipart.addBodyPart(mimeBodyPart);
-
-                mailmsg.setContent(multipart);
                 SendMessage(mailmsg);
             } catch (MessagingException e) {
                 return e.getMessage();

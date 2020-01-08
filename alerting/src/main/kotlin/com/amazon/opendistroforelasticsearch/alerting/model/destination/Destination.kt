@@ -26,11 +26,13 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.response.Desti
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -198,7 +200,7 @@ data class Destination(
     }
 
     @Throws(IOException::class)
-    fun publish(compiledSubject: String?, compiledMessage: String): String {
+    fun publish(settings: Settings?, compiledSubject: String?, compiledMessage: String): String {
         val destinationMessage: BaseMessage
         val responseContent: String
         val responseStatusCode: Int
@@ -230,15 +232,14 @@ data class Destination(
             }
             DestinationType.MAIL -> {
                 destinationMessage = MailMessage.Builder(name)
-                        .withHost(mail?.host)
-                        .withPort(mail?.port)
-                        .withAuth(mail?.auth)
-                        .withMethod(mail?.method)
-                        .withFrom(mail?.from)
+                        .withHost(AlertingSettings.DESTINATION_MAIL_HOST.get(settings))
+                        .withPort(AlertingSettings.DESTINATION_MAIL_PORT.get(settings))
+                        .withMethod(AlertingSettings.DESTINATION_MAIL_METHOD.get(settings))
+                        .withFrom(AlertingSettings.DESTINATION_MAIL_FROM.get(settings))
                         .withRecipients(mail?.recipients)
                         .withSubject(compiledSubject)
-                        .withUserName(mail?.username)
-                        .withPassword(mail?.password)
+                        .withUserName(AlertingSettings.DESTINATION_MAIL_USERNAME.get(settings))
+                        .withPassword(AlertingSettings.DESTINATION_MAIL_PASSWORD.get(settings))
                         .withMessage(compiledMessage).build()
             }
             DestinationType.TEST_ACTION -> {

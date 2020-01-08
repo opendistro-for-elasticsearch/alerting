@@ -95,7 +95,7 @@ import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 
 class MonitorRunner(
-    settings: Settings,
+    private val settings: Settings,
     private val client: Client,
     private val threadPool: ThreadPool,
     private val scriptService: ScriptService,
@@ -433,7 +433,11 @@ class MonitorRunner(
             if (!dryrun) {
                 withContext(Dispatchers.IO) {
                     val destination = getDestinationInfo(action.destinationId)
-                    actionOutput[MESSAGE_ID] = destination.publish(actionOutput[SUBJECT], actionOutput[MESSAGE]!!)
+                    actionOutput[MESSAGE_ID] = destination.publish(
+                        settings.getAsSettings("opendistro_alerting.destination"),
+                        actionOutput[SUBJECT],
+                        actionOutput[MESSAGE]!!
+                    )
                 }
             }
             ActionRunResult(action.id, action.name, actionOutput, false, currentTime(), null)
