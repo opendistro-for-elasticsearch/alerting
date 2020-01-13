@@ -134,6 +134,7 @@ class AlertIndices(
 
     override fun onMaster() {
         try {
+            // TODO: Change current actionGet requests within rolloverHistoryIndex() rolloverAndDeleteHistoryIndices() to use suspendUntil
             // try to rollover immediately as we might be restarting the cluster
             rolloverHistoryIndex()
             // schedule the next rollover for approx MAX_AGE later
@@ -290,7 +291,7 @@ class AlertIndices(
                 if (alias != null) {
                     if (historyEnabled) {
                         // If the index has the write alias and history is enabled, don't delete the index
-                        break
+                        continue
                     } else {
                         // Otherwise reset historyIndexInitialized since index will be deleted
                         historyIndexInitialized = false
