@@ -249,7 +249,7 @@ class AlertIndices(
         deleteOldHistoryIndices()
     }
 
-    fun rolloverHistoryIndex(): Boolean {
+    private fun rolloverHistoryIndex(): Boolean {
         if (!historyIndexInitialized) {
             return false
         }
@@ -287,9 +287,14 @@ class AlertIndices(
 
             if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis) {
                 val alias = indexMetaData.aliases.firstOrNull { HISTORY_WRITE_INDEX == it.value.alias }
-                if (alias != null && historyEnabled) {
-                    // If the index has the write alias and history is enabled, don't delete the index
-                    break
+                if (alias != null) {
+                    if (historyEnabled) {
+                        // If the index has the write alias and history is enabled, don't delete the index
+                        break
+                    } else {
+                        // Otherwise reset historyIndexInitialized since index will be deleted
+                        historyIndexInitialized = false
+                    }
                 }
 
                 indicesToDelete.add(indexMetaData.index.name)
