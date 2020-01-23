@@ -1,0 +1,38 @@
+name: Test Workflow
+# This workflow is triggered on pull requests to master or a opendistro release branch
+on:
+  pull_request:
+    branches:
+      - master
+      - opendistro-*
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        java: [12]
+    # Job name
+    name: Build Alerting with JDK ${{ matrix.java }}
+    # This job runs on Linux
+    runs-on: ubuntu-latest
+    steps:
+      # This step uses the checkout Github action: https://github.com/actions/checkout
+      - name: Checkout Branch
+        uses: actions/checkout@v1
+      # This step uses the setup-java Github action: https://github.com/actions/setup-java
+      - name: Set Up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Build with Gradle
+        run: ./gradlew build
+      - name: Create Artifact Path
+        run: |
+          mkdir -p alerting-artifacts
+          cp ./alerting/build/distributions/*.zip alerting-artifacts
+      # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: alerting-plugin
+          path: alerting-artifacts
