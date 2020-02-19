@@ -24,17 +24,22 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import org.apache.logging.log4j.LogManager
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_HISTORY_ENABLED
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import org.apache.lucene.index.IndexNotFoundException
 import org.elasticsearch.ResourceAlreadyExistsException
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.indices.alias.Alias
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
+import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
-import org.elasticsearch.client.IndicesAdminClient
+import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.LocalNodeMasterListener
@@ -44,6 +49,7 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.threadpool.Scheduler.Cancellable
 import org.elasticsearch.threadpool.ThreadPool
+import java.time.Instant
 
 /**
  * Class to manage the creation and rollover of alert indices and alert history indices.  In progress alerts are stored
@@ -57,7 +63,7 @@ import org.elasticsearch.threadpool.ThreadPool
  */
 class AlertIndices(
     settings: Settings,
-    private val client: IndicesAdminClient,
+    private val client: Client,
     private val threadPool: ThreadPool,
     private val clusterService: ClusterService
 ) : LocalNodeMasterListener, ClusterStateListener {
@@ -65,11 +71,15 @@ class AlertIndices(
     init {
         clusterService.addListener(this)
         clusterService.addLocalNodeMasterListener(this)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_ENABLED) { historyEnabled = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_MAX_DOCS) { historyMaxDocs = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_INDEX_MAX_AGE) { historyMaxAge = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_ROLLOVER_PERIOD) {
             historyRolloverPeriod = it
             rescheduleRollover()
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD) {
+            historyRetentionPeriod = it
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
     }
@@ -85,7 +95,10 @@ class AlertIndices(
         /** The alias of the index in which to write alert history */
         const val HISTORY_WRITE_INDEX = ".opendistro-alerting-alert-history-write"
 
-        /** The index name pattern to query all the alert history indices */
+        /** The index name pattern referring to all alert history indices */
+        const val HISTORY_ALL = ".opendistro-alerting-alert-history*"
+
+        /** The index name pattern to create alert history indices */
         const val HISTORY_INDEX_PATTERN = "<.opendistro-alerting-alert-history-{now/d}-1>"
 
         /** The index name pattern to query all alerts, history and current alerts. */
@@ -98,11 +111,15 @@ class AlertIndices(
         private val logger = LogManager.getLogger(AlertIndices::class.java)
     }
 
+    @Volatile private var historyEnabled = AlertingSettings.ALERT_HISTORY_ENABLED.get(settings)
+
     @Volatile private var historyMaxDocs = AlertingSettings.ALERT_HISTORY_MAX_DOCS.get(settings)
 
     @Volatile private var historyMaxAge = AlertingSettings.ALERT_HISTORY_INDEX_MAX_AGE.get(settings)
 
     @Volatile private var historyRolloverPeriod = AlertingSettings.ALERT_HISTORY_ROLLOVER_PERIOD.get(settings)
+
+    @Volatile private var historyRetentionPeriod = AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD.get(settings)
 
     @Volatile private var requestTimeout = AlertingSettings.REQUEST_TIMEOUT.get(settings)
 
@@ -117,11 +134,12 @@ class AlertIndices(
 
     override fun onMaster() {
         try {
+            // TODO: Change current actionGet requests within rolloverHistoryIndex() rolloverAndDeleteHistoryIndices() to use suspendUntil
             // try to rollover immediately as we might be restarting the cluster
             rolloverHistoryIndex()
             // schedule the next rollover for approx MAX_AGE later
-            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() },
-                    historyRolloverPeriod, executorName())
+            scheduledRollover = threadPool
+                    .scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndices() }, historyRolloverPeriod, executorName())
         } catch (e: Exception) {
             // This should be run on cluster startup
             logger.error("Error creating alert indices. " +
@@ -146,13 +164,16 @@ class AlertIndices(
     private fun rescheduleRollover() {
         if (clusterService.state().nodes.isLocalNodeElectedMaster) {
             scheduledRollover?.cancel()
-            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() }, historyRolloverPeriod, executorName())
+            scheduledRollover = threadPool
+                    .scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndices() }, historyRolloverPeriod, executorName())
         }
     }
 
     fun isInitialized(): Boolean {
         return alertIndexInitialized && historyIndexInitialized
     }
+
+    fun isHistoryEnabled(): Boolean = historyEnabled
 
     suspend fun createOrUpdateAlertIndex() {
         if (!alertIndexInitialized) {
@@ -179,15 +200,15 @@ class AlertIndices(
         // This should be a fast check of local cluster state. Should be exceedingly rare that the local cluster
         // state does not contain the index and multiple nodes concurrently try to create the index.
         // If it does happen that error is handled we catch the ResourceAlreadyExistsException
-        val existsResponse: IndicesExistsResponse = client.suspendUntil {
-            client.exists(IndicesExistsRequest(index).local(true), it)
+        val existsResponse: IndicesExistsResponse = client.admin().indices().suspendUntil {
+            exists(IndicesExistsRequest(index).local(true), it)
         }
         if (existsResponse.isExists) return true
 
         val request = CreateIndexRequest(index).mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
         if (alias != null) request.alias(Alias(alias))
         return try {
-            val createIndexResponse: CreateIndexResponse = client.suspendUntil { client.create(request, it) }
+            val createIndexResponse: CreateIndexResponse = client.admin().indices().suspendUntil { create(request, it) }
             createIndexResponse.isAcknowledged
         } catch (e: ResourceAlreadyExistsException) {
             true
@@ -208,7 +229,7 @@ class AlertIndices(
 
         var putMappingRequest: PutMappingRequest = PutMappingRequest(targetIndex).type(MAPPING_TYPE)
                 .source(mapping, XContentType.JSON)
-        val updateResponse: AcknowledgedResponse = client.suspendUntil { client.putMapping(putMappingRequest, it) }
+        val updateResponse: AcknowledgedResponse = client.admin().indices().suspendUntil { putMapping(putMappingRequest, it) }
         if (updateResponse.isAcknowledged) {
             logger.info("Index mapping of $targetIndex is updated")
             setIndexUpdateFlag(index, targetIndex)
@@ -224,7 +245,12 @@ class AlertIndices(
         }
     }
 
-    fun rolloverHistoryIndex(): Boolean {
+    private fun rolloverAndDeleteHistoryIndices() {
+        if (historyEnabled) rolloverHistoryIndex()
+        deleteOldHistoryIndices()
+    }
+
+    private fun rolloverHistoryIndex(): Boolean {
         if (!historyIndexInitialized) {
             return false
         }
@@ -235,12 +261,66 @@ class AlertIndices(
                 .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
-        val response = client.rolloversIndex(request).actionGet(requestTimeout)
+        val response = client.admin().indices().rolloversIndex(request).actionGet(requestTimeout)
         if (!response.isRolledOver) {
             logger.info("$HISTORY_WRITE_INDEX not rolled over. Conditions were: ${response.conditionStatus}")
         } else {
             lastRolloverTime = TimeValue.timeValueMillis(threadPool.absoluteTimeInMillis())
         }
         return response.isRolledOver
+    }
+
+    private fun deleteOldHistoryIndices() {
+        val indicesToDelete = mutableListOf<String>()
+
+        val clusterStateRequest = ClusterStateRequest()
+                .clear()
+                .indices(HISTORY_ALL)
+                .metaData(true)
+                .local(true)
+                .indicesOptions(IndicesOptions.strictExpand())
+
+        val clusterStateResponse = client.admin().cluster().state(clusterStateRequest).actionGet()
+
+        for (entry in clusterStateResponse.state.metaData.indices) {
+            val indexMetaData = entry.value
+            val creationTime = indexMetaData.creationDate
+
+            if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis) {
+                val alias = indexMetaData.aliases.firstOrNull { HISTORY_WRITE_INDEX == it.value.alias }
+                if (alias != null) {
+                    if (historyEnabled) {
+                        // If the index has the write alias and history is enabled, don't delete the index
+                        continue
+                    } else {
+                        // Otherwise reset historyIndexInitialized since index will be deleted
+                        historyIndexInitialized = false
+                    }
+                }
+
+                indicesToDelete.add(indexMetaData.index.name)
+            }
+        }
+
+        if (indicesToDelete.isNotEmpty()) {
+            val deleteIndexRequest = DeleteIndexRequest(*indicesToDelete.toTypedArray())
+            val deleteIndexResponse = client.admin().indices().delete(deleteIndexRequest).actionGet()
+
+            if (!deleteIndexResponse.isAcknowledged) {
+                logger.error("Could not delete one or more Alerting history indices: $indicesToDelete. Retrying one by one.")
+                for (index in indicesToDelete) {
+                    try {
+                        val singleDeleteRequest = DeleteIndexRequest(*indicesToDelete.toTypedArray())
+                        val singleDeleteResponse = client.admin().indices().delete(singleDeleteRequest).actionGet()
+
+                        if (!singleDeleteResponse.isAcknowledged) {
+                            logger.error("Could not delete one or more Alerting history indices: $index")
+                        }
+                    } catch (e: IndexNotFoundException) {
+                        logger.debug("$index was already deleted. ${e.message}")
+                    }
+                }
+            }
+        }
     }
 }

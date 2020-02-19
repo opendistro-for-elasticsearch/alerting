@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.alerting.core.action.node.Scheduled
 import com.amazon.opendistroforelasticsearch.alerting.core.action.node.ScheduledJobsStatsRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
@@ -32,7 +31,7 @@ import java.util.TreeSet
 /**
  * RestScheduledJobStatsHandler is handler for getting ScheduledJob Stats.
  */
-class RestScheduledJobStatsHandler(settings: Settings, controller: RestController, private val path: String) : BaseRestHandler(settings) {
+class RestScheduledJobStatsHandler(controller: RestController, private val path: String) : BaseRestHandler() {
     init {
         controller.registerHandler(GET, "/_opendistro/$path/{nodeId}/stats/", this)
         controller.registerHandler(GET, "/_opendistro/$path/{nodeId}/stats/{metric}", this)

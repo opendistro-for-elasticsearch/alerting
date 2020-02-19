@@ -28,15 +28,11 @@ class ScheduledJobsStatsRequest : BaseNodesRequest<ScheduledJobsStatsRequest> {
     var jobSchedulingMetrics: Boolean = true
     var jobsInfo: Boolean = true
 
-    constructor()
-    constructor(nodeIds: Array<String>) : super(*nodeIds)
-
-    @Throws(IOException::class)
-    override fun readFrom(si: StreamInput) {
-        super.readFrom(si)
+    constructor(si: StreamInput): super(si) {
         jobSchedulingMetrics = si.readBoolean()
         jobsInfo = si.readBoolean()
     }
+    constructor(nodeIds: Array<String>) : super(*nodeIds)
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {

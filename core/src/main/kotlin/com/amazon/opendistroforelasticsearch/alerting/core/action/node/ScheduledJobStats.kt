@@ -40,11 +40,15 @@ class ScheduledJobStats : BaseNodeResponse, ToXContentFragment {
         }
     }
 
-    lateinit var status: ScheduleStatus
+    var status: ScheduleStatus
     var jobSweeperMetrics: JobSweeperMetrics? = null
     var jobInfos: Array<JobSchedulerMetrics>? = null
 
-    constructor()
+    constructor(si: StreamInput): super(si) {
+        this.status = si.readEnum(ScheduleStatus::class.java)
+        this.jobSweeperMetrics = JobSweeperMetrics(si)
+        this.jobInfos = si.readList { JobSchedulerMetrics(it) }.toTypedArray()
+    }
 
     constructor(
         node: DiscoveryNode,
@@ -59,18 +63,7 @@ class ScheduledJobStats : BaseNodeResponse, ToXContentFragment {
 
     companion object {
         @JvmStatic
-        fun readScheduledJobStatus(si: StreamInput): ScheduledJobStats {
-            val scheduledJobStatus = ScheduledJobStats()
-            scheduledJobStatus.readFrom(si)
-            return scheduledJobStatus
-        }
-    }
-
-    override fun readFrom(si: StreamInput) {
-        super.readFrom(si)
-        this.status = si.readEnum(ScheduleStatus::class.java)
-        this.jobSweeperMetrics = si.readOptionalWriteable { JobSweeperMetrics(si) }
-        this.jobInfos = si.readOptionalArray({ JobSchedulerMetrics(si) }, { arrayOfNulls<JobSchedulerMetrics>(it) })
+        fun readScheduledJobStatus(si: StreamInput) = ScheduledJobStats(si)
     }
 
     override fun writeTo(out: StreamOutput) {

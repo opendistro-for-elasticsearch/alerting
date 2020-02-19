@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestController
@@ -35,8 +34,8 @@ import java.io.IOException
  * When a monitor is deleted, all alerts are moved to the [Alert.State.DELETED] state and moved to the alert history index.
  * If this process fails the monitor is not deleted.
  */
-class RestDeleteMonitorAction(settings: Settings, controller: RestController) :
-        BaseRestHandler(settings) {
+class RestDeleteMonitorAction(controller: RestController) :
+        BaseRestHandler() {
 
     init {
         controller.registerHandler(DELETE, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}", this) // Delete a monitor

@@ -28,7 +28,7 @@ import org.elasticsearch.test.junit.annotations.TestLogging
 import org.junit.Assert
 import java.time.Instant
 
-@TestLogging("level:DEBUG")
+@TestLogging("level:DEBUG", reason = "Debug for tests.")
 @Suppress("UNCHECKED_CAST")
 class DestinationRestApiIT : AlertingRestTestCase() {
 
