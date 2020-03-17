@@ -25,7 +25,7 @@ jobs:
       
       - name: Run build
         run: |
-          ./gradlew build
+          ./gradlew build buildDeb buildRpm --console=plain -Dbuild.snapshot=false
       
       - name: Pull and Run Docker
         run: |
