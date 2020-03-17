@@ -10,7 +10,7 @@ jobs:
       matrix:
         java: [12]
 
-    name: Build and Test Alerting Plugin
+    name: Build and Release Alerting Plugin
     runs-on: [ubuntu-16.04]
 
     steps:
