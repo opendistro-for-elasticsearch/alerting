@@ -1,6 +1,6 @@
 name: Test Workflow
 # This workflow is triggered on pull requests to master or a opendistro release branch
-on:
+on: repository_dispatch
   pull_request:
     branches:
       - master
