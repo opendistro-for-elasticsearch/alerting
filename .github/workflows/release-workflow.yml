@@ -37,7 +37,6 @@ jobs:
           cp alerting/build/distributions/*.zip alerting-artifacts
           cp alerting/build/distributions/*.deb alerting-artifacts
           cp alerting/build/distributions/*.rpm alerting-artifacts
-          zip -r alerting.zip alerting-artifacts
           echo ::set-env name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
 
      # AWS authentication
@@ -67,7 +66,8 @@ jobs:
           release_name: Release ${{ env.TAG_VERSION }}
           draft: true
           prerelease: false
-
+          
+      # Upload the release with .zip as asset
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1.0.1
@@ -76,7 +76,31 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: alerting.zip
-          asset_path: alerting.zip
+          asset_path: alerting-artifacts/*.zip
+          asset_content_type: application/zip
+
+      # Upload the release with .rpm as asset
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_name: alerting.rpm
+          asset_path: alerting-artifacts/*.rpm
+          asset_content_type: application/zip
+
+      # Upload the release with .deb as asset
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_name: alerting.deb
+          asset_path: alerting-artifacts/*.deb
           asset_content_type: application/zip
 
       - name: Upload Workflow Artifacts
