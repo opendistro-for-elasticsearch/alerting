@@ -2,9 +2,6 @@ name: Release workflow
 # This workflow is triggered on creating tags to master or a opendistro release branch
 on:
   push:
-    branches:
-      - master
-      - opendistro-*
     tags:
       -'v*'
 
