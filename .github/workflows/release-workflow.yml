@@ -2,11 +2,12 @@ name: Release workflow
 # This workflow is triggered on creating tags to master or a opendistro release branch
 on:
   push:
-  tags:
-    -'v*'
     branches:
       - master
       - opendistro-*
+    tags:
+      -'v*'
+
 
 jobs:
   build:
@@ -66,7 +67,7 @@ jobs:
           release_name: Release ${{ env.TAG_VERSION }}
           draft: true
           prerelease: false
-          
+
       # Upload the release with .zip as asset
       - name: Upload Release Asset
         id: upload-release-asset
