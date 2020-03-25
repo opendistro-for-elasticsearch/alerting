@@ -106,7 +106,7 @@ class RestIndexMonitorAction(
     }
 
     @Throws(IOException::class)
-    override fun prepareRequest(request: RestRequest, client: NodeClient): BaseRestHandler.RestChannelConsumer {
+    override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val id = request.param("monitorID", Monitor.NO_ID)
         if (request.method() == PUT && Monitor.NO_ID == id) {
             throw IllegalArgumentException("Missing monitor ID")
@@ -143,7 +143,7 @@ class RestIndexMonitorAction(
                 scheduledJobIndices.initScheduledJobIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
                 if (!IndexUtils.scheduledJobIndexUpdated) {
-                    IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
+                    IndexUtils.updateIndexMapping(SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
                             ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
                             ActionListener.wrap(::onUpdateMappingsResponse, ::onFailure))
                 } else {
@@ -162,7 +162,7 @@ class RestIndexMonitorAction(
             if (channel.request().method() == PUT) return updateMonitor()
             val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
             val searchSource = SearchSourceBuilder().query(query).timeout(requestTimeout)
-            val searchRequest = SearchRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
+            val searchRequest = SearchRequest(SCHEDULED_JOBS_INDEX)
                     .source(searchSource)
             client.search(searchRequest, ActionListener.wrap(::onSearchResponse, ::onFailure))
         }
@@ -184,7 +184,8 @@ class RestIndexMonitorAction(
          * After searching for all existing monitors we validate the system can support another monitor to be created.
          */
         private fun onSearchResponse(response: SearchResponse) {
-            if (response.hits.totalHits.value >= maxMonitors) {
+            val totalHits = response.hits.totalHits?.value
+            if (totalHits != null && totalHits >= maxMonitors) {
                 log.error("This request would create more than the allowed monitors [$maxMonitors].")
                 onFailure(IllegalArgumentException("This request would create more than the allowed monitors [$maxMonitors]."))
             } else {

@@ -15,11 +15,7 @@
 
 allprojects {
     plugins.withId('jacoco') {
-        // 0.8.2 doesn't show missing coverage of Kotlin generated methods. Remove once this becomes gradle's default
         jacoco.toolVersion = '0.8.5'
-        tasks.withType(Test) { 
-            jacoco { append = false }
-        }
         // For some reason this dependency isn't getting setup automatically by the jacoco plugin
         tasks.withType(JacocoReport) { 
             dependsOn tasks.withType(Test)
@@ -50,8 +46,8 @@ task jacocoReport(type: JacocoReport, group: 'verification') {
     }
 
     gradle.projectsEvaluated {
-        sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
-        classDirectories = files(subprojects.sourceSets.main.output)
+        getSourceDirectories().from(files(subprojects.sourceSets.main.allSource.srcDirs))
+        getClassDirectories().from(files(subprojects.sourceSets.main.output))
     }
 }
 

@@ -483,9 +483,9 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", false, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index exists but there are no scheduled jobs.", false, responseMap["scheduled_job_index_exists"])
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     fun `test monitor stats no jobs`() {
@@ -497,9 +497,9 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", true, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index exists but there are no scheduled jobs.", false, responseMap["scheduled_job_index_exists"])
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     fun `test monitor stats jobs`() {
@@ -512,12 +512,12 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", true, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index does not exist", true, responseMap["scheduled_job_index_exists"])
         assertEquals("Scheduled job index is not yellow", "yellow", responseMap["scheduled_job_index_status"])
-        assertEquals("Node is not on schedule", 1, responseMap["nodes_on_schedule"])
+        assertEquals("Nodes are not on schedule", numberOfNodes, responseMap["nodes_on_schedule"])
 
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     @Throws(Exception::class)
@@ -543,12 +543,12 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", true, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index does not exist", true, responseMap["scheduled_job_index_exists"])
         assertEquals("Scheduled job index is not yellow", "yellow", responseMap["scheduled_job_index_status"])
-        assertEquals("Node is not on schedule", 1, responseMap["nodes_on_schedule"])
+        assertEquals("Nodes not on schedule", numberOfNodes, responseMap["nodes_on_schedule"])
 
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     fun `test monitor stats incorrect metric`() {
