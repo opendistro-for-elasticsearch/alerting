@@ -17,7 +17,7 @@ buildscript {
     apply from: 'build-tools/repositories.gradle'
 
     ext {
-        es_version = '7.5.2'
+        es_version = '7.6.1'
         kotlin_version = '1.3.21'
     }
 
@@ -33,7 +33,7 @@ buildscript {
 }
 
 plugins {
-    id 'nebula.ospackage' version "5.3.0" apply false
+    id 'nebula.ospackage' version "8.2.0" apply false
     id "com.dorongold.task-tree" version "1.5"
 }
 
@@ -42,7 +42,7 @@ apply plugin: 'jacoco'
 apply from: 'build-tools/merged-coverage.gradle'
 
 ext {
-    opendistroVersion = '1.5.0'
+    opendistroVersion = '1.6.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
