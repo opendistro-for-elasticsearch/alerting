@@ -18,7 +18,7 @@ jobs:
     steps:
       # This step uses the checkout Github action: https://github.com/actions/checkout
       - name: Checkout Branch
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
       # This step uses the setup-java Github action: https://github.com/actions/setup-java
       - name: Set Up JDK ${{ matrix.java }}
         uses: actions/setup-java@v1
