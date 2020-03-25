@@ -22,7 +22,7 @@ apply plugin: 'signing'
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compile "org.apache.httpcomponents:httpcore:4.4.5"
-    compile "org.apache.httpcomponents:httpclient:4.5.8"
+    compile "org.apache.httpcomponents:httpclient:4.5.10"
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.easymock:easymock:4.0.1"
