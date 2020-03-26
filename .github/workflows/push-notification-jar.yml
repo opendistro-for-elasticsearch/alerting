@@ -7,9 +7,6 @@ on:
 jobs:
   upload-notification-jar:
     runs-on: [ubuntu-16.04]
-    strategy:
-      matrix:
-        java: [12]
     name: Upload Notification Jar to Maven
     steps:
       - name: Checkout Repo
@@ -25,7 +22,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v1
         with:
-          java-version: ${{ matrix.java }}
+          java-version: '12'
 
       - name: Upload Notification Jar to Maven
         env:
