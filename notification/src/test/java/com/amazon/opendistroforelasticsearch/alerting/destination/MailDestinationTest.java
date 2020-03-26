@@ -101,7 +101,7 @@ public class MailDestinationTest {
                     .withMessage("dummyMessage")
                     .withFrom("test@abc.com")
                     .withRecipients("test@abc.com").build();
-                    
+
         } catch (Exception ex) {
             Assert.assertEquals("Host name should be provided", ex.getMessage());
             throw ex;
@@ -128,13 +128,13 @@ public class MailDestinationTest {
                     .withMessage("dummyMessage")
                     .withHost("abc.com")
                     .withRecipients("test@abc.com").build();
-                    
+
         } catch (Exception ex) {
             Assert.assertEquals("From address should be provided", ex.getMessage());
             throw ex;
         }
     }
-    
+
     @Test(expected = IllegalArgumentException.class)
     public void testRecipientsMissingMessage() {
         try {
@@ -142,7 +142,7 @@ public class MailDestinationTest {
                     .withMessage("dummyMessage")
                     .withHost("abc.com")
                     .withFrom("test@abc.com").build();
-                    
+
         } catch (Exception ex) {
             Assert.assertEquals("Comma separated recipients should be provided", ex.getMessage());
             throw ex;

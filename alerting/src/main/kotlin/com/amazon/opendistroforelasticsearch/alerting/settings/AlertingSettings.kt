@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.alerting.settings
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import org.elasticsearch.common.settings.Setting
-import org.elasticsearch.common.settings.SecureSetting
 import org.elasticsearch.common.unit.TimeValue
 import java.util.concurrent.TimeUnit
 
@@ -118,41 +117,6 @@ class AlertingSettings {
         val MAX_ACTION_THROTTLE_VALUE = Setting.positiveTimeSetting(
                 "opendistro.alerting.action_throttle_max_value",
                 TimeValue.timeValueHours(24),
-                Setting.Property.NodeScope, Setting.Property.Dynamic
-        )
-
-        val DESTINATION_MAIL_HOST = Setting.simpleString(
-                "opendistro.alerting.destination.mail.host",
-                "localhost",
-                Setting.Property.NodeScope, Setting.Property.Dynamic
-        )
-
-        val DESTINATION_MAIL_PORT = Setting.intSetting(
-                "opendistro.alerting.destination.mail.port",
-                25,
-                Setting.Property.NodeScope, Setting.Property.Dynamic
-        )
-
-        val DESTINATION_MAIL_METHOD = Setting.simpleString(
-                "opendistro.alerting.destination.mail.method",
-                "none",
-                Setting.Property.NodeScope, Setting.Property.Dynamic
-        )
-
-        val DESTINATION_MAIL_FROM = Setting.simpleString(
-                "opendistro.alerting.destination.mail.from",
-                "opendistro-alerting@localhost",
-                Setting.Property.NodeScope, Setting.Property.Dynamic
-        )
-
-        val DESTINATION_MAIL_USERNAME = SecureSetting.secureString(
-                "opendistro.alerting.destination.mail.username",
-                null
-        )
-
-        val DESTINATION_MAIL_PASSWORD = SecureSetting.secureString(
-                "opendistro.alerting.destination.mail.password",
-                null
-        )
+                Setting.Property.NodeScope, Setting.Property.Dynamic)
     }
 }
