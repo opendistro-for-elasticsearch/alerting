@@ -92,7 +92,7 @@ class IndexUtils {
 
         @JvmStatic
         fun getIndexNameWithAlias(clusterState: ClusterState, alias: String): String {
-            return clusterState.metaData.indices.first { it -> it.value.aliases.containsKey(alias) }.key
+            return clusterState.metaData.indices.first { it.value.aliases.containsKey(alias) }.key
         }
 
         @JvmStatic
@@ -100,8 +100,8 @@ class IndexUtils {
             var oldVersion = NO_SCHEMA_VERSION
             val newVersion = getSchemaVersion(mapping)
 
-            val indexMapping = index.mapping().sourceAsMap()
-            if (indexMapping.containsKey(_META) && indexMapping[_META] is HashMap<*, *>) {
+            val indexMapping = index.mapping()?.sourceAsMap()
+            if (indexMapping != null && indexMapping.containsKey(_META) && indexMapping[_META] is HashMap<*, *>) {
                 val metaData = indexMapping[_META] as HashMap<*, *>
                 if (metaData.containsKey(SCHEMA_VERSION)) {
                     oldVersion = metaData[SCHEMA_VERSION] as Int
@@ -121,7 +121,7 @@ class IndexUtils {
         ) {
             if (clusterState.metaData.indices.containsKey(index)) {
                 if (shouldUpdateIndex(clusterState.metaData.indices[index], mapping)) {
-                    var putMappingRequest: PutMappingRequest = PutMappingRequest(index).type(type).source(mapping, XContentType.JSON)
+                    val putMappingRequest: PutMappingRequest = PutMappingRequest(index).type(type).source(mapping, XContentType.JSON)
                     client.putMapping(putMappingRequest, actionListener)
                 } else {
                     actionListener.onResponse(AcknowledgedResponse(true))
