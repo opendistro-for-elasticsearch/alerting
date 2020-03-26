@@ -50,6 +50,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
@@ -95,7 +96,7 @@ import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 
 class MonitorRunner(
-    private val settings: Settings,
+    settings: Settings,
     private val client: Client,
     private val threadPool: ThreadPool,
     private val scriptService: ScriptService,
@@ -114,6 +115,8 @@ class MonitorRunner(
         BackoffPolicy.constantBackoff(ALERT_BACKOFF_MILLIS.get(settings), ALERT_BACKOFF_COUNT.get(settings))
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
+
+    @Volatile private var destinationSettings = DestinationSettings.parse(settings)
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
@@ -434,7 +437,7 @@ class MonitorRunner(
                 withContext(Dispatchers.IO) {
                     val destination = getDestinationInfo(action.destinationId)
                     actionOutput[MESSAGE_ID] = destination.publish(
-                        settings.getAsSettings("opendistro_alerting.destination"),
+                        destinationSettings,
                         actionOutput[SUBJECT],
                         actionOutput[MESSAGE]!!
                     )
