@@ -2,7 +2,6 @@
 
 ### New Features
   * Adds support for Elasticsearch 7.6.1 - [PR #186](https://github.com/opendistro-for-elasticsearch/alerting/pull/186)
-  * Adds support for Elasticsearch 7.5.2 - [PR #185](https://github.com/opendistro-for-elasticsearch/alerting/pull/185)
 
 ## 2020-02-07, Version 1.4.0.0
 
