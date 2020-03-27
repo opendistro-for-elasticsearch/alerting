@@ -65,41 +65,17 @@ jobs:
           draft: true
           prerelease: false
 
-      # Upload the release with .zip as asset
+      # Upload the release with .zip,.rpm and .deb as assets
       - name: Upload Release Asset
         id: upload-release-asset
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: alerting.zip
-          asset_path: alerting-artifacts/*.zip
-          asset_content_type: application/zip
-
-      # Upload the release with .rpm as asset
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: alerting.rpm
-          asset_path: alerting-artifacts/*.rpm
-          asset_content_type: application/zip
-
-      # Upload the release with .deb as asset
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: alerting.deb
-          asset_path: alerting-artifacts/*.deb
-          asset_content_type: application/zip
+          files: |
+            alerting-artifacts/*.zip
+            alerting-artifacts/*.rpm
+            alerting-artifacts/*.deb
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Workflow Artifacts
         uses: actions/upload-artifact@v1
