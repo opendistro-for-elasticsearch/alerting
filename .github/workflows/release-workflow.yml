@@ -32,9 +32,9 @@ jobs:
       - name: Create Artifact Path
         run: |
           mkdir -p alerting-artifacts
-          cp alerting/build/distributions/*.zip alerting-artifacts
-          cp alerting/build/distributions/*.deb alerting-artifacts
-          cp alerting/build/distributions/*.rpm alerting-artifacts
+          cp ./alerting/build/distributions/*.zip alerting-artifacts
+          cp ./alerting/build/distributions/*.deb alerting-artifacts
+          cp ./alerting/build/distributions/*.rpm alerting-artifacts
           echo ::set-env name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
 
      # AWS authentication
