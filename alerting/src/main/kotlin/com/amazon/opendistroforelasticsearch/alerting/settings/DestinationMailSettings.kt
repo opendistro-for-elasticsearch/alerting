@@ -21,25 +21,25 @@ data class DestinationMailSettings(
         val DESTINATION_MAIL_HOST = Setting.simpleString(
                 "opendistro.alerting.destination.mail.host",
                 "localhost",
-                Setting.Property.NodeScope, Setting.Property.Dynamic
+                Setting.Property.NodeScope
         )
 
         val DESTINATION_MAIL_PORT = Setting.intSetting(
                 "opendistro.alerting.destination.mail.port",
                 25,
-                Setting.Property.NodeScope, Setting.Property.Dynamic
+                Setting.Property.NodeScope
         )
 
         val DESTINATION_MAIL_METHOD = Setting.simpleString(
                 "opendistro.alerting.destination.mail.method",
                 "none",
-                Setting.Property.NodeScope, Setting.Property.Dynamic
+                Setting.Property.NodeScope
         )
 
         val DESTINATION_MAIL_FROM = Setting.simpleString(
                 "opendistro.alerting.destination.mail.from",
                 "opendistro-alerting@localhost",
-                Setting.Property.NodeScope, Setting.Property.Dynamic
+                Setting.Property.NodeScope
         )
 
         val DESTINATION_MAIL_USERNAME = SecureSetting.secureString(
