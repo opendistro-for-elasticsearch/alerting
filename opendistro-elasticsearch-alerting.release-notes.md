@@ -2,6 +2,7 @@
 
 ### New Features
   * Adds support for Elasticsearch 6.8.1 - [PR #75](https://github.com/opendistro-for-elasticsearch/alerting/pull/75)
+  * Adds maven publish task for notification subproject for other plugins to utilize - #195
 
 ## 2019-04-24, Version 0.9.0
 
