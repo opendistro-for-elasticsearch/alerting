@@ -5,7 +5,6 @@ on:
     tags:
       - 'v*'
 
-
 jobs:
   build:
     strategy:
@@ -29,15 +28,19 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build buildDeb buildRpm --no-daemon -Dbuild.snapshot=false
 
+      # Creating artifact path as well as individual folders for rpm, zip and deb assets
       - name: Create Artifact Path
         run: |
           mkdir -p alerting-artifacts
           cp alerting/build/distributions/*.zip alerting-artifacts
+          cp alerting/build/distributions/*.zip alerting-artifacts_zip
           cp alerting/build/distributions/*.deb alerting-artifacts
+          cp alerting/build/distributions/*.deb alerting-artifacts_deb
           cp alerting/build/distributions/*.rpm alerting-artifacts
+          cp alerting/build/distributions/*.rpm alerting-artifacts_rpm
           echo ::set-env name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
 
-     # AWS authentication
+      # AWS authentication
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -73,7 +76,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: alerting.zip
-          asset_path: alerting-artifacts/*.zip
+          asset_path: alerting-artifacts_zip
           asset_content_type: application/zip
 
       # Upload the release with .rpm as asset
@@ -84,7 +87,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: alerting.rpm
-          asset_path: alerting-artifacts/*.rpm
+          asset_path: alerting-artifacts_rpm
           asset_content_type: application/zip
 
       # Upload the release with .deb as asset
@@ -95,7 +98,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: alerting.deb
-          asset_path: alerting-artifacts/*.deb
+          asset_path: alerting-artifacts_deb
           asset_content_type: application/zip
 
       - name: Upload Workflow Artifacts
