@@ -42,7 +42,7 @@ apply plugin: 'jacoco'
 apply from: 'build-tools/merged-coverage.gradle'
 
 ext {
-    opendistroVersion = '1.6.0'
+    opendistroVersion = '1.6.1'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
