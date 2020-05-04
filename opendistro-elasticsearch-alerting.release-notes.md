@@ -1,4 +1,4 @@
-## Version 1.6.1.0 (Current)
+## Version 1.7.0.0 (Current)
 
 ## 2020-04-03, Version 1.6.0.0
 
