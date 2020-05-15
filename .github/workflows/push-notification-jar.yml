@@ -41,4 +41,4 @@ jobs:
           
           cd alerting/notification
           
-          ../gradlew publishShadowPublicationToSonatype-stagingRepository -Dcompiler.java=13 -Dbuild.snapshot=false -Djavax.net.ssl.trustStore=/opt/hostedtoolcache/jdk/13.0.2/x64/lib/security/cacerts
+          ../gradlew publishShadowPublicationToSonatype-stagingRepository -Dcompiler.java=13 -Dbuild.snapshot=false -Djavax.net.ssl.trustStore=$JAVA_HOME/lib/security/cacerts
