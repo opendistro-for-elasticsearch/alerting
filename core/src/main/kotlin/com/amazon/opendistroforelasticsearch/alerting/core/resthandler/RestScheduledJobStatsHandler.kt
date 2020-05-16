@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.action.node.Scheduled
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
 import org.elasticsearch.rest.BaseRestHandler
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 
 import org.elasticsearch.rest.RestRequest.Method.GET
@@ -31,14 +31,7 @@ import java.util.TreeSet
 /**
  * RestScheduledJobStatsHandler is handler for getting ScheduledJob Stats.
  */
-class RestScheduledJobStatsHandler(controller: RestController, private val path: String) : BaseRestHandler() {
-    init {
-        controller.registerHandler(GET, "/_opendistro/$path/{nodeId}/stats/", this)
-        controller.registerHandler(GET, "/_opendistro/$path/{nodeId}/stats/{metric}", this)
-
-        controller.registerHandler(GET, "/_opendistro/$path/stats/", this)
-        controller.registerHandler(GET, "/_opendistro/$path/stats/{metric}", this)
-    }
+class RestScheduledJobStatsHandler(private val path: String) : BaseRestHandler() {
 
     companion object {
         const val JOB_SCHEDULING_METRICS: String = "job_scheduling_metrics"
@@ -51,6 +44,15 @@ class RestScheduledJobStatsHandler(controller: RestController, private val path:
 
     override fun getName(): String {
         return "${path}_jobs_stats"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(GET, "/_opendistro/$path/{nodeId}/stats/"),
+                Route(GET, "/_opendistro/$path/{nodeId}/stats/{metric}"),
+                Route(GET, "/_opendistro/$path/stats/"),
+                Route(GET, "/_opendistro/$path/stats/{metric}")
+        )
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {

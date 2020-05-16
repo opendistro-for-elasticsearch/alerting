@@ -32,7 +32,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestRequest.Method.POST
@@ -45,15 +45,18 @@ import java.io.IOException
 /**
  * Rest handlers to search for monitors.
  */
-class RestSearchMonitorAction(controller: RestController) : BaseRestHandler() {
-    init {
-        // Search for monitors
-        controller.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_search", this)
-        controller.registerHandler(GET, "${AlertingPlugin.MONITOR_BASE_URI}/_search", this)
-    }
+class RestSearchMonitorAction : BaseRestHandler() {
 
     override fun getName(): String {
         return "search_monitor_action"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                // Search for monitors
+                Route(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_search"),
+                Route(GET, "${AlertingPlugin.MONITOR_BASE_URI}/_search")
+        )
     }
 
     @Throws(IOException::class)
