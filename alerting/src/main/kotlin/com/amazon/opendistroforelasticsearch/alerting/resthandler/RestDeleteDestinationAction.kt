@@ -23,7 +23,7 @@ import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.action.RestStatusToXContentListener
 import java.io.IOException
@@ -31,14 +31,16 @@ import java.io.IOException
 /**
  * This class consists of the REST handler to delete destination.
  */
-class RestDeleteDestinationAction(controller: RestController) : BaseRestHandler() {
-
-    init {
-        controller.registerHandler(RestRequest.Method.DELETE, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}", this)
-    }
+class RestDeleteDestinationAction : BaseRestHandler() {
 
     override fun getName(): String {
         return "delete_destination_action"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(RestRequest.Method.DELETE, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}")
+        )
     }
 
     @Throws(IOException::class)

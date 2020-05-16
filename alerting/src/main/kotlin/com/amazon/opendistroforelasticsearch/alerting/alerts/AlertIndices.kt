@@ -205,7 +205,10 @@ class AlertIndices(
         }
         if (existsResponse.isExists) return true
 
-        val request = CreateIndexRequest(index).mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
+        val request = CreateIndexRequest(index)
+                .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
+                .settings(Settings.builder().put("index.hidden", true).build())
+
         if (alias != null) request.alias(Alias(alias))
         return try {
             val createIndexResponse: CreateIndexResponse = client.admin().indices().suspendUntil { create(request, it) }
@@ -259,6 +262,7 @@ class AlertIndices(
         val request = RolloverRequest(HISTORY_WRITE_INDEX, null)
         request.createIndexRequest.index(HISTORY_INDEX_PATTERN)
                 .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
+                .settings(Settings.builder().put("index.hidden", true).build())
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
         val response = client.admin().indices().rolloversIndex(request).actionGet(requestTimeout)
