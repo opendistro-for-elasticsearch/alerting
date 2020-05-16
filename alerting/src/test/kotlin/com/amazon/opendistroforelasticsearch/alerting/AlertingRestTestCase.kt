@@ -266,8 +266,8 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
 
     fun createAlertingConfigIndex(mapping: String? = null) {
         val mappingHack = if (mapping != null) mapping else scheduledJobMappings().trimStart('{').trimEnd('}')
-        val Settings = Settings.builder().put("index.hidden", true).build()
-        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, Settings, mappingHack)
+        val settings = Settings.builder().put("index.hidden", true).build()
+        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, settings, mappingHack)
     }
 
     protected fun Response.restStatus(): RestStatus {
