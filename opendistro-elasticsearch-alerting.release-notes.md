@@ -1,4 +1,9 @@
-## Version 1.7.0.0 (Current)
+## Version 1.8.0.0 (Current)
+
+### New Features
+  * Adds support for Elasticsearch 7.7.0 - [PR #205](https://github.com/opendistro-for-elasticsearch/alerting/pull/205)
+
+## 2020-05-13, Version 1.7.0.0
 
 ## 2020-04-03, Version 1.6.0.0
 
