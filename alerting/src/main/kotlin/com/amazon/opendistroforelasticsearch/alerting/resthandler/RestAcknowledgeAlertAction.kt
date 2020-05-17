@@ -69,7 +69,7 @@ class RestAcknowledgeAlertAction : BaseRestHandler() {
     }
 
     override fun routes(): List<Route> {
-        return mutableListOf(
+        return listOf(
                 // Acknowledge alerts
                 Route(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_acknowledge/alerts")
         )
