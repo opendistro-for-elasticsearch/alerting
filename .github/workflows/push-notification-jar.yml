@@ -22,7 +22,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v1
         with:
-          java-version: '13'
+          java-version: '14'
 
       - name: Upload Notification Jar to Maven
         env:
@@ -41,4 +41,4 @@ jobs:
           
           cd alerting/notification
           
-          ../gradlew publishShadowPublicationToSonatype-stagingRepository -Dcompiler.java=13 -Dbuild.snapshot=false -Djavax.net.ssl.trustStore=$JAVA_HOME/lib/security/cacerts
+          ../gradlew publishShadowPublicationToSonatype-stagingRepository -Dcompiler.java=14 -Dbuild.snapshot=false -Djavax.net.ssl.trustStore=$JAVA_HOME/lib/security/cacerts
