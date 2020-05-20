@@ -23,7 +23,7 @@ import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.DELETE
 import org.elasticsearch.rest.action.RestStatusToXContentListener
@@ -34,15 +34,16 @@ import java.io.IOException
  * When a monitor is deleted, all alerts are moved to the [Alert.State.DELETED] state and moved to the alert history index.
  * If this process fails the monitor is not deleted.
  */
-class RestDeleteMonitorAction(controller: RestController) :
-        BaseRestHandler() {
-
-    init {
-        controller.registerHandler(DELETE, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}", this) // Delete a monitor
-    }
+class RestDeleteMonitorAction : BaseRestHandler() {
 
     override fun getName(): String {
         return "delete_monitor_action"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(DELETE, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}") // Delete a monitor
+        )
     }
 
     @Throws(IOException::class)

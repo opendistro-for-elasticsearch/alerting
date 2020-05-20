@@ -58,7 +58,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestRequest.Method.PUT
@@ -77,7 +77,6 @@ private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
  */
 class RestIndexMonitorAction(
     settings: Settings,
-    controller: RestController,
     jobIndices: ScheduledJobIndices,
     clusterService: ClusterService
 ) : BaseRestHandler() {
@@ -90,8 +89,6 @@ class RestIndexMonitorAction(
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
 
     init {
-        controller.registerHandler(POST, AlertingPlugin.MONITOR_BASE_URI, this) // Create a new monitor
-        controller.registerHandler(PUT, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}", this)
         scheduledJobIndices = jobIndices
 
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
@@ -103,6 +100,13 @@ class RestIndexMonitorAction(
 
     override fun getName(): String {
         return "index_monitor_action"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(POST, AlertingPlugin.MONITOR_BASE_URI), // Create a new monitor
+                Route(PUT, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}")
+        )
     }
 
     @Throws(IOException::class)
