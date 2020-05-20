@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        java: [13]
+        java: [14]
     # Job name
     name: Build Alerting with JDK ${{ matrix.java }}
     # This job runs on Linux

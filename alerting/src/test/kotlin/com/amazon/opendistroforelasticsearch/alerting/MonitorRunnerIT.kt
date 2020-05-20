@@ -65,7 +65,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     fun `test execute monitor returns search result`() {
         val uniqueName = "unique name"
         val query = QueryBuilders.termQuery("monitor.name.keyword", uniqueName)
-        val input = SearchInput(indices = listOf("*"), query = SearchSourceBuilder().query(query))
+        val input = SearchInput(indices = listOf(".*"), query = SearchSourceBuilder().query(query))
         val monitor = createMonitor(randomMonitor(name = uniqueName, inputs = listOf(input),
                 triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
 
@@ -236,7 +236,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test execute monitor search with period`() {
         val query = QueryBuilders.rangeQuery("monitor.last_update_time").gte("{{period_start}}").lte("{{period_end}}")
-        val input = SearchInput(indices = listOf("_all"), query = SearchSourceBuilder().query(query))
+        val input = SearchInput(indices = listOf(".*"), query = SearchSourceBuilder().query(query))
         val triggerScript = """
             // make sure there is at least one monitor
             return ctx.results[0].hits.hits.size() > 0

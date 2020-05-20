@@ -47,7 +47,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestStatus
@@ -62,15 +62,17 @@ private val log: Logger = LogManager.getLogger(RestAcknowledgeAlertAction::class
  * The user provides the monitorID to which these alerts pertain and in the content of the request provides
  * the ids to the alerts he would like to acknowledge.
  */
-class RestAcknowledgeAlertAction(controller: RestController) : BaseRestHandler() {
-
-    init {
-        // Acknowledge alerts
-        controller.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_acknowledge/alerts", this)
-    }
+class RestAcknowledgeAlertAction : BaseRestHandler() {
 
     override fun getName(): String {
         return "acknowledge_alert_action"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                // Acknowledge alerts
+                Route(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_acknowledge/alerts")
+        )
     }
 
     @Throws(IOException::class)

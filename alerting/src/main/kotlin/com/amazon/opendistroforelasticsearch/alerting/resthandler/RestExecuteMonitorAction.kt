@@ -37,7 +37,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestStatus
@@ -48,16 +48,17 @@ private val log = LogManager.getLogger(RestExecuteMonitorAction::class.java)
 
 class RestExecuteMonitorAction(
     val settings: Settings,
-    restController: RestController,
     private val runner: MonitorRunner
 ) : BaseRestHandler() {
 
-    init {
-        restController.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_execute", this)
-        restController.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_execute", this)
-    }
-
     override fun getName(): String = "execute_monitor_action"
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(POST, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_execute"),
+                Route(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_execute")
+        )
+    }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         return RestChannelConsumer { channel ->

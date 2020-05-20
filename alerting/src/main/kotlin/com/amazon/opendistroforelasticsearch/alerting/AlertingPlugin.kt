@@ -102,15 +102,15 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         indexNameExpressionResolver: IndexNameExpressionResolver?,
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
-        return listOf(RestGetMonitorAction(restController),
-                RestDeleteMonitorAction(restController),
-                RestIndexMonitorAction(settings, restController, scheduledJobIndices, clusterService),
-                RestSearchMonitorAction(restController),
-                RestExecuteMonitorAction(settings, restController, runner),
-                RestAcknowledgeAlertAction(restController),
-                RestScheduledJobStatsHandler(restController, "_alerting"),
-                RestIndexDestinationAction(settings, restController, scheduledJobIndices, clusterService),
-                RestDeleteDestinationAction(restController))
+        return listOf(RestGetMonitorAction(),
+                RestDeleteMonitorAction(),
+                RestIndexMonitorAction(settings, scheduledJobIndices, clusterService),
+                RestSearchMonitorAction(),
+                RestExecuteMonitorAction(settings, runner),
+                RestAcknowledgeAlertAction(),
+                RestScheduledJobStatsHandler("_alerting"),
+                RestIndexDestinationAction(settings, scheduledJobIndices, clusterService),
+                RestDeleteDestinationAction())
     }
 
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
@@ -130,7 +130,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         xContentRegistry: NamedXContentRegistry,
         environment: Environment,
         nodeEnvironment: NodeEnvironment,
-        namedWriteableRegistry: NamedWriteableRegistry
+        namedWriteableRegistry: NamedWriteableRegistry,
+        indexNameExpressionResolver: IndexNameExpressionResolver
     ): Collection<Any> {
         // Need to figure out how to use the Elasticsearch DI classes rather than handwiring things here.
         val settings = environment.settings()
