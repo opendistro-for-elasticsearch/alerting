@@ -49,7 +49,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
@@ -63,7 +63,6 @@ private val log = LogManager.getLogger(RestIndexDestinationAction::class.java)
  */
 class RestIndexDestinationAction(
     settings: Settings,
-    controller: RestController,
     jobIndices: ScheduledJobIndices,
     clusterService: ClusterService
 ) : BaseRestHandler() {
@@ -72,8 +71,6 @@ class RestIndexDestinationAction(
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
 
     init {
-        controller.registerHandler(RestRequest.Method.POST, AlertingPlugin.DESTINATION_BASE_URI, this) // Creates new destination
-        controller.registerHandler(RestRequest.Method.PUT, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}", this)
         scheduledJobIndices = jobIndices
 
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
@@ -82,6 +79,13 @@ class RestIndexDestinationAction(
 
     override fun getName(): String {
         return "index_destination_action"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(RestRequest.Method.POST, AlertingPlugin.DESTINATION_BASE_URI), // Creates new destination
+                Route(RestRequest.Method.PUT, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}")
+        )
     }
 
     @Throws(IOException::class)

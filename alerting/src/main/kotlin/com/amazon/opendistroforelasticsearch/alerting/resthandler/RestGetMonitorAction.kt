@@ -32,7 +32,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestRequest.Method.HEAD
@@ -45,16 +45,18 @@ import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 /**
  * This class consists of the REST handler to retrieve a monitor .
  */
-class RestGetMonitorAction(controller: RestController) : BaseRestHandler() {
-
-    init {
-        // Get a specific monitor
-        controller.registerHandler(GET, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}", this)
-        controller.registerHandler(HEAD, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}", this)
-    }
+class RestGetMonitorAction : BaseRestHandler() {
 
     override fun getName(): String {
         return "get_monitor_action"
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                // Get a specific monitor
+                Route(GET, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}"),
+                Route(HEAD, "${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}")
+        )
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {

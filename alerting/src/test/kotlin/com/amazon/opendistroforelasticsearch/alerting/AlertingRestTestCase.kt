@@ -255,8 +255,9 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
     fun putAlertMappings(mapping: String? = null) {
         val mappingHack = if (mapping != null) mapping else AlertIndices.alertMapping().trimStart('{').trimEnd('}')
         val encodedHistoryIndex = URLEncoder.encode(AlertIndices.HISTORY_INDEX_PATTERN, Charsets.UTF_8.toString())
-        createIndex(AlertIndices.ALERT_INDEX, Settings.EMPTY, mappingHack)
-        createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack, "\"${AlertIndices.HISTORY_WRITE_INDEX}\" : {}")
+        val settings = Settings.builder().put("index.hidden", true).build()
+        createIndex(AlertIndices.ALERT_INDEX, settings, mappingHack)
+        createIndex(encodedHistoryIndex, settings, mappingHack, "\"${AlertIndices.HISTORY_WRITE_INDEX}\" : {}")
     }
 
     fun scheduledJobMappings(): String {
@@ -265,7 +266,8 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
 
     fun createAlertingConfigIndex(mapping: String? = null) {
         val mappingHack = if (mapping != null) mapping else scheduledJobMappings().trimStart('{').trimEnd('}')
-        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, Settings.EMPTY, mappingHack)
+        val settings = Settings.builder().put("index.hidden", true).build()
+        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, settings, mappingHack)
     }
 
     protected fun Response.restStatus(): RestStatus {
