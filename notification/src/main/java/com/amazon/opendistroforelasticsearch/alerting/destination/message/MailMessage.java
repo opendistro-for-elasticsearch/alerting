@@ -72,7 +72,7 @@ public class MailMessage extends BaseMessage {
 
         this.message = message;
         this.host = host;
-        this.port = port == null ? 25 : port;
+        this.port = port == null ? 587 : port;
         this.method = method == null ? "none" : method;
         this.from = from;
         this.recipients = recipients;
@@ -83,7 +83,7 @@ public class MailMessage extends BaseMessage {
 
     @Override
     public String toString() {
-        return "DestinationType: " + destinationType + ", DestinationName:" +  destinationName +
+        return "DestinationType: " + destinationType + ", DestinationName: " +  destinationName +
                 ", Host: " + host + ", Port: " + port + ", Message: " + message;
     }
 

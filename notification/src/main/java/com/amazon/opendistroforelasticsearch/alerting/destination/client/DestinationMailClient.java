@@ -22,9 +22,14 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.common.Strings;
 import java.util.Properties;
-import javax.mail.*;
+import javax.mail.Authenticator;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.PasswordAuthentication;
+import javax.mail.Session;
+import javax.mail.Transport;
 
 /**
  * This class handles the connections to the given Destination.
@@ -43,18 +48,17 @@ public class DestinationMailClient {
             prop.put("mail.smtp.host", mailMessage.getHost());
             prop.put("mail.smtp.port", mailMessage.getPort());
 
-            if ( mailMessage.getUsername() != null && !mailMessage.getUsername().equals("".toCharArray())) {
+            if (mailMessage.getUsername() != null && !mailMessage.getUsername().equals("".toCharArray())) {
                 prop.put("mail.smtp.auth", true);
-                session = Session.getInstance(prop, new javax.mail.Authenticator() {
-	    	        protected PasswordAuthentication getPasswordAuthentication() {
-                        try (
-                            SecureString username = mailMessage.getUsername().clone();
-                            SecureString password = mailMessage.getPassword().clone())
-                        {
-     		    	        return new PasswordAuthentication(username.toString(), password.toString());
+                try {
+                    session = Session.getInstance(prop, new Authenticator() {
+	                    protected PasswordAuthentication getPasswordAuthentication() {
+                            return new PasswordAuthentication(mailMessage.getUsername().toString(), mailMessage.getPassword().toString());
                         }
-		            }
-	            });
+		            });
+                } catch (IllegalStateException e) {
+                    return e.getMessage();
+                }
             } else {
                 session = Session.getInstance(prop);
             }

@@ -26,7 +26,7 @@ data class DestinationMailSettings(
 
         val DESTINATION_MAIL_PORT = Setting.intSetting(
                 "opendistro.alerting.destination.mail.port",
-                25,
+                587,
                 Setting.Property.NodeScope
         )
 
