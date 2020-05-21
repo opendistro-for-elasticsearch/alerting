@@ -20,7 +20,7 @@ data class DestinationMailSettings(
     companion object {
         val DESTINATION_MAIL_HOST = Setting.simpleString(
                 "opendistro.alerting.destination.mail.host",
-                "localhost",
+                "",
                 Setting.Property.NodeScope
         )
 
@@ -38,7 +38,7 @@ data class DestinationMailSettings(
 
         val DESTINATION_MAIL_FROM = Setting.simpleString(
                 "opendistro.alerting.destination.mail.from",
-                "opendistro-alerting@localhost",
+                "",
                 Setting.Property.NodeScope
         )
 

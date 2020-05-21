@@ -54,6 +54,11 @@ class DestinationTests : ESTestCase() {
         }
     }
 
+    fun `test mail destination`() {
+        val mail = Mail("test@localhost.localdomain")
+        assertEquals("Recipients is manipulated", mail.recipients, "test@localhost.localdomain")
+    }
+
     fun `test mail destination without recipient`() {
         try {
             Mail("")
@@ -91,7 +96,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test chime destination create using stream`() {
         val chimeDest = Destination("1234", 0L, 1, DestinationType.CHIME, "TestChimeDest",
-                Instant.now(), Chime("test.com"), null, null)
+                Instant.now(), Chime("test.com"), null, null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -108,11 +113,12 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.chime)
         assertNull(newDest.slack)
         assertNull(newDest.customWebhook)
+        assertNull(newDest.mail)
     }
 
     fun `test slack destination create using stream`() {
         val chimeDest = Destination("2345", 1L, 2, DestinationType.SLACK, "TestSlackDest",
-                Instant.now(), null, Slack("mytest.com"), null)
+                Instant.now(), null, Slack("mytest.com"), null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -129,6 +135,7 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNotNull(newDest.slack)
         assertNull(newDest.customWebhook)
+        assertNull(newDest.mail)
     }
 
     fun `test customwebhook destination create using stream`() {
@@ -151,7 +158,8 @@ class DestinationTests : ESTestCase() {
                     mutableMapOf(),
                     "admin",
                     "admin"
-                )
+                ),
+                null
         )
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -168,6 +176,7 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNull(newDest.slack)
         assertNotNull(newDest.customWebhook)
+        assertNull(newDest.mail)
     }
 
     fun `test customwebhook destination create using stream with optionals`() {
@@ -190,7 +199,8 @@ class DestinationTests : ESTestCase() {
                         mutableMapOf(),
                         null,
                         null
-                )
+                ),
+                null
         )
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -207,5 +217,28 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNull(newDest.slack)
         assertNotNull(newDest.customWebhook)
+        assertNull(newDest.mail)
+    }
+
+    fun `test mail destination create using stream`() {
+        val mailDest = Destination("2345", 1L, 2, DestinationType.MAIL, "TestMailDest",
+                Instant.now(), null, null, null, Mail("test@localhost.localdomain"))
+
+        val out = BytesStreamOutput()
+        mailDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("2345", newDest.id)
+        assertEquals(1, newDest.version)
+        assertEquals(2, newDest.schemaVersion)
+        assertEquals(DestinationType.MAIL, newDest.type)
+        assertEquals("TestMailDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNull(newDest.chime)
+        assertNull(newDest.slack)
+        assertNull(newDest.customWebhook)
+        assertNotNull(newDest.mail)
     }
 }

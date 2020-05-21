@@ -83,7 +83,7 @@ public class MailMessage extends BaseMessage {
 
     @Override
     public String toString() {
-        return "DestinationType: " + destinationType + ", DestinationName:" +  destinationName +
+        return "DestinationType: " + destinationType + ", DestinationName: " +  destinationName +
                 ", Host: " + host + ", Port: " + port + ", Message: " + message;
     }
 

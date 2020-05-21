@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.MailMe
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationMailClient;
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationMailResponse;
 import org.easymock.EasyMock;
+import org.elasticsearch.common.settings.SecureString;
 import org.junit.Assert;
 import org.junit.Test;
 import javax.mail.Message;
@@ -33,6 +34,16 @@ import javax.mail.MessagingException;
 import static org.junit.Assert.assertEquals;
 
 public class MailDestinationTest {
+
+    @Test
+    public void testMailMessageInfo() {
+        BaseMessage bm = new MailMessage.Builder("abc")
+                .withHost("abc.com")
+                .withFrom("test@abc.com")
+                .withMessage("Test alert")
+                .withRecipients("test@abc.com").build();
+        assertEquals(bm.toString(), "DestinationType: MAIL, DestinationName: abc, Host: abc.com, Port: 25, Message: Test alert");
+    }
 
     @Test
     public void testMailMessage() throws Exception {
@@ -54,7 +65,47 @@ public class MailDestinationTest {
         BaseMessage bm = new MailMessage.Builder("abc")
                 .withMessage(message)
                 .withHost("abc.com")
+                .withPort(465)
                 .withFrom("test@abc.com")
+                .withMethod("ssl")
+                .withSubject("Test")
+                .withMessage("Test alert")
+                .withRecipients("test@abc.com").build();
+
+        DestinationMailResponse actualMailResponse = (DestinationMailResponse) Notification.publish(bm);
+        assertEquals(expectedMailResponse.getResponseContent(), actualMailResponse.getResponseContent());
+        assertEquals(expectedMailResponse.getStatusCode(), actualMailResponse.getStatusCode());
+    }
+
+    @Test
+    public void testMailMessageWithAuth() throws Exception {
+
+        DestinationMailResponse expectedMailResponse = new DestinationMailResponse.Builder().withResponseContent("Sent")
+                .withStatusCode(0).build();
+
+        DestinationMailClient mailClient = EasyMock.partialMockBuilder(DestinationMailClient.class).addMockedMethod("SendMessage").createMock();
+        mailClient.SendMessage(EasyMock.anyObject(Message.class));
+
+        MailDestinationFactory mailDestinationFactory = new MailDestinationFactory();
+        mailDestinationFactory.setClient(mailClient);
+
+        DestinationFactoryProvider.setFactory(DestinationType.MAIL, mailDestinationFactory);
+
+        String message = "{\"text\":\"Vamshi Message gughjhjlkh Body emoji test: :) :+1: " +
+                "link test: http://sample.com email test: marymajor@example.com All member callout: " +
+                "@All All Present member callout: @Present\"}";
+        SecureString username = new SecureString("user1".toCharArray());
+        SecureString password = new SecureString("password".toCharArray());
+        BaseMessage bm = new MailMessage.Builder("abc")
+                .withMessage(message)
+                .withHost("abc.com")
+                .withPort(465)
+                .withFrom("test@abc.com")
+                .withMethod("ssl")
+                .withSubject("Test")
+                .withMessage("Test alert")
+                .withUserName(username)
+                .withPassword(password)
                 .withRecipients("test@abc.com").build();
 
         DestinationMailResponse actualMailResponse = (DestinationMailResponse) Notification.publish(bm);

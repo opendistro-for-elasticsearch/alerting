@@ -32,7 +32,6 @@ import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -96,6 +95,12 @@ data class Destination(
         if (customWebhook != null) {
             out.writeBoolean(true)
             customWebhook.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
+        if (mail != null) {
+            out.writeBoolean(true)
+            mail.writeTo(out)
         } else {
             out.writeBoolean(false)
         }
@@ -194,7 +199,8 @@ data class Destination(
                 sin.readInstant(), // lastUpdateTime
                 Chime.readFrom(sin), // chime
                 Slack.readFrom(sin), // slack
-                CustomWebhook.readFrom(sin) // customWebhook
+                CustomWebhook.readFrom(sin), // customWebhook
+                Mail.readFrom(sin) // mail
             )
         }
     }

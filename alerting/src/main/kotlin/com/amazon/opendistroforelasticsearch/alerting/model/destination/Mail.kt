@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.destination
 
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -43,6 +45,11 @@ data class Mail(
                 .endObject()
     }
 
+    @Throws(IOException::class)
+    fun writeTo(out: StreamOutput) {
+        out.writeString(recipients)
+    }
+
     companion object {
         const val TYPE = "mail"
         const val RECIPIENTS_FIELD = "recipients"
@@ -64,6 +71,16 @@ data class Mail(
                 }
             }
             return Mail(recipients)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Mail? {
+            return if (sin.readBoolean()) {
+                Mail(
+                    sin.readString() // recipients
+                )
+            } else null
         }
     }
 }

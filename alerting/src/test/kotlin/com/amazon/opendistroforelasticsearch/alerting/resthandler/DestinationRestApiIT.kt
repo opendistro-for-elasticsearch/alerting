@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Mail
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.rest.RestStatus
@@ -151,6 +152,37 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 destination.copy(name = "updatedName", customWebhook = updatedCustomWebhook,
                         type = DestinationType.CUSTOM_WEBHOOK))
         assertEquals("Incorrect destination url after update", "abc.com", updatedDestination.customWebhook?.host)
+    }
+
+    fun `test creating a mail destination`() {
+        val mail = Mail("test@localhost.localdomain")
+        val destination = Destination(
+                type = DestinationType.MAIL,
+                name = "test",
+                lastUpdateTime = Instant.now(),
+                chime = null,
+                slack = null,
+                customWebhook = null,
+                mail = mail)
+        val createdDestination = createDestination(destination = destination)
+        assertEquals("Incorrect destination name", createdDestination.name, "test")
+        assertEquals("Incorrect destination type", createdDestination.type, DestinationType.MAIL)
+        Assert.assertNotNull("mail object should not be null", createdDestination.mail)
+    }
+
+    fun `test updating a mail destination`() {
+        val destination = createDestination()
+        val mail = Mail("updated@localhost.localdomain")
+        var updatedDestination = updateDestination(
+                destination.copy(name = "updatedName", mail = mail, type = DestinationType.MAIL))
+        assertEquals("Incorrect destination name after update", updatedDestination.name, "updatedName")
+        assertEquals("Incorrect destination ID after update", updatedDestination.id, destination.id)
+        assertEquals("Incorrect destination type after update", updatedDestination.type, DestinationType.MAIL)
+        assertEquals("Incorrect destination url after update", "updated@localhost.localdomain", updatedDestination.mail?.recipients)
+        val updatedMail = Mail("updated2@localhost.localdomain")
+        updatedDestination = updateDestination(
+                destination.copy(id = destination.id, name = "updatedName", mail = updatedMail, type = DestinationType.MAIL))
+        assertEquals("Incorrect destination recipients after update", "updated2@localhost.localdomain", updatedDestination.mail?.recipients)
     }
 
     fun `test delete destination`() {
