@@ -91,7 +91,7 @@ class AlertingSettings {
 
         val ALERT_HISTORY_INDEX_MAX_AGE = Setting.positiveTimeSetting(
                 "opendistro.alerting.alert_history_max_age",
-                TimeValue.timeValueHours(24),
+                TimeValue(30, TimeUnit.DAYS),
                 Setting.Property.NodeScope, Setting.Property.Dynamic
         )
 
