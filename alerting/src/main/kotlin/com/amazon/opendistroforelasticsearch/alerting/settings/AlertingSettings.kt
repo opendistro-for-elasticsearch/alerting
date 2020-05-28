@@ -104,7 +104,7 @@ class AlertingSettings {
 
         val ALERT_HISTORY_RETENTION_PERIOD = Setting.positiveTimeSetting(
                 "opendistro.alerting.alert_history_retention_period",
-                TimeValue(30, TimeUnit.DAYS),
+                TimeValue(60, TimeUnit.DAYS),
                 Setting.Property.NodeScope, Setting.Property.Dynamic
         )
 
