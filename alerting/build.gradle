@@ -97,6 +97,11 @@ integTest {
     runner {
         systemProperty 'tests.security.manager', 'false'
         systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
+
+        systemProperty "https", System.getProperty("https")
+        systemProperty "user", System.getProperty("user")
+        systemProperty "password", System.getProperty("password")
+
         // The 'doFirst' delays till execution time.
         doFirst {
             // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
