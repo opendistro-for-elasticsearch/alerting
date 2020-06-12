@@ -107,7 +107,7 @@ abstract class ODFERestTestCase : ESRestTestCase() {
                         // disable the certificate since our testing cluster just uses the default security configuration
                         .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                         .setSSLContext(SSLContextBuilder.create()
-                                .loadTrustMaterial(null) { chains: Array<X509Certificate?>?, authType: String? -> true }
+                                .loadTrustMaterial(null) { _: Array<X509Certificate?>?, _: String? -> true }
                                 .build())
             } catch (e: Exception) {
                 throw RuntimeException(e)
