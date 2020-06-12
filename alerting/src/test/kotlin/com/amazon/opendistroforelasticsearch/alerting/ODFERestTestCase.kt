@@ -39,7 +39,6 @@ import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.After
 import java.io.IOException
 import java.security.cert.X509Certificate
-import java.util.*
 
 abstract class ODFERestTestCase : ESRestTestCase() {
 
@@ -56,7 +55,7 @@ abstract class ODFERestTestCase : ESRestTestCase() {
     }
 
     override fun preserveIndicesUponCompletion(): Boolean {
-        return true;
+        return true
     }
 
     @Throws(IOException::class)
@@ -71,11 +70,11 @@ abstract class ODFERestTestCase : ESRestTestCase() {
             for (index in parser.list()) {
                 val jsonObject: Map<*, *> = index as java.util.HashMap<*, *>
                 val indexName: String = jsonObject["index"] as String
-                //.opendistro_security isn't allowed to delete from cluster
+                // .opendistro_security isn't allowed to delete from cluster
                 if (".opendistro_security" != indexName) {
                     client().performRequest(Request("DELETE", "/$indexName"))
                 }
-            }}
+            } }
     }
     @Throws(IOException::class)
     override fun buildClient(settings: Settings, hosts: Array<HttpHost>): RestClient {
@@ -99,15 +98,13 @@ abstract class ODFERestTestCase : ESRestTestCase() {
         }
         builder.setDefaultHeaders(defaultHeaders)
         builder.setHttpClientConfigCallback { httpClientBuilder: HttpAsyncClientBuilder ->
-            val userName = Optional.ofNullable(System.getProperty("user"))
-                    .orElseThrow { RuntimeException("user name is missing") }
-            val password = Optional.ofNullable(System.getProperty("password"))
-                    .orElseThrow { RuntimeException("password is missing") }
+            val userName = System.getProperty("user")
+            val password =System.getProperty("password")
             val credentialsProvider: CredentialsProvider = BasicCredentialsProvider()
             credentialsProvider.setCredentials(AuthScope.ANY, UsernamePasswordCredentials(userName, password))
             try {
                 return@setHttpClientConfigCallback httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
-                        //disable the certificate since our testing cluster just uses the default security configuration
+                        // disable the certificate since our testing cluster just uses the default security configuration
                         .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                         .setSSLContext(SSLContextBuilder.create()
                                 .loadTrustMaterial(null) { chains: Array<X509Certificate?>?, authType: String? -> true }
