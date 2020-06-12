@@ -65,7 +65,6 @@ abstract class ODFERestTestCase : ESRestTestCase() {
         val response = client().performRequest(Request("GET", "/_cat/indices?format=json&expand_wildcards=all"))
 
         val xContentType = XContentType.fromMediaTypeOrFormat(response.entity.contentType.value)
-        // EMPTY and THROW are fine here because `.map` doesn't use named x content or deprecation
         xContentType.xContent().createParser(
                 NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                 response.entity.content).use { parser ->
