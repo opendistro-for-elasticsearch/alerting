@@ -99,7 +99,7 @@ abstract class ODFERestTestCase : ESRestTestCase() {
         builder.setDefaultHeaders(defaultHeaders)
         builder.setHttpClientConfigCallback { httpClientBuilder: HttpAsyncClientBuilder ->
             val userName = System.getProperty("user")
-            val password =System.getProperty("password")
+            val password = System.getProperty("password")
             val credentialsProvider: CredentialsProvider = BasicCredentialsProvider()
             credentialsProvider.setCredentials(AuthScope.ANY, UsernamePasswordCredentials(userName, password))
             try {
