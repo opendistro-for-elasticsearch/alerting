@@ -84,6 +84,8 @@ javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
 licenseHeaders.enabled = true
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
+// TODO - enable
+validateNebulaPom.enabled = false
 
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
