@@ -73,6 +73,7 @@ import org.elasticsearch.painless.spi.Whitelist
 import org.elasticsearch.painless.spi.WhitelistLoader
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
+import org.elasticsearch.plugins.ReloadablePlugin
 import org.elasticsearch.plugins.ScriptPlugin
 import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
@@ -89,7 +90,7 @@ import java.util.function.Supplier
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY] to the
  * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
-internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin() {
+internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, ReloadablePlugin, Plugin() {
     override fun getContextWhitelists(): Map<ScriptContext<*>, List<Whitelist>> {
         val whitelist = WhitelistLoader.loadFromResourceFiles(javaClass, "com.amazon.opendistroforelasticsearch.alerting.txt")
         return mapOf(TriggerScript.CONTEXT to listOf(whitelist))
@@ -214,5 +215,9 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
 
     override fun getContexts(): List<ScriptContext<*>> {
         return listOf(TriggerScript.CONTEXT)
+    }
+
+    override fun reload(settings: Settings) {
+        runner.reloadDestinationSettings(settings)
     }
 }

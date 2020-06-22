@@ -127,6 +127,10 @@ class MonitorRunner(
         }
     }
 
+    fun reloadDestinationSettings(settings: Settings) {
+        this.destinationSettings = DestinationSettings.parse(settings)
+    }
+
     override fun doStart() {
         runnerSupervisor = SupervisorJob()
     }
