@@ -18,6 +18,7 @@ apply plugin: 'java'
 apply plugin: 'jacoco'
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
+apply plugin: 'elasticsearch.testclusters'
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
@@ -44,6 +45,8 @@ task javadocJar(type: Jar) {
     classifier = 'javadoc'
     from javadoc.destinationDir
 }
+
+
 
 publishing {
     publications {
