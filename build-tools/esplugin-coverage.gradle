@@ -56,7 +56,8 @@ integTest.runner {
 }
 
 testClusters.integTest {
-    jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}"
+    //Hack: to fix jacocoagent path with gradle 6.5, add the missing "/" at the start of the jacocoagent path.
+    jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}".replace('javaagent:','javaagent:/')
     systemProperty 'com.sun.management.jmxremote', "true"
     systemProperty 'com.sun.management.jmxremote.authenticate', "false"
     systemProperty 'com.sun.management.jmxremote.port', "7777"

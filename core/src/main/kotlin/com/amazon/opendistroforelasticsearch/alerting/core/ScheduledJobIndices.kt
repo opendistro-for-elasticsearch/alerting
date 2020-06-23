@@ -67,7 +67,7 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
 
         if (scheduledJobIndexExists()) {
             val indexRoutingTable = clusterService.state().routingTable.index(ScheduledJob.SCHEDULED_JOBS_INDEX)
-            val indexMetaData = clusterService.state().metaData().index(ScheduledJob.SCHEDULED_JOBS_INDEX)
+            val indexMetaData = clusterService.state().metadata().index(ScheduledJob.SCHEDULED_JOBS_INDEX)
 
             indexHealth = ClusterIndexHealth(indexMetaData, indexRoutingTable)
         }

@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.parser
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.test.ESTestCase
 import java.lang.NumberFormatException
 import kotlin.test.assertFailsWith
@@ -66,7 +66,7 @@ class IndexUtilsTests : ESTestCase() {
                 "\"version\":{\"created\":\"6040399\"},\"provided_name\":\"data_test\"}},\"mapping_version\":123," +
                 "\"settings_version\":123,\"mappings\":{\"_doc\":{\"properties\":{\"name\":{\"type\":\"keyword\"}}}}}}"
         val newMapping = "{\"_meta\":{\"schema_version\":10},\"properties\":{\"name\":{\"type\":\"keyword\"}}}"
-        val index: IndexMetaData = IndexMetaData.fromXContent(parser(indexContent))
+        val index: IndexMetadata = IndexMetadata.fromXContent(parser(indexContent))
 
         val shouldUpdateIndex = IndexUtils.shouldUpdateIndex(index, newMapping)
         assertTrue(shouldUpdateIndex)
@@ -79,7 +79,7 @@ class IndexUtilsTests : ESTestCase() {
                 "\"settings_version\":123,\"mappings\":{\"_doc\":{\"_meta\":{\"schema_version\":1},\"properties\":" +
                 "{\"name\":{\"type\":\"keyword\"}}}}}}"
         val newMapping = "{\"_meta\":{\"schema_version\":10},\"properties\":{\"name\":{\"type\":\"keyword\"}}}"
-        val index: IndexMetaData = IndexMetaData.fromXContent(parser(indexContent))
+        val index: IndexMetadata = IndexMetadata.fromXContent(parser(indexContent))
 
         val shouldUpdateIndex = IndexUtils.shouldUpdateIndex(index, newMapping)
         assertTrue(shouldUpdateIndex)
@@ -91,7 +91,7 @@ class IndexUtilsTests : ESTestCase() {
                 "\"version\":{\"created\":\"6040399\"},\"provided_name\":\"data_test\"}},\"mappings\":" +
                 "{\"_doc\":{\"_meta\":{\"schema_version\":1},\"properties\":{\"name\":{\"type\":\"keyword\"}}}}}}"
         val newMapping = "{\"_meta\":{\"schema_version\":1},\"properties\":{\"name\":{\"type\":\"keyword\"}}}"
-        val index: IndexMetaData = IndexMetaData.fromXContent(parser(indexContent))
+        val index: IndexMetadata = IndexMetadata.fromXContent(parser(indexContent))
 
         val shouldUpdateIndex = IndexUtils.shouldUpdateIndex(index, newMapping)
         assertFalse(shouldUpdateIndex)
