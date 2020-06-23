@@ -18,6 +18,7 @@ apply plugin: 'java'
 apply plugin: 'jacoco'
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
+apply plugin: 'elasticsearch.testclusters'
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
@@ -44,6 +45,8 @@ task javadocJar(type: Jar) {
     classifier = 'javadoc'
     from javadoc.destinationDir
 }
+
+
 
 publishing {
     publications {
@@ -85,7 +88,7 @@ publishing {
     repositories {
         maven {
             name = "sonatype-staging"
-            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            url "https://aws.oss.sonatype.org/service/local/staging/deploy/maven2"
             credentials {
                 username project.hasProperty('ossrhUsername') ? project.property('ossrhUsername') : ''
                 password project.hasProperty('ossrhPassword') ? project.property('ossrhPassword') : ''
