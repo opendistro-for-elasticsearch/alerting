@@ -45,7 +45,6 @@ task javadocJar(type: Jar) {
     from javadoc.destinationDir
 }
 
-
 publishing {
     publications {
         shadow(MavenPublication) {
