@@ -588,7 +588,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 scheme = clusterHosts[clusterIndex].schemeName,
                 host = clusterHosts[clusterIndex].hostName,
                 port = clusterHosts[clusterIndex].port,
-                path = "_cat/indices",
+                path = "_cat/plugins",
                 params = mapOf(),
                 url = "",
                 connection_timeout = 5,
