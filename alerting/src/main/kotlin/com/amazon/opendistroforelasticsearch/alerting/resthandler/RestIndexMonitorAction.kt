@@ -78,7 +78,7 @@ private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
  * Rest handlers to create and update monitors.
  */
 class RestIndexMonitorAction(
-    settings: Settings,
+    val settings: Settings,
     jobIndices: ScheduledJobIndices,
     clusterService: ClusterService
 ) : BaseRestHandler() {
