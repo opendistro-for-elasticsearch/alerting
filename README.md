@@ -1,3 +1,8 @@
+```diff
+- This branch was an alpha version of the integration between anomaly detection and alerting.
+- We recommend starting with one of the officially supported branches.
+- This branch will not be maintained and cannot upgrade seamlessly to opendistro-1.3 if the alpha features are used.
+```
 # Open Distro for Elasticsearch Alerting
 
 The Open Distro for Elasticsearch Alerting enables you to monitor your data and send alert notifications automatically to your stakeholders. With an intuitive Kibana interface and a powerful API, it is easy to set up, manage, and monitor your alerts. Craft highly specific alert conditions using Elasticsearch's full query language and scripting capabilities.
