@@ -1,7 +1,11 @@
 name: Test Workflow
-# This workflow is triggered on pull requests to master or a opendistro release branch
+# This workflow is triggered on pull requests and pushes to master or an opendistro release branch
 on:
   pull_request:
+    branches:
+      - master
+      - opendistro-*
+  push:
     branches:
       - master
       - opendistro-*
@@ -30,6 +34,11 @@ jobs:
         run: |
           mkdir -p alerting-artifacts
           cp ./alerting/build/distributions/*.zip alerting-artifacts
+      # This step uses the codecov-action Github action: https://github.com/codecov/codecov-action
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
       - name: Upload Artifacts
         uses: actions/upload-artifact@v1
