@@ -46,8 +46,8 @@ class ScheduledJobStats : BaseNodeResponse, ToXContentFragment {
 
     constructor(si: StreamInput): super(si) {
         this.status = si.readEnum(ScheduleStatus::class.java)
-        this.jobSweeperMetrics = JobSweeperMetrics(si)
-        this.jobInfos = si.readList { JobSchedulerMetrics(it) }.toTypedArray()
+        this.jobSweeperMetrics = si.readOptionalWriteable { JobSweeperMetrics(it) }
+        this.jobInfos = si.readOptionalArray({ sti: StreamInput -> JobSchedulerMetrics(sti) }, { size -> arrayOfNulls(size) })
     }
 
     constructor(
