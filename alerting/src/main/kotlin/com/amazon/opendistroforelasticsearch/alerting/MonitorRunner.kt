@@ -50,7 +50,6 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
-import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
@@ -116,8 +115,6 @@ class MonitorRunner(
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
 
-    @Volatile private var destinationSettings = DestinationSettings.parse(settings)
-
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
@@ -125,10 +122,6 @@ class MonitorRunner(
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
-    }
-
-    fun reloadDestinationSettings(settings: Settings) {
-        this.destinationSettings = DestinationSettings.parse(settings)
     }
 
     override fun doStart() {
@@ -441,7 +434,6 @@ class MonitorRunner(
                 withContext(Dispatchers.IO) {
                     val destination = getDestinationInfo(action.destinationId)
                     actionOutput[MESSAGE_ID] = destination.publish(
-                        destinationSettings,
                         actionOutput[SUBJECT],
                         actionOutput[MESSAGE]!!
                     )

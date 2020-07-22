@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
-import com.amazon.opendistroforelasticsearch.alerting.model.destination.Mail
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Email
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.common.io.stream.BytesStreamOutput
@@ -56,7 +56,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test mail destination without recipient`() {
         try {
-            Mail("")
+            Email("")
             fail("Creating a mail destination with empty recipient did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }

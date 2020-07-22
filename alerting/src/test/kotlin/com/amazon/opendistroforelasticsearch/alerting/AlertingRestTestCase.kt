@@ -117,7 +117,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                 chime = null,
                 slack = null,
                 customWebhook = null,
-                mail = null)
+                email = null)
     }
 
     protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {
