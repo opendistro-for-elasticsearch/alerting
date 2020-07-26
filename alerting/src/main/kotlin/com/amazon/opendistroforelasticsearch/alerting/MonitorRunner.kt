@@ -44,12 +44,22 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Compan
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContext
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.DESTINATION_SETTING_PREFIX
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.EMAIL_PASSWORD
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.EMAIL_USERNAME
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.getEmailSettingValue
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
@@ -74,6 +84,7 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.AbstractLifecycleComponent
+import org.elasticsearch.common.settings.SecureString
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -115,6 +126,8 @@ class MonitorRunner(
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
 
+    @Volatile private var destinationSettings = settings.getByPrefix(DESTINATION_SETTING_PREFIX)
+
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
@@ -122,6 +135,11 @@ class MonitorRunner(
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
+    }
+
+    /** Update destination settings when the reload API is called so that new keystore values are visible */
+    fun reloadDestinationSettings(settings: Settings) {
+        destinationSettings = settings.getByPrefix(DESTINATION_SETTING_PREFIX)
     }
 
     override fun doStart() {
@@ -433,9 +451,11 @@ class MonitorRunner(
             if (!dryrun) {
                 withContext(Dispatchers.IO) {
                     val destination = getDestinationInfo(action.destinationId)
+                    val destinationCtx = getDestinationContext(destination)
                     actionOutput[MESSAGE_ID] = destination.publish(
                         actionOutput[SUBJECT],
-                        actionOutput[MESSAGE]!!
+                        actionOutput[MESSAGE]!!,
+                        destinationCtx
                     )
                 }
             }
@@ -449,6 +469,59 @@ class MonitorRunner(
         return scriptService.compile(template, TemplateScript.CONTEXT)
                 .newInstance(template.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()
+    }
+
+    private suspend fun getDestinationContext(destination: Destination): DestinationContext {
+        var destinationContext = DestinationContext()
+        // Populate DestinationContext based on Destination type
+        if (destination.type == DestinationType.EMAIL) {
+            val email = destination.email
+            // Email should not be null in this case but checking here to make safe calls to the attributes below
+            requireNotNull(email) { "Email in Destination: $destination was null" }
+
+            // Get the EmailAccount information by doc ID
+            var emailAccount = getEmailAccountInfo(email.emailAccountID)
+
+            // Populate the username and password for the EmailAccount if authentication is enabled
+            emailAccount = addEmailCredentials(emailAccount)
+
+            // Get the email recipients as a unique list of email strings since
+            // recipients can be a combination of EmailGroups and single emails
+            val uniqueListOfRecipients = getUniqueListOfEmailRecipients(email)
+
+            destinationContext = destinationContext.copy(emailAccount = emailAccount, recipients = uniqueListOfRecipients)
+        }
+
+        return destinationContext
+    }
+
+    private fun addEmailCredentials(emailAccount: EmailAccount): EmailAccount {
+        // Retrieve and populate the EmailAccount object with credentials if authentication is enabled
+        if (emailAccount.method != EmailAccount.MethodType.NONE) {
+            val emailUsername: SecureString = getEmailSettingValue(destinationSettings, emailAccount.name, EMAIL_USERNAME)
+            val emailPassword: SecureString = getEmailSettingValue(destinationSettings, emailAccount.name, EMAIL_PASSWORD)
+
+            return emailAccount.copy(username = emailUsername, password = emailPassword)
+        }
+
+        return emailAccount
+    }
+
+    private suspend fun getUniqueListOfEmailRecipients(email: Email): List<String> {
+        val uniqueRecipients: MutableSet<String> = mutableSetOf()
+        email.recipients.forEach { recipient ->
+            when (recipient.type) {
+                // Recipient attributes are checked for being non-null based on type during initialization
+                // so non-null assertion calls are made here
+                Recipient.RecipientType.EMAIL -> uniqueRecipients.add(recipient.email!!)
+                Recipient.RecipientType.EMAIL_GROUP -> {
+                    val emailGroup = getEmailGroupInfo(recipient.emailGroupId!!)
+                    emailGroup.getEmailsAsListOfString().map { uniqueRecipients.add(it) }
+                }
+            }
+        }
+
+        return uniqueRecipients.toList()
     }
 
     private suspend fun getDestinationInfo(destinationId: String): Destination {
@@ -468,6 +541,44 @@ class MonitorRunner(
             val destination = Destination.parse(xcp)
             ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             destination
+        }
+    }
+
+    private suspend fun getEmailAccountInfo(emailAccountID: String): EmailAccount {
+        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, emailAccountID).routing(emailAccountID)
+        val getResponse: GetResponse = client.suspendUntil { client.get(getRequest, it) }
+        if (!getResponse.isExists || getResponse.isSourceEmpty) {
+            throw IllegalStateException("Email account document with id $emailAccountID not found or source is empty")
+        }
+
+        val source = getResponse.sourceAsBytesRef
+        return withContext(Dispatchers.IO) {
+            val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, source, XContentType.JSON)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val emailAccount = EmailAccount.parse(xcp)
+            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            emailAccount
+        }
+    }
+
+    private suspend fun getEmailGroupInfo(emailGroupID: String): EmailGroup {
+        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, emailGroupID).routing(emailGroupID)
+        val getResponse: GetResponse = client.suspendUntil { client.get(getRequest, it) }
+        if (!getResponse.isExists || getResponse.isSourceEmpty) {
+            throw IllegalStateException("Email group document with id $emailGroupID not found or source is empty")
+        }
+
+        val source = getResponse.sourceAsBytesRef
+        return withContext(Dispatchers.IO) {
+            val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, source, XContentType.JSON)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val emailGroup = EmailGroup.parse(xcp)
+            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            emailGroup
         }
     }
 

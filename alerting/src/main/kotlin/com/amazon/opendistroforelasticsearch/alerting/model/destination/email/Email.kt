@@ -92,22 +92,19 @@ data class Recipient(
     val email: String?
 ) : ToXContent {
 
+    init {
+        when (type) {
+            RecipientType.EMAIL_GROUP -> requireNotNull(emailGroupId) { "Email group ID is null" }
+            RecipientType.EMAIL -> requireNotNull(email) { "Email is null" }
+        }
+    }
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject().field(TYPE_FIELD, type.value)
 
         when (type) {
-            RecipientType.EMAIL_GROUP -> {
-                if (emailGroupId == null) {
-                    throw IllegalArgumentException("Email group ID is null for recipient type ${type.value}")
-                }
-                builder.field(EMAIL_GROUP_ID_FIELD, emailGroupId)
-            }
-            RecipientType.EMAIL -> {
-                if (email == null) {
-                    throw IllegalArgumentException("Email is null for recipient type ${type.value}")
-                }
-                builder.field(EMAIL_FIELD, email)
-            }
+            RecipientType.EMAIL_GROUP -> builder.field(EMAIL_GROUP_ID_FIELD, emailGroupId)
+            RecipientType.EMAIL -> builder.field(EMAIL_FIELD, email)
         }
 
         return builder.endObject()
@@ -143,8 +140,8 @@ data class Recipient(
                             throw IllegalStateException("Type should be one of $allowedTypes")
                         }
                     }
-                    EMAIL_GROUP_ID_FIELD -> emailGroupID = requireNotNull(xcp.text()) { "Email group ID is null" }
-                    EMAIL_FIELD -> email = requireNotNull(xcp.text()) { "Email is null" }
+                    EMAIL_GROUP_ID_FIELD -> emailGroupID = xcp.text()
+                    EMAIL_FIELD -> email = xcp.text()
                 }
             }
 

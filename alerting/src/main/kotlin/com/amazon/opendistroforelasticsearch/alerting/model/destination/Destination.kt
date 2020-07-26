@@ -199,7 +199,7 @@ data class Destination(
     }
 
     @Throws(IOException::class)
-    fun publish(compiledSubject: String?, compiledMessage: String): String {
+    fun publish(compiledSubject: String?, compiledMessage: String, destinationCtx: DestinationContext): String {
         val destinationMessage: BaseMessage
         val responseContent: String
         val responseStatusCode: Int

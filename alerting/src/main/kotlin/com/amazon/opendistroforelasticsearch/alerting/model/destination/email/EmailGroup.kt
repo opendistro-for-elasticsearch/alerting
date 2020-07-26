@@ -33,6 +33,12 @@ data class EmailGroup(
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
     }
 
+    fun getEmailsAsListOfString(): List<String> {
+        val emailsAsListOfString: MutableList<String> = mutableListOf()
+        emails.map { emailsAsListOfString.add(it.email) }
+        return emailsAsListOfString
+    }
+
     companion object {
         const val EMAIL_GROUP = "email_group"
         const val NO_ID = ""
