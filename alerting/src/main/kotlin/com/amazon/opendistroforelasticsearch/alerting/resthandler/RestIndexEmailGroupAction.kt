@@ -136,11 +136,11 @@ class RestIndexEmailGroupAction(
 
         private fun onCreateMappingsResponse(response: CreateIndexResponse) {
             if (response.isAcknowledged) {
-                log.info("Created ${SCHEDULED_JOBS_INDEX} with mappings.")
+                log.info("Created $SCHEDULED_JOBS_INDEX with mappings.")
                 prepareEmailGroupIndexing()
                 IndexUtils.scheduledJobIndexUpdated()
             } else {
-                log.error("Create ${SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                log.error("Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
                         response.toXContent(channel.newErrorBuilder(), ToXContent.EMPTY_PARAMS)))
             }
@@ -148,14 +148,14 @@ class RestIndexEmailGroupAction(
 
         private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
             if (response.isAcknowledged) {
-                log.info("Updated ${SCHEDULED_JOBS_INDEX} with mappings.")
+                log.info("Updated $SCHEDULED_JOBS_INDEX with mappings.")
                 IndexUtils.scheduledJobIndexUpdated()
                 prepareEmailGroupIndexing()
             } else {
-                log.error("Update ${SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                log.error("Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 channel.sendResponse(BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR,
                         response.toXContent(channel.newErrorBuilder().startObject()
-                                .field("message", "Updated ${SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                                .field("message", "Updated $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                                 .endObject(), ToXContent.EMPTY_PARAMS)))
             }
         }

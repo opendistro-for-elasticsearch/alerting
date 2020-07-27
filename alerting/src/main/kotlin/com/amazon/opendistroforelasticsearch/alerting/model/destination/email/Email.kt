@@ -21,7 +21,6 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
-import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
 import java.util.Locale
 

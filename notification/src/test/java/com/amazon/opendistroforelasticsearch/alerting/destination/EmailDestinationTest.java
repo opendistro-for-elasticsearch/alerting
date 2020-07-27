@@ -16,12 +16,12 @@
 package com.amazon.opendistroforelasticsearch.alerting.destination;
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.factory.DestinationFactoryProvider;
-import com.amazon.opendistroforelasticsearch.alerting.destination.factory.MailDestinationFactory;
+import com.amazon.opendistroforelasticsearch.alerting.destination.factory.EmailDestinationFactory;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage;
-import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationMailClient;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationMailResponse;
+import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationEmailClient;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationEmailResponse;
 import org.easymock.EasyMock;
 import org.junit.Assert;
 import org.junit.Test;
@@ -35,16 +35,16 @@ public class MailDestinationTest {
     @Test
     public void testMailMessage() throws Exception {
 
-        DestinationMailResponse expectedMailResponse = new DestinationMailResponse.Builder().withResponseContent("Sent")
+        DestinationEmailResponse expectedMailResponse = new DestinationEmailResponse.Builder().withResponseContent("Sent")
                 .withStatusCode(0).build();
 
-        DestinationMailClient mailClient = EasyMock.partialMockBuilder(DestinationMailClient.class).addMockedMethod("SendMessage").createMock();
+        DestinationEmailClient mailClient = EasyMock.partialMockBuilder(DestinationEmailClient.class).addMockedMethod("SendMessage").createMock();
         mailClient.SendMessage(EasyMock.anyObject(Message.class));
 
-        MailDestinationFactory mailDestinationFactory = new MailDestinationFactory();
-        mailDestinationFactory.setClient(mailClient);
+        EmailDestinationFactory emailDestinationFactory = new EmailDestinationFactory();
+        emailDestinationFactory.setClient(mailClient);
 
-        DestinationFactoryProvider.setFactory(DestinationType.EMAIL, mailDestinationFactory);
+        DestinationFactoryProvider.setFactory(DestinationType.EMAIL, emailDestinationFactory);
 
         String message = "{\"text\":\"Vamshi Message gughjhjlkh Body emoji test: :) :+1: " +
                 "link test: http://sample.com email test: marymajor@example.com All member callout: " +
@@ -55,7 +55,7 @@ public class MailDestinationTest {
                 .withFrom("test@abc.com")
                 .withRecipients("test@abc.com").build();
 
-        DestinationMailResponse actualMailResponse = (DestinationMailResponse) Notification.publish(bm);
+        DestinationEmailResponse actualMailResponse = (DestinationEmailResponse) Notification.publish(bm);
         assertEquals(expectedMailResponse.getResponseContent(), actualMailResponse.getResponseContent());
         assertEquals(expectedMailResponse.getStatusCode(), actualMailResponse.getStatusCode());
     }
@@ -63,18 +63,18 @@ public class MailDestinationTest {
     @Test
     public void testFailingMailMessage() throws Exception {
 
-        DestinationMailResponse expectedMailResponse = new DestinationMailResponse.Builder().withResponseContent("Couldn't connect to host, port: localhost, 55555; timeout -1")
+        DestinationEmailResponse expectedMailResponse = new DestinationEmailResponse.Builder().withResponseContent("Couldn't connect to host, port: localhost, 55555; timeout -1")
                 .withStatusCode(1).build();
 
-        DestinationMailClient mailClient = EasyMock.partialMockBuilder(DestinationMailClient.class).addMockedMethod("SendMessage").createMock();
+        DestinationEmailClient mailClient = EasyMock.partialMockBuilder(DestinationEmailClient.class).addMockedMethod("SendMessage").createMock();
         mailClient.SendMessage(EasyMock.anyObject(Message.class));
         EasyMock.expectLastCall().andThrow(new MessagingException("Couldn't connect to host, port: localhost, 55555; timeout -1"));
         EasyMock.replay(mailClient);
 
-        MailDestinationFactory mailDestinationFactory = new MailDestinationFactory();
-        mailDestinationFactory.setClient(mailClient);
+        EmailDestinationFactory emailDestinationFactory = new EmailDestinationFactory();
+        emailDestinationFactory.setClient(mailClient);
 
-        DestinationFactoryProvider.setFactory(DestinationType.EMAIL, mailDestinationFactory);
+        DestinationFactoryProvider.setFactory(DestinationType.EMAIL, emailDestinationFactory);
 
         String message = "{\"text\":\"Vamshi Message gughjhjlkh Body emoji test: :) :+1: " +
                 "link test: http://sample.com email test: marymajor@example.com All member callout: " +
@@ -86,7 +86,7 @@ public class MailDestinationTest {
                 .withFrom("test@abc.com")
                 .withRecipients("test@abc.com").build();
 
-        DestinationMailResponse actualMailResponse = (DestinationMailResponse) Notification.publish(bm);
+        DestinationEmailResponse actualMailResponse = (DestinationEmailResponse) Notification.publish(bm);
         EasyMock.verify(mailClient);
         assertEquals(expectedMailResponse.getResponseContent(), actualMailResponse.getResponseContent());
         assertEquals(expectedMailResponse.getStatusCode(), actualMailResponse.getStatusCode());
