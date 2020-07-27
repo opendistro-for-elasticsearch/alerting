@@ -33,8 +33,8 @@ class AlertingSettings {
         const val MONITOR_MAX_INPUTS = 1
         const val MONITOR_MAX_TRIGGERS = 10
 
-        const val DESTINATION_SETTING_PREFIX = "opendistro.alerting.destination"
-        const val EMAIL_DESTINATION_SETTING_PREFIX = "$DESTINATION_SETTING_PREFIX.email"
+        const val DESTINATION_SETTING_PREFIX = "opendistro.alerting.destination."
+        const val EMAIL_DESTINATION_SETTING_PREFIX = DESTINATION_SETTING_PREFIX + "email."
 
         val ALERTING_MAX_MONITORS = Setting.intSetting(
                 "opendistro.alerting.monitor.max_monitors",
