@@ -54,10 +54,10 @@ class DestinationTests : ESTestCase() {
         }
     }
 
-    fun `test mail destination without recipient`() {
+    fun `test email destination without recipients`() {
         try {
-            Email("")
-            fail("Creating a mail destination with empty recipient did not fail.")
+            Email("", emptyList())
+            fail("Creating an email destination with empty recipients did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
     }

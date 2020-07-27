@@ -28,21 +28,27 @@ import org.junit.Test;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 
+import java.util.Arrays;
+import java.util.Collections;
+
+import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
-public class MailDestinationTest {
+public class EmailDestinationTest {
 
     @Test
     public void testMailMessage() throws Exception {
 
-        DestinationEmailResponse expectedMailResponse = new DestinationEmailResponse.Builder().withResponseContent("Sent")
+        DestinationEmailResponse expectedEmailResponse = new DestinationEmailResponse.Builder()
+                .withResponseContent("Sent")
                 .withStatusCode(0).build();
 
-        DestinationEmailClient mailClient = EasyMock.partialMockBuilder(DestinationEmailClient.class).addMockedMethod("SendMessage").createMock();
-        mailClient.SendMessage(EasyMock.anyObject(Message.class));
+        DestinationEmailClient emailClient = EasyMock.partialMockBuilder(DestinationEmailClient.class)
+                .addMockedMethod("SendMessage").createMock();
+        emailClient.SendMessage(EasyMock.anyObject(Message.class));
 
         EmailDestinationFactory emailDestinationFactory = new EmailDestinationFactory();
-        emailDestinationFactory.setClient(mailClient);
+        emailDestinationFactory.setClient(emailClient);
 
         DestinationFactoryProvider.setFactory(DestinationType.EMAIL, emailDestinationFactory);
 
@@ -53,26 +59,29 @@ public class MailDestinationTest {
                 .withMessage(message)
                 .withHost("abc.com")
                 .withFrom("test@abc.com")
-                .withRecipients("test@abc.com").build();
+                .withRecipients(singletonList("test@abc.com")).build();
 
-        DestinationEmailResponse actualMailResponse = (DestinationEmailResponse) Notification.publish(bm);
-        assertEquals(expectedMailResponse.getResponseContent(), actualMailResponse.getResponseContent());
-        assertEquals(expectedMailResponse.getStatusCode(), actualMailResponse.getStatusCode());
+        DestinationEmailResponse actualEmailResponse = (DestinationEmailResponse) Notification.publish(bm);
+        assertEquals(expectedEmailResponse.getResponseContent(), actualEmailResponse.getResponseContent());
+        assertEquals(expectedEmailResponse.getStatusCode(), actualEmailResponse.getStatusCode());
     }
 
     @Test
     public void testFailingMailMessage() throws Exception {
 
-        DestinationEmailResponse expectedMailResponse = new DestinationEmailResponse.Builder().withResponseContent("Couldn't connect to host, port: localhost, 55555; timeout -1")
+        DestinationEmailResponse expectedEmailResponse = new DestinationEmailResponse.Builder()
+                .withResponseContent("Couldn't connect to host, port: localhost, 55555; timeout -1")
                 .withStatusCode(1).build();
 
-        DestinationEmailClient mailClient = EasyMock.partialMockBuilder(DestinationEmailClient.class).addMockedMethod("SendMessage").createMock();
-        mailClient.SendMessage(EasyMock.anyObject(Message.class));
-        EasyMock.expectLastCall().andThrow(new MessagingException("Couldn't connect to host, port: localhost, 55555; timeout -1"));
-        EasyMock.replay(mailClient);
+        DestinationEmailClient emailClient = EasyMock.partialMockBuilder(DestinationEmailClient.class)
+                .addMockedMethod("SendMessage").createMock();
+        emailClient.SendMessage(EasyMock.anyObject(Message.class));
+        EasyMock.expectLastCall()
+                .andThrow(new MessagingException("Couldn't connect to host, port: localhost, 55555; timeout -1"));
+        EasyMock.replay(emailClient);
 
         EmailDestinationFactory emailDestinationFactory = new EmailDestinationFactory();
-        emailDestinationFactory.setClient(mailClient);
+        emailDestinationFactory.setClient(emailClient);
 
         DestinationFactoryProvider.setFactory(DestinationType.EMAIL, emailDestinationFactory);
 
@@ -84,12 +93,12 @@ public class MailDestinationTest {
                 .withHost("localhost")
                 .withPort(55555)
                 .withFrom("test@abc.com")
-                .withRecipients("test@abc.com").build();
+                .withRecipients(singletonList("test@abc.com")).build();
 
-        DestinationEmailResponse actualMailResponse = (DestinationEmailResponse) Notification.publish(bm);
-        EasyMock.verify(mailClient);
-        assertEquals(expectedMailResponse.getResponseContent(), actualMailResponse.getResponseContent());
-        assertEquals(expectedMailResponse.getStatusCode(), actualMailResponse.getStatusCode());
+        DestinationEmailResponse actualEmailResponse = (DestinationEmailResponse) Notification.publish(bm);
+        EasyMock.verify(emailClient);
+        assertEquals(expectedEmailResponse.getResponseContent(), actualEmailResponse.getResponseContent());
+        assertEquals(expectedEmailResponse.getStatusCode(), actualEmailResponse.getStatusCode());
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -98,7 +107,7 @@ public class MailDestinationTest {
             EmailMessage message = new EmailMessage.Builder("mail")
                     .withMessage("dummyMessage")
                     .withFrom("test@abc.com")
-                    .withRecipients("test@abc.com").build();
+                    .withRecipients(singletonList("test@abc.com")).build();
 
         } catch (Exception ex) {
             Assert.assertEquals("Host name should be provided", ex.getMessage());
@@ -112,7 +121,7 @@ public class MailDestinationTest {
             EmailMessage message = new EmailMessage.Builder("mail")
                     .withHost("abc.com")
                     .withFrom("test@abc.com")
-                    .withRecipients("test@abc.com").build();
+                    .withRecipients(singletonList("test@abc.com")).build();
         } catch (Exception ex) {
             assertEquals("Message content is missing", ex.getMessage());
             throw ex;
@@ -125,7 +134,7 @@ public class MailDestinationTest {
             EmailMessage message = new EmailMessage.Builder("mail")
                     .withMessage("dummyMessage")
                     .withHost("abc.com")
-                    .withRecipients("test@abc.com").build();
+                    .withRecipients(singletonList("test@abc.com")).build();
 
         } catch (Exception ex) {
             Assert.assertEquals("From address should be provided", ex.getMessage());
@@ -142,7 +151,7 @@ public class MailDestinationTest {
                     .withFrom("test@abc.com").build();
 
         } catch (Exception ex) {
-            Assert.assertEquals("Comma separated recipients should be provided", ex.getMessage());
+            Assert.assertEquals("List of recipients should be provided", ex.getMessage());
             throw ex;
         }
     }
