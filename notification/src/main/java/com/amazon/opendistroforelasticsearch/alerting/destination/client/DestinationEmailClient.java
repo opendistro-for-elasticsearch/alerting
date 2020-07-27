@@ -20,8 +20,12 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailM
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
+import javax.mail.Address;
 import javax.mail.Authenticator;
+import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 import javax.mail.Message;
@@ -33,9 +37,9 @@ import javax.mail.Transport;
 /**
  * This class handles the connections to the given Destination.
  */
-public class DestinationMailClient {
+public class DestinationEmailClient {
 
-    private static final Logger logger = LogManager.getLogger(DestinationMailClient.class);
+    private static final Logger logger = LogManager.getLogger(DestinationEmailClient.class);
     
     public String execute(BaseMessage message) throws Exception {
         if (message instanceof EmailMessage) {
@@ -52,7 +56,9 @@ public class DestinationMailClient {
                 try {
                     session = Session.getInstance(prop, new Authenticator() {
 	                    protected PasswordAuthentication getPasswordAuthentication() {
-                            return new PasswordAuthentication(emailMessage.getUsername().toString(), emailMessage.getPassword().toString());
+	                        return new PasswordAuthentication(
+	                                emailMessage.getUsername().toString(),
+                                    emailMessage.getPassword().toString());
                         }
 		            });
                 } catch (IllegalStateException e) {
@@ -74,7 +80,7 @@ public class DestinationMailClient {
             try {
                 Message mailmsg = new MimeMessage(session);
                 mailmsg.setFrom(new InternetAddress(emailMessage.getFrom()));
-                mailmsg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(emailMessage.getRecipients()));
+                mailmsg.setRecipients(Message.RecipientType.TO, getRecipientsAsAddresses(emailMessage.getRecipients()));
                 mailmsg.setSubject(emailMessage.getSubject());
                 mailmsg.setText(emailMessage.getMessageContent());
 
@@ -87,10 +93,18 @@ public class DestinationMailClient {
     }
 
     /*
-     * This method is useful for Mocking the client
+     * This method is useful for mocking the client
      */
     public void SendMessage(Message msg) throws Exception {
         Transport.send(msg);
     }
 
+    private InternetAddress[] getRecipientsAsAddresses(List<String> recipients) throws Exception {
+        ArrayList<InternetAddress> addresses = new ArrayList<>();
+        for (String recipient : recipients) {
+            addresses.add(new InternetAddress(recipient));
+        }
+
+        return addresses.toArray(new InternetAddress[0]);
+    }
 }

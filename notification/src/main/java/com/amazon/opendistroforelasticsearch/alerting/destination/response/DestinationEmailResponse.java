@@ -20,11 +20,11 @@ import org.elasticsearch.common.Strings;
 /**
  * This class is a place holder for http response metadata
  */
-public class DestinationMailResponse extends BaseResponse {
+public class DestinationEmailResponse extends BaseResponse {
 
     private String responseContent;
 
-    private DestinationMailResponse(final String responseString, final int statusCode) {
+    private DestinationEmailResponse(final String responseString, final int statusCode) {
         super(statusCode);
         if (Strings.isNullOrEmpty(responseString)) {
             throw new IllegalArgumentException("Response is missing");
@@ -36,18 +36,18 @@ public class DestinationMailResponse extends BaseResponse {
         private String responseContent;
         private Integer statusCode = null;
 
-        public DestinationMailResponse.Builder withResponseContent(String responseContent) {
+        public DestinationEmailResponse.Builder withResponseContent(String responseContent) {
             this.responseContent = responseContent;
             return this;
         }
 
-        public DestinationMailResponse.Builder withStatusCode(Integer statusCode) {
+        public DestinationEmailResponse.Builder withStatusCode(Integer statusCode) {
             this.statusCode = statusCode;
             return this;
         }
 
-        public DestinationMailResponse build() {
-            return new DestinationMailResponse(responseContent, statusCode);
+        public DestinationEmailResponse build() {
+            return new DestinationEmailResponse(responseContent, statusCode);
         }
     }
 

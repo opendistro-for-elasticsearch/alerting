@@ -33,7 +33,7 @@ public class DestinationFactoryProvider {
         destinationFactoryMap.put(DestinationType.CHIME, new ChimeDestinationFactory());
         destinationFactoryMap.put(DestinationType.SLACK, new SlackDestinationFactory());
         destinationFactoryMap.put(DestinationType.CUSTOMWEBHOOK, new CustomWebhookDestinationFactory());
-        destinationFactoryMap.put(DestinationType.EMAIL, new MailDestinationFactory());
+        destinationFactoryMap.put(DestinationType.EMAIL, new EmailDestinationFactory());
     }
 
     /**

@@ -18,13 +18,13 @@ package com.amazon.opendistroforelasticsearch.alerting.destination.client;
 /**
  *  This class provides Client to the relevant destinations
  */
-public final class DestinationMailClientPool {
+public final class DestinationEmailClientPool {
 
-    private static final DestinationMailClient mailClient = new DestinationMailClient();
+    private static final DestinationEmailClient emailClient = new DestinationEmailClient();
 
-    private DestinationMailClientPool() { }
+    private DestinationEmailClientPool() { }
 
-    public static DestinationMailClient getMailClient() {
-        return mailClient;
+    public static DestinationEmailClient getEmailClient() {
+        return emailClient;
     }
 }

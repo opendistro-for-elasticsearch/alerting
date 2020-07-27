@@ -15,32 +15,32 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.destination.factory;
 
-import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationMailClient;
-import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationMailClientPool;
+import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationEmailClient;
+import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationEmailClientPool;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationMailResponse;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationEmailResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * This class handles the client responsible for submitting the messages to Mail destination.
+ * This class handles the client responsible for submitting the messages to the Email destination.
  */
-public class MailDestinationFactory implements DestinationFactory<EmailMessage, DestinationMailClient>{
+public class EmailDestinationFactory implements DestinationFactory<EmailMessage, DestinationEmailClient>{
 
-    private DestinationMailClient destinationMailClient;
+    private DestinationEmailClient destinationEmailClient;
 
-    private static final Logger logger = LogManager.getLogger(MailDestinationFactory.class);
+    private static final Logger logger = LogManager.getLogger(EmailDestinationFactory.class);
 
-    public MailDestinationFactory() {
-        this.destinationMailClient = DestinationMailClientPool.getMailClient();
+    public EmailDestinationFactory() {
+        this.destinationEmailClient = DestinationEmailClientPool.getEmailClient();
     }
 
     @Override
-    public DestinationMailResponse publish(EmailMessage message) {
+    public DestinationEmailResponse publish(EmailMessage message) {
         try {
             String response = getClient(message).execute(message);
-            int status = response == "Sent" ? 0 : 1;
-            return new DestinationMailResponse.Builder().withStatusCode(status).withResponseContent(response).build();
+            int status = response.equals("Sent") ? 0 : 1;
+            return new DestinationEmailResponse.Builder().withStatusCode(status).withResponseContent(response).build();
         } catch (Exception ex) {
             logger.error("Exception publishing Message: " + message.toString(), ex);
             throw new IllegalStateException(ex);
@@ -48,15 +48,15 @@ public class MailDestinationFactory implements DestinationFactory<EmailMessage, 
     }
 
     @Override
-    public DestinationMailClient getClient(EmailMessage message) {
-        return destinationMailClient;
+    public DestinationEmailClient getClient(EmailMessage message) {
+        return destinationEmailClient;
     }
 
     /*
      *  This function can be used to mock the client for unit test
      */
-    public void setClient(DestinationMailClient client) {
-        this.destinationMailClient = client;
+    public void setClient(DestinationEmailClient client) {
+        this.destinationEmailClient = client;
     }
 
 }

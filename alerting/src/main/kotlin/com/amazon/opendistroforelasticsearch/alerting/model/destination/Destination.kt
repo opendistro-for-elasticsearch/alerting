@@ -22,7 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.Custom
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationMailResponse
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationEmailResponse
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
@@ -247,7 +247,7 @@ data class Destination(
             }
         }
         if (type == DestinationType.EMAIL) {
-            val response = Notification.publish(destinationMessage) as DestinationMailResponse
+            val response = Notification.publish(destinationMessage) as DestinationEmailResponse
             responseContent = response.responseContent
             responseStatusCode = response.statusCode
         } else {
