@@ -16,11 +16,10 @@
 package com.amazon.opendistroforelasticsearch.alerting.destination.client;
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage;
-import com.amazon.opendistroforelasticsearch.alerting.destination.message.MailMessage;
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.settings.SecureString;
-import org.elasticsearch.common.Strings;
+
 import java.util.Properties;
 import javax.mail.Authenticator;
 import javax.mail.internet.InternetAddress;
@@ -39,21 +38,21 @@ public class DestinationMailClient {
     private static final Logger logger = LogManager.getLogger(DestinationMailClient.class);
     
     public String execute(BaseMessage message) throws Exception {
-        if (message instanceof MailMessage) {
-            MailMessage mailMessage = (MailMessage) message;
+        if (message instanceof EmailMessage) {
+            EmailMessage emailMessage = (EmailMessage) message;
             Session session = null;
 
             Properties prop = new Properties();
             prop.put("mail.transport.protocol", "smtp");
-            prop.put("mail.smtp.host", mailMessage.getHost());
-            prop.put("mail.smtp.port", mailMessage.getPort());
+            prop.put("mail.smtp.host", emailMessage.getHost());
+            prop.put("mail.smtp.port", emailMessage.getPort());
 
-            if (mailMessage.getUsername() != null && !mailMessage.getUsername().equals("".toCharArray())) {
+            if (emailMessage.getUsername() != null && !emailMessage.getUsername().equals("".toCharArray())) {
                 prop.put("mail.smtp.auth", true);
                 try {
                     session = Session.getInstance(prop, new Authenticator() {
 	                    protected PasswordAuthentication getPasswordAuthentication() {
-                            return new PasswordAuthentication(mailMessage.getUsername().toString(), mailMessage.getPassword().toString());
+                            return new PasswordAuthentication(emailMessage.getUsername().toString(), emailMessage.getPassword().toString());
                         }
 		            });
                 } catch (IllegalStateException e) {
@@ -63,7 +62,7 @@ public class DestinationMailClient {
                 session = Session.getInstance(prop);
             }
 
-            switch(mailMessage.getMethod()) {
+            switch(emailMessage.getMethod()) {
             case "ssl":
                 prop.put("mail.smtp.ssl.enable", true);
                 break;
@@ -74,10 +73,10 @@ public class DestinationMailClient {
 
             try {
                 Message mailmsg = new MimeMessage(session);
-                mailmsg.setFrom(new InternetAddress(mailMessage.getFrom()));
-                mailmsg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(mailMessage.getRecipients()));
-                mailmsg.setSubject(mailMessage.getSubject());
-                mailmsg.setText(mailMessage.getMessageContent());
+                mailmsg.setFrom(new InternetAddress(emailMessage.getFrom()));
+                mailmsg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(emailMessage.getRecipients()));
+                mailmsg.setSubject(emailMessage.getSubject());
+                mailmsg.setText(emailMessage.getMessageContent());
 
                 SendMessage(mailmsg);
             } catch (MessagingException e) {

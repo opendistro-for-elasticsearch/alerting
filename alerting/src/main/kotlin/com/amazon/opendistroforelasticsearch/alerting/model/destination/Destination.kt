@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMe
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage
-import com.amazon.opendistroforelasticsearch.alerting.destination.message.MailMessage
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationMailResponse
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
@@ -230,16 +230,17 @@ data class Destination(
                         .withMessage(compiledMessage).build()
             }
             DestinationType.EMAIL -> {
-                destinationMessage = MailMessage.Builder(name).build()
-//                        .withHost(DestinationSettings.mail.host)
-//                        .withPort(DestinationSettings.mail.port)
-//                        .withMethod(DestinationSettings.mail.method)
-//                        .withFrom(DestinationSettings.mail.from)
-//                        .withRecipients(mail?.recipients)
-//                        .withSubject(compiledSubject)
-//                        .withUserName(DestinationSettings.mail.username)
-//                        .withPassword(DestinationSettings.mail.password)
-//                        .withMessage(compiledMessage).build()
+                val emailAccount = destinationCtx.emailAccount
+                destinationMessage = EmailMessage.Builder(name)
+                        .withHost(emailAccount?.host)
+                        .withPort(emailAccount?.port)
+                        .withMethod(emailAccount?.method?.value)
+                        .withUserName(emailAccount?.username)
+                        .withPassword(emailAccount?.password)
+                        .withFrom(emailAccount?.email)
+                        .withRecipients(destinationCtx.recipients)
+                        .withSubject(compiledSubject)
+                        .withMessage(compiledMessage).build()
             }
             DestinationType.TEST_ACTION -> {
                 return "test action"

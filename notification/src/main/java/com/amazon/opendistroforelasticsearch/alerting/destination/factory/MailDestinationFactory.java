@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.destination.factory;
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationMailClient;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationMailClientPool;
-import com.amazon.opendistroforelasticsearch.alerting.destination.message.MailMessage;
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationMailResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,7 +25,7 @@ import org.apache.logging.log4j.Logger;
 /**
  * This class handles the client responsible for submitting the messages to Mail destination.
  */
-public class MailDestinationFactory implements DestinationFactory<MailMessage, DestinationMailClient>{
+public class MailDestinationFactory implements DestinationFactory<EmailMessage, DestinationMailClient>{
 
     private DestinationMailClient destinationMailClient;
 
@@ -36,7 +36,7 @@ public class MailDestinationFactory implements DestinationFactory<MailMessage, D
     }
 
     @Override
-    public DestinationMailResponse publish(MailMessage message) {
+    public DestinationMailResponse publish(EmailMessage message) {
         try {
             String response = getClient(message).execute(message);
             int status = response == "Sent" ? 0 : 1;
@@ -48,7 +48,7 @@ public class MailDestinationFactory implements DestinationFactory<MailMessage, D
     }
 
     @Override
-    public DestinationMailClient getClient(MailMessage message) {
+    public DestinationMailClient getClient(EmailMessage message) {
         return destinationMailClient;
     }
 

@@ -19,5 +19,5 @@ package com.amazon.opendistroforelasticsearch.alerting.destination.message;
  * Supported notification destinations
  */
 public enum DestinationType {
-    CHIME, SLACK, CUSTOMWEBHOOK, MAIL
+    CHIME, SLACK, CUSTOMWEBHOOK, EMAIL
 }

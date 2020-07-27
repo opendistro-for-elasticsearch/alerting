@@ -19,15 +19,13 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.factory.Destin
 import com.amazon.opendistroforelasticsearch.alerting.destination.factory.MailDestinationFactory;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
-import com.amazon.opendistroforelasticsearch.alerting.destination.message.MailMessage;
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationMailClient;
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationMailResponse;
 import org.easymock.EasyMock;
 import org.junit.Assert;
 import org.junit.Test;
 import javax.mail.Message;
-import javax.mail.Transport;
-import javax.mail.internet.MimeMessage;
 import javax.mail.MessagingException;
 
 import static org.junit.Assert.assertEquals;
@@ -46,12 +44,12 @@ public class MailDestinationTest {
         MailDestinationFactory mailDestinationFactory = new MailDestinationFactory();
         mailDestinationFactory.setClient(mailClient);
 
-        DestinationFactoryProvider.setFactory(DestinationType.MAIL, mailDestinationFactory);
+        DestinationFactoryProvider.setFactory(DestinationType.EMAIL, mailDestinationFactory);
 
         String message = "{\"text\":\"Vamshi Message gughjhjlkh Body emoji test: :) :+1: " +
                 "link test: http://sample.com email test: marymajor@example.com All member callout: " +
                 "@All All Present member callout: @Present\"}";
-        BaseMessage bm = new MailMessage.Builder("abc")
+        BaseMessage bm = new EmailMessage.Builder("abc")
                 .withMessage(message)
                 .withHost("abc.com")
                 .withFrom("test@abc.com")
@@ -76,12 +74,12 @@ public class MailDestinationTest {
         MailDestinationFactory mailDestinationFactory = new MailDestinationFactory();
         mailDestinationFactory.setClient(mailClient);
 
-        DestinationFactoryProvider.setFactory(DestinationType.MAIL, mailDestinationFactory);
+        DestinationFactoryProvider.setFactory(DestinationType.EMAIL, mailDestinationFactory);
 
         String message = "{\"text\":\"Vamshi Message gughjhjlkh Body emoji test: :) :+1: " +
                 "link test: http://sample.com email test: marymajor@example.com All member callout: " +
                 "@All All Present member callout: @Present\"}";
-        BaseMessage bm = new MailMessage.Builder("abc")
+        BaseMessage bm = new EmailMessage.Builder("abc")
                 .withMessage(message)
                 .withHost("localhost")
                 .withPort(55555)
@@ -97,7 +95,7 @@ public class MailDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testHostMissingMessage() {
         try {
-            MailMessage message = new MailMessage.Builder("mail")
+            EmailMessage message = new EmailMessage.Builder("mail")
                     .withMessage("dummyMessage")
                     .withFrom("test@abc.com")
                     .withRecipients("test@abc.com").build();
@@ -111,7 +109,7 @@ public class MailDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testContentMissingMessage() {
         try {
-            MailMessage message = new MailMessage.Builder("mail")
+            EmailMessage message = new EmailMessage.Builder("mail")
                     .withHost("abc.com")
                     .withFrom("test@abc.com")
                     .withRecipients("test@abc.com").build();
@@ -124,7 +122,7 @@ public class MailDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testFromMissingMessage() {
         try {
-            MailMessage message = new MailMessage.Builder("mail")
+            EmailMessage message = new EmailMessage.Builder("mail")
                     .withMessage("dummyMessage")
                     .withHost("abc.com")
                     .withRecipients("test@abc.com").build();
@@ -138,7 +136,7 @@ public class MailDestinationTest {
     @Test(expected = IllegalArgumentException.class)
     public void testRecipientsMissingMessage() {
         try {
-            MailMessage message = new MailMessage.Builder("mail")
+            EmailMessage message = new EmailMessage.Builder("mail")
                     .withMessage("dummyMessage")
                     .withHost("abc.com")
                     .withFrom("test@abc.com").build();
