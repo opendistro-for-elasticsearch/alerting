@@ -100,6 +100,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
         @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
         @JvmField val MONITOR_BASE_URI = "/_opendistro/_alerting/monitors"
         @JvmField val DESTINATION_BASE_URI = "/_opendistro/_alerting/destinations"
+        @JvmField val EMAIL_ACCOUNT_BASE_URI = "/_opendistro/_alerting/email_accounts"
+        @JvmField val EMAIL_GROUP_BASE_URI = "/_opendistro/_alerting/email_groups"
         @JvmField val ALERTING_JOB_TYPES = listOf("monitor")
     }
 
