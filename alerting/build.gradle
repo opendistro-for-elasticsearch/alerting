@@ -58,9 +58,10 @@ configurations.all {
         force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${versions.jackson}"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
-        force "commons-codec:commons-codec:${versions.commonscodec}"
+        // force the version until Elasticsearch upgrade to an invulnerable one, https://www.whitesourcesoftware.com/vulnerability-database/WS-2019-0379
+        force "commons-codec:commons-codec:1.13"
         
-        // This is required because kotlin coroutines core-1.1.1 still requires kotin stdlib 1.3.20 and we're using 1.3.21
+        // This is required because kotlin-coroutines-core 1.1.1 still requires kotlin stdlib 1.3.20 and we're using a higher kotlin version
         force "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
         force "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     }
