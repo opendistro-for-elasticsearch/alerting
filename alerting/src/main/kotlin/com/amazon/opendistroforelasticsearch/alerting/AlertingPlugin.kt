@@ -35,10 +35,14 @@ import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestAcknowledgeAlertAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestExecuteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
@@ -130,7 +134,11 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 RestAcknowledgeAlertAction(),
                 RestScheduledJobStatsHandler("_alerting"),
                 RestIndexDestinationAction(settings),
-                RestDeleteDestinationAction())
+                RestDeleteDestinationAction(),
+                RestIndexEmailAccountAction(settings, scheduledJobIndices, clusterService),
+                RestDeleteEmailAccountAction(),
+                RestIndexEmailGroupAction(settings, scheduledJobIndices, clusterService),
+                RestDeleteEmailGroupAction())
     }
 
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
