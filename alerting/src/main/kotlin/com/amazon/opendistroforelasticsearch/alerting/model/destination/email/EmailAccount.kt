@@ -28,7 +28,7 @@ data class EmailAccount(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        if (params.paramAsBoolean("with_type", false)) builder.startObject(EMAIL_ACCOUNT)
+        if (params.paramAsBoolean("with_type", false)) builder.startObject(EMAIL_ACCOUNT_TYPE)
         builder.field(SCHEMA_VERSION, schemaVersion)
                 .field(NAME_FIELD, name)
                 .field(EMAIL_FIELD, email)
@@ -50,7 +50,7 @@ data class EmailAccount(
     }
 
     companion object {
-        const val EMAIL_ACCOUNT = "email_account"
+        const val EMAIL_ACCOUNT_TYPE = "email_account"
         const val NO_ID = ""
         const val SCHEMA_VERSION = "schema_version"
         const val NAME_FIELD = "name"

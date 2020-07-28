@@ -39,11 +39,15 @@ import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmai
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
@@ -137,8 +141,12 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 RestDeleteDestinationAction(),
                 RestIndexEmailAccountAction(settings, scheduledJobIndices, clusterService),
                 RestDeleteEmailAccountAction(),
+                RestSearchEmailAccountAction(),
+                RestGetEmailAccountAction(),
                 RestIndexEmailGroupAction(settings, scheduledJobIndices, clusterService),
-                RestDeleteEmailGroupAction())
+                RestDeleteEmailGroupAction(),
+                RestSearchEmailGroupAction(),
+                RestGetEmailGroupAction())
     }
 
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {

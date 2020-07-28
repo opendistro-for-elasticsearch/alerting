@@ -21,7 +21,7 @@ data class EmailGroup(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        if (params.paramAsBoolean("with_type", false)) builder.startObject(EMAIL_GROUP)
+        if (params.paramAsBoolean("with_type", false)) builder.startObject(EMAIL_GROUP_TYPE)
         builder.field(SCHEMA_VERSION, schemaVersion)
                 .field(NAME_FIELD, name)
                 .field(EMAILS_FIELD, emails.toTypedArray())
@@ -40,7 +40,7 @@ data class EmailGroup(
     }
 
     companion object {
-        const val EMAIL_GROUP = "email_group"
+        const val EMAIL_GROUP_TYPE = "email_group"
         const val NO_ID = ""
         const val SCHEMA_VERSION = "schema_version"
         const val NAME_FIELD = "name"
