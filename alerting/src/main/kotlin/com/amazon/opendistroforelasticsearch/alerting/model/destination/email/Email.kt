@@ -123,8 +123,8 @@ data class Recipient(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Recipient {
             lateinit var type: String
-            lateinit var emailGroupID: String
-            lateinit var email: String
+            var emailGroupID: String? = null
+            var email: String? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
