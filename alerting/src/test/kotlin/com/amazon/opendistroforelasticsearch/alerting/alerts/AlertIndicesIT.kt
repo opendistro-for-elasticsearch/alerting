@@ -49,7 +49,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
         verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
         verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 0)
-        client().makeRequest("DELETE", ".*")
+        wipeAllODFEIndices()
         executeMonitor(createRandomMonitor())
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
@@ -65,8 +65,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         executeMonitor(trueMonitor)
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
-
-        client().makeRequest("DELETE", ".*")
+        wipeAllODFEIndices()
         assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
         assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
 
