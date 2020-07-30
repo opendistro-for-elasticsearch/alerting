@@ -53,12 +53,9 @@ import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionCon
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.DESTINATION_SETTING_PREFIX
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.EMAIL_PASSWORD
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.EMAIL_USERNAME
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.getEmailSettingValue
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
@@ -126,7 +123,7 @@ class MonitorRunner(
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
 
-    @Volatile private var destinationSettings = settings.getByPrefix(DESTINATION_SETTING_PREFIX)
+    @Volatile private var destinationSettings = loadDestinationSettings(settings)
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
@@ -139,7 +136,7 @@ class MonitorRunner(
 
     /** Update destination settings when the reload API is called so that new keystore values are visible */
     fun reloadDestinationSettings(settings: Settings) {
-        destinationSettings = settings.getByPrefix(DESTINATION_SETTING_PREFIX)
+        destinationSettings = loadDestinationSettings(settings)
     }
 
     override fun doStart() {
@@ -498,8 +495,8 @@ class MonitorRunner(
     private fun addEmailCredentials(emailAccount: EmailAccount): EmailAccount {
         // Retrieve and populate the EmailAccount object with credentials if authentication is enabled
         if (emailAccount.method != EmailAccount.MethodType.NONE) {
-            val emailUsername: SecureString = getEmailSettingValue(destinationSettings, emailAccount.name, EMAIL_USERNAME)
-            val emailPassword: SecureString = getEmailSettingValue(destinationSettings, emailAccount.name, EMAIL_PASSWORD)
+            val emailUsername: SecureString? = destinationSettings[emailAccount.name]?.emailUsername
+            val emailPassword: SecureString? = destinationSettings[emailAccount.name]?.emailPassword
 
             return emailAccount.copy(username = emailUsername, password = emailPassword)
         }
@@ -554,11 +551,7 @@ class MonitorRunner(
         val source = getResponse.sourceAsBytesRef
         return withContext(Dispatchers.IO) {
             val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, source, XContentType.JSON)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val emailAccount = EmailAccount.parse(xcp)
-            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val emailAccount = EmailAccount.parseWithType(xcp)
             emailAccount
         }
     }
@@ -573,11 +566,7 @@ class MonitorRunner(
         val source = getResponse.sourceAsBytesRef
         return withContext(Dispatchers.IO) {
             val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, source, XContentType.JSON)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val emailGroup = EmailGroup.parse(xcp)
-            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val emailGroup = EmailGroup.parseWithType(xcp)
             emailGroup
         }
     }

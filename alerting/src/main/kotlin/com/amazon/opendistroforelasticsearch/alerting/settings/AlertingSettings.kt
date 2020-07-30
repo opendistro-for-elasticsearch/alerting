@@ -16,13 +16,9 @@
 package com.amazon.opendistroforelasticsearch.alerting.settings
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import org.elasticsearch.common.settings.SecureSetting
-import org.elasticsearch.common.settings.SecureString
 import org.elasticsearch.common.settings.Setting
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import java.util.concurrent.TimeUnit
-import java.util.function.Function
 
 /**
  * settings specific to [AlertingPlugin]. These settings include things like history index max age, request timeout, etc...
@@ -30,11 +26,9 @@ import java.util.function.Function
 class AlertingSettings {
 
     companion object {
+
         const val MONITOR_MAX_INPUTS = 1
         const val MONITOR_MAX_TRIGGERS = 10
-
-        const val DESTINATION_SETTING_PREFIX = "opendistro.alerting.destination."
-        const val EMAIL_DESTINATION_SETTING_PREFIX = DESTINATION_SETTING_PREFIX + "email."
 
         val ALERTING_MAX_MONITORS = Setting.intSetting(
                 "opendistro.alerting.monitor.max_monitors",
@@ -126,24 +120,5 @@ class AlertingSettings {
                 TimeValue.timeValueHours(24),
                 Setting.Property.NodeScope, Setting.Property.Dynamic
         )
-
-        val EMAIL_USERNAME: Setting.AffixSetting<SecureString> = Setting.affixKeySetting(
-                EMAIL_DESTINATION_SETTING_PREFIX,
-                "username",
-                // Needed to coerce lambda to Function type for some reason to avoid argument mismatch compile error
-                Function { key: String -> SecureSetting.secureString(key, null) }
-        )
-
-        val EMAIL_PASSWORD: Setting.AffixSetting<SecureString> = Setting.affixKeySetting(
-                EMAIL_DESTINATION_SETTING_PREFIX,
-                "password",
-                // Needed to coerce lambda to Function type for some reason to avoid argument mismatch compile error
-                Function { key: String -> SecureSetting.secureString(key, null) }
-        )
-
-        fun <T> getEmailSettingValue(settings: Settings, emailAccountName: String, emailSetting: Setting.AffixSetting<T>): T {
-            val concreteSetting = emailSetting.getConcreteSettingForNamespace(emailAccountName)
-            return concreteSetting.get(settings)
-        }
     }
 }

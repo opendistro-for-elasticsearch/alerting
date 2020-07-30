@@ -151,8 +151,9 @@ fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
 }
 
 fun randomEmailAccountMethod(): EmailAccount.MethodType {
-    val methodTypeCount = EmailAccount.MethodType.values().size
-    return EmailAccount.MethodType.values()[randomInt(methodTypeCount - 1)]
+    val methodValues = EmailAccount.MethodType.values().map { it.value }
+    val randomValue = methodValues[randomInt(methodValues.size - 1)]
+    return EmailAccount.MethodType.getByValue(randomValue)!!
 }
 
 fun randomActionExecutionResult(
