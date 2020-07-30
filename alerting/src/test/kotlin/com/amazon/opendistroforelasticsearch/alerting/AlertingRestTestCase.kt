@@ -47,7 +47,6 @@ import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
-import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.net.URLEncoder
@@ -60,7 +59,7 @@ import javax.management.ObjectName
 import javax.management.remote.JMXConnectorFactory
 import javax.management.remote.JMXServiceURL
 
-abstract class AlertingRestTestCase : ESRestTestCase() {
+abstract class AlertingRestTestCase : ODFERestTestCase() {
 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
