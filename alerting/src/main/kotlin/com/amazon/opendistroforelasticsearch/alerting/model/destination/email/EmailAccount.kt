@@ -8,7 +8,6 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
-import java.util.Locale
 
 /**
  * A value object that represents an Email Account. Email Accounts contain the configuration
@@ -46,7 +45,13 @@ data class EmailAccount(
     enum class MethodType(val value: String) {
         NONE("none"),
         SSL("ssl"),
-        TLS("starttls")
+        TLS("starttls");
+
+        companion object {
+            private val values = values()
+            // Created this method since MethodType value does not necessarily match enum name
+            fun getByValue(value: String) = values.firstOrNull { it.value == value }
+        }
     }
 
     companion object {
@@ -96,8 +101,19 @@ data class EmailAccount(
                     email,
                     host,
                     port,
-                    MethodType.valueOf(method.toUpperCase(Locale.ROOT))
+                    requireNotNull(MethodType.getByValue(method)) { "Method type was null" }
             )
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID): EmailAccount {
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val emailAccount = parse(xcp, id)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            return emailAccount
         }
     }
 }

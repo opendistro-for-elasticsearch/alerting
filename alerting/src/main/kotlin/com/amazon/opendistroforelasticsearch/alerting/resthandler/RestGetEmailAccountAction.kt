@@ -74,7 +74,7 @@ class RestGetEmailAccountAction : BaseRestHandler() {
                 if (!response.isSourceEmpty) {
                     XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                             response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                                val emailAccount = EmailAccount.parse(xcp, response.id)
+                                val emailAccount = EmailAccount.parseWithType(xcp, response.id)
                                 builder.field("email_account", emailAccount)
                             }
                 }

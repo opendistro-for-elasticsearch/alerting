@@ -79,6 +79,17 @@ data class EmailGroup(
                     emails
             )
         }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID): EmailGroup {
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val emailGroup = parse(xcp, id)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            return emailGroup
+        }
     }
 }
 

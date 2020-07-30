@@ -74,7 +74,7 @@ class RestGetEmailGroupAction : BaseRestHandler() {
                 if (!response.isSourceEmpty) {
                     XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                             response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                                val emailGroup = EmailGroup.parse(xcp, response.id)
+                                val emailGroup = EmailGroup.parseWithType(xcp, response.id)
                                 builder.field("email_group", emailGroup)
                             }
                 }
