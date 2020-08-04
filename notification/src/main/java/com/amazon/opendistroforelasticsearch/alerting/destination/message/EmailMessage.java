@@ -50,7 +50,7 @@ public class EmailMessage extends BaseMessage {
         super(destinationType, destinationName, message);
 
         if (DestinationType.EMAIL != destinationType) {
-            throw new IllegalArgumentException("Channel Type does not match Mail");
+            throw new IllegalArgumentException("Channel Type does not match Email");
         }
 
         if (Strings.isNullOrEmpty(message)) {
