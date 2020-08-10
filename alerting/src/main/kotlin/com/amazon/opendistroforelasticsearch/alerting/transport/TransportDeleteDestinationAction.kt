@@ -31,15 +31,15 @@ import org.elasticsearch.transport.TransportService
 
 class TransportDeleteDestinationAction @Inject constructor(
     transportService: TransportService,
-    var client: Client,
+    val client: Client,
     actionFilters: ActionFilters
 ) : HandledTransportAction<DeleteDestinationRequest, DeleteResponse>(
         DeleteDestinationAction.NAME, transportService, actionFilters,
-        Writeable.Reader<DeleteDestinationRequest> { DeleteDestinationRequest() }
+        Writeable.Reader<DeleteDestinationRequest> { DeleteDestinationRequest(null) }
     ) {
 
     override fun doExecute(task: Task, request: DeleteDestinationRequest, actionListener: ActionListener<DeleteResponse>) {
-        val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.destinationID)
+        val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.destinationId)
                 .setRefreshPolicy(request.refreshPolicy)
 
         client.delete(deleteRequest, object : ActionListener<DeleteResponse> {
