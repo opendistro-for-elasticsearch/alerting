@@ -5,8 +5,6 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
 import org.junit.Assert
-import org.junit.Test
-import java.io.IOException
 
 class DeleteDestinationRequestTests : ESTestCase() {
 
