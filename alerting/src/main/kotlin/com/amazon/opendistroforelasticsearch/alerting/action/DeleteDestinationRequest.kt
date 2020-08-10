@@ -22,19 +22,19 @@ import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
 
-class DeleteDestinationRequest() : ActionRequest() {
+class DeleteDestinationRequest : ActionRequest {
 
-    var destinationID: String? = null
-    var refreshPolicy: WriteRequest.RefreshPolicy? = null
+    val destinationId: String?
+    val refreshPolicy: WriteRequest.RefreshPolicy?
 
-    constructor(monitorId: String, refreshPolicy: WriteRequest.RefreshPolicy) : this() {
-        this.destinationID = monitorId
+    constructor(destinationId: String, refreshPolicy: WriteRequest.RefreshPolicy) : super() {
+        this.destinationId = destinationId
         this.refreshPolicy = refreshPolicy
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : this() {
-        destinationID = sin.readString()
+    constructor(sin: StreamInput?) : super() {
+        destinationId = sin?.readString()
         refreshPolicy = WriteRequest.RefreshPolicy.readFrom(sin)
     }
 
@@ -44,7 +44,7 @@ class DeleteDestinationRequest() : ActionRequest() {
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeString(destinationID)
+        out.writeString(destinationId)
         refreshPolicy?.writeTo(out)
     }
 }
