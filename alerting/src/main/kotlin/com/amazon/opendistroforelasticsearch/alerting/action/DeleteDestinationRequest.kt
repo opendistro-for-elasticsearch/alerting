@@ -24,8 +24,8 @@ import java.io.IOException
 
 class DeleteDestinationRequest : ActionRequest {
 
-    val destinationId: String?
-    val refreshPolicy: WriteRequest.RefreshPolicy?
+    val destinationId: String
+    val refreshPolicy: WriteRequest.RefreshPolicy
 
     constructor(destinationId: String, refreshPolicy: WriteRequest.RefreshPolicy) : super() {
         this.destinationId = destinationId
@@ -33,8 +33,8 @@ class DeleteDestinationRequest : ActionRequest {
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput?) : super() {
-        destinationId = sin?.readString()
+    constructor(sin: StreamInput) : super() {
+        destinationId = sin.readString()
         refreshPolicy = WriteRequest.RefreshPolicy.readFrom(sin)
     }
 
@@ -45,6 +45,6 @@ class DeleteDestinationRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(destinationId)
-        refreshPolicy?.writeTo(out)
+        refreshPolicy.writeTo(out)
     }
 }
