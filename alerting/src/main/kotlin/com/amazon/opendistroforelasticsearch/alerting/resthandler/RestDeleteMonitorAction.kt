@@ -15,8 +15,8 @@
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationAction
-import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationRequest
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import org.apache.logging.log4j.LogManager
@@ -55,10 +55,10 @@ class RestDeleteMonitorAction : BaseRestHandler() {
         log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/$monitorId")
 
         val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
-        val deleteMonitorRequest = DeleteDestinationRequest(monitorId, refreshPolicy)
+        val deleteMonitorRequest = DeleteMonitorRequest(monitorId, refreshPolicy)
 
         return RestChannelConsumer { channel ->
-            client.execute(DeleteDestinationAction.INSTANCE, deleteMonitorRequest, RestToXContentListener(channel))
+            client.execute(DeleteMonitorAction.INSTANCE, deleteMonitorRequest, RestToXContentListener(channel))
         }
     }
 }
