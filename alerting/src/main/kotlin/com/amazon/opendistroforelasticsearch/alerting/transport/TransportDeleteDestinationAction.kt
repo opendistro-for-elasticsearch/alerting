@@ -25,7 +25,6 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
@@ -34,8 +33,7 @@ class TransportDeleteDestinationAction @Inject constructor(
     val client: Client,
     actionFilters: ActionFilters
 ) : HandledTransportAction<DeleteDestinationRequest, DeleteResponse>(
-        DeleteDestinationAction.NAME, transportService, actionFilters,
-        Writeable.Reader<DeleteDestinationRequest> { DeleteDestinationRequest(null) }
+        DeleteDestinationAction.NAME, transportService, actionFilters, ::DeleteDestinationRequest
     ) {
 
     override fun doExecute(task: Task, request: DeleteDestinationRequest, actionListener: ActionListener<DeleteResponse>) {

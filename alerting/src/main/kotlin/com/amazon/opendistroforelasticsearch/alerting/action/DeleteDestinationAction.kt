@@ -17,9 +17,8 @@ package com.amazon.opendistroforelasticsearch.alerting.action
 
 import org.elasticsearch.action.ActionType
 import org.elasticsearch.action.delete.DeleteResponse
-import org.elasticsearch.common.io.stream.Writeable
 
-class DeleteDestinationAction private constructor() : ActionType<DeleteResponse>(NAME, Writeable.Reader({ DeleteResponse(null) })) {
+class DeleteDestinationAction private constructor() : ActionType<DeleteResponse>(NAME, ::DeleteResponse) {
     companion object {
         val INSTANCE = DeleteDestinationAction()
         val NAME = "cluster:admin/alerting/destination/delete"
