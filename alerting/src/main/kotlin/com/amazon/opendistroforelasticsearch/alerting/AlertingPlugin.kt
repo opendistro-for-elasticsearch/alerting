@@ -15,6 +15,8 @@
 package com.amazon.opendistroforelasticsearch.alerting
 
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.JobSweeper
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
@@ -37,6 +39,8 @@ import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchMoni
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchMonitorAction
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
@@ -119,6 +123,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
         return listOf(
             ActionPlugin.ActionHandler(ScheduledJobsStatsAction.INSTANCE, ScheduledJobsStatsTransportAction::class.java),
+            ActionPlugin.ActionHandler(SearchMonitorAction.INSTANCE, TransportSearchMonitorAction::class.java),
+            ActionPlugin.ActionHandler(DeleteMonitorAction.INSTANCE, TransportDeleteMonitorAction::class.java),
             ActionPlugin.ActionHandler(DeleteDestinationAction.INSTANCE, TransportDeleteDestinationAction::class.java)
         )
     }
