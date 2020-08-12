@@ -14,11 +14,13 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
-import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import org.elasticsearch.action.delete.DeleteRequest
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
@@ -26,9 +28,10 @@ import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.DELETE
-import org.elasticsearch.rest.action.RestStatusToXContentListener
+import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
 
+private val log: Logger = LogManager.getLogger(RestDeleteMonitorAction::class.java)
 /**
  * This class consists of the REST handler to delete monitors.
  * When a monitor is deleted, all alerts are moved to the [Alert.State.DELETED] state and moved to the alert history index.
@@ -49,12 +52,13 @@ class RestDeleteMonitorAction : BaseRestHandler() {
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val monitorId = request.param("monitorID")
+        log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/$monitorId")
+
         val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
+        val deleteMonitorRequest = DeleteMonitorRequest(monitorId, refreshPolicy)
 
         return RestChannelConsumer { channel ->
-            val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, monitorId)
-                    .setRefreshPolicy(refreshPolicy)
-            client.delete(deleteRequest, RestStatusToXContentListener(channel))
+            client.execute(DeleteMonitorAction.INSTANCE, deleteMonitorRequest, RestToXContentListener(channel))
         }
     }
 }
