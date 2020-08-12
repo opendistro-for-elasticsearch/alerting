@@ -22,7 +22,6 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import java.io.IOException
-import java.lang.IllegalStateException
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
