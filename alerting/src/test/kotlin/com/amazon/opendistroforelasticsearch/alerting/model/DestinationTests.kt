@@ -17,8 +17,13 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import org.elasticsearch.common.io.stream.BytesStreamOutput
+import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
+import java.time.Instant
 
 class DestinationTests : ESTestCase() {
 
@@ -73,5 +78,125 @@ class DestinationTests : ESTestCase() {
             fail("Creating a custom webhook destination with empty url did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
+    }
+
+    fun `test chime destination create using stream`() {
+        val chimeDest = Destination("1234", 0L, 1, DestinationType.CHIME, "TestChimeDest",
+                Instant.now(), Chime("test.com"), null, null)
+
+        val out = BytesStreamOutput()
+        chimeDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("1234", newDest.id)
+        assertEquals(0, newDest.version)
+        assertEquals(1, newDest.schemaVersion)
+        assertEquals(DestinationType.CHIME, newDest.type)
+        assertEquals("TestChimeDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNotNull(newDest.chime)
+        assertNull(newDest.slack)
+        assertNull(newDest.customWebhook)
+    }
+
+    fun `test slack destination create using stream`() {
+        val chimeDest = Destination("2345", 1L, 2, DestinationType.SLACK, "TestSlackDest",
+                Instant.now(), null, Slack("mytest.com"), null)
+
+        val out = BytesStreamOutput()
+        chimeDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("2345", newDest.id)
+        assertEquals(1, newDest.version)
+        assertEquals(2, newDest.schemaVersion)
+        assertEquals(DestinationType.SLACK, newDest.type)
+        assertEquals("TestSlackDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNull(newDest.chime)
+        assertNotNull(newDest.slack)
+        assertNull(newDest.customWebhook)
+    }
+
+    fun `test customwebhook destination create using stream`() {
+        val chimeDest = Destination(
+                "2345",
+                1L,
+                2,
+                DestinationType.SLACK,
+                "TestSlackDest",
+                Instant.now(),
+                null,
+                null,
+                CustomWebhook(
+                    "test.com",
+                    "schema",
+                    "localhost",
+                    162,
+                    "/tmp/",
+                    mutableMapOf(),
+                    mutableMapOf(),
+                    "admin",
+                    "admin"
+                )
+        )
+        val out = BytesStreamOutput()
+        chimeDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("2345", newDest.id)
+        assertEquals(1, newDest.version)
+        assertEquals(2, newDest.schemaVersion)
+        assertEquals(DestinationType.SLACK, newDest.type)
+        assertEquals("TestSlackDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNull(newDest.chime)
+        assertNull(newDest.slack)
+        assertNotNull(newDest.customWebhook)
+    }
+
+    fun `test customwebhook destination create using stream with optionals`() {
+        val chimeDest = Destination(
+                "2345",
+                1L,
+                2,
+                DestinationType.SLACK,
+                "TestSlackDest",
+                Instant.now(),
+                null,
+                null,
+                CustomWebhook(
+                        "test.com",
+                        null,
+                        "localhost",
+                        162,
+                        null,
+                        mutableMapOf(),
+                        mutableMapOf(),
+                        null,
+                        null
+                )
+        )
+        val out = BytesStreamOutput()
+        chimeDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("2345", newDest.id)
+        assertEquals(1, newDest.version)
+        assertEquals(2, newDest.schemaVersion)
+        assertEquals(DestinationType.SLACK, newDest.type)
+        assertEquals("TestSlackDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNull(newDest.chime)
+        assertNull(newDest.slack)
+        assertNotNull(newDest.customWebhook)
     }
 }

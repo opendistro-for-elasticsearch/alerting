@@ -17,6 +17,8 @@ package com.amazon.opendistroforelasticsearch.alerting.model.destination
 
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -42,6 +44,11 @@ data class Slack(val url: String) : ToXContent {
                 .endObject()
     }
 
+    @Throws(IOException::class)
+    fun writeTo(out: StreamOutput) {
+        out.writeString(url)
+    }
+
     companion object {
         const val URL = "url"
         const val TYPE = "slack"
@@ -63,6 +70,14 @@ data class Slack(val url: String) : ToXContent {
                 }
             }
             return Slack(url)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Slack? {
+            return if (sin.readBoolean()) {
+                Slack(sin.readString())
+            } else null
         }
     }
 
