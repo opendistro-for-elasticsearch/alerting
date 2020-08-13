@@ -23,7 +23,6 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.script.Script
 import java.io.IOException
-import java.lang.IllegalStateException
 
 /**
  * This class holds the data and parser logic for Action which is part of a trigger

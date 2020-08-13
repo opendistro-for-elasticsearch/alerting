@@ -14,11 +14,12 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.util.context
-import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.node.NodeClient
@@ -73,7 +74,9 @@ class RestSearchMonitorAction : BaseRestHandler() {
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
                 .indices(SCHEDULED_JOBS_INDEX)
-        return RestChannelConsumer { channel -> client.search(searchRequest, searchMonitorResponse(channel)) }
+        return RestChannelConsumer { channel ->
+            client.execute(SearchMonitorAction.INSTANCE, searchRequest, searchMonitorResponse(channel))
+        }
     }
 
     private fun searchMonitorResponse(channel: RestChannel): RestResponseListener<SearchResponse> {
