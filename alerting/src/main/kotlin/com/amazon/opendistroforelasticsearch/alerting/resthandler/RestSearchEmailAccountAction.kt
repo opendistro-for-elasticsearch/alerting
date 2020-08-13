@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.util.context
@@ -84,7 +83,7 @@ class RestSearchEmailAccountAction : BaseRestHandler() {
                 for (hit in response.hits) {
                     XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
                             LoggingDeprecationHandler.INSTANCE, hit.sourceAsString).use { hitsParser ->
-                                val emailAccount = ScheduledJob.parse(hitsParser, hit.id)
+                                val emailAccount = EmailAccount.parse(hitsParser, hit.id)
                                 val xcb = emailAccount.toXContent(jsonBuilder(), EMPTY_PARAMS)
                                 hit.sourceRef(BytesReference.bytes(xcb))
                             }
