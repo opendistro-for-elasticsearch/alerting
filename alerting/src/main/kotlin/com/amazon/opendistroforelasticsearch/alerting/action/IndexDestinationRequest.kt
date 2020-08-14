@@ -25,12 +25,12 @@ import org.elasticsearch.rest.RestRequest
 import java.io.IOException
 
 class IndexDestinationRequest : ActionRequest {
-    var destinationId: String
-    var seqNo: Long
-    var primaryTerm: Long
-    var refreshPolicy: WriteRequest.RefreshPolicy
-    var method: RestRequest.Method
-    var destination: Destination
+    val destinationId: String
+    val seqNo: Long
+    val primaryTerm: Long
+    val refreshPolicy: WriteRequest.RefreshPolicy
+    val method: RestRequest.Method
+    val destination: Destination
 
     constructor(
         destinationId: String,

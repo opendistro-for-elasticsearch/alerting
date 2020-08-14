@@ -30,12 +30,12 @@ import org.elasticsearch.rest.RestStatus
 import java.io.IOException
 
 class IndexDestinationResponse : ActionResponse, ToXContentObject {
-    var id: String
-    var version: Long
-    var seqNo: Long
-    var primaryTerm: Long
-    var status: RestStatus
-    var destination: Destination
+    val id: String
+    val version: Long
+    val seqNo: Long
+    val primaryTerm: Long
+    val status: RestStatus
+    val destination: Destination
 
     constructor(
         id: String,

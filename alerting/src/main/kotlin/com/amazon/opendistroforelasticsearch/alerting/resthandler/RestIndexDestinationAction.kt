@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationResponse
-import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
@@ -28,7 +27,6 @@ import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentParser
@@ -51,20 +49,9 @@ private val log = LogManager.getLogger(RestIndexDestinationAction::class.java)
  * Rest handlers to create and update Destination
  */
 class RestIndexDestinationAction(
-    settings: Settings,
-    jobIndices: ScheduledJobIndices,
-    clusterService: ClusterService
+    settings: Settings
 ) : BaseRestHandler() {
-    private var scheduledJobIndices: ScheduledJobIndices
-    private val clusterService: ClusterService
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
-
-    init {
-        scheduledJobIndices = jobIndices
-
-        clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
-        this.clusterService = clusterService
-    }
 
     override fun getName(): String {
         return "index_destination_action"

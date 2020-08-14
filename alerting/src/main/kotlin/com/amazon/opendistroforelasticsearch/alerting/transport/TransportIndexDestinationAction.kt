@@ -44,6 +44,10 @@ class TransportIndexDestinationAction @Inject constructor(
 
     @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
 
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
+    }
+
     override fun doExecute(task: Task, request: IndexDestinationRequest, actionListener: ActionListener<IndexDestinationResponse>) {
         IndexDestinationHandler(client, actionListener, request).start()
     }
@@ -64,8 +68,7 @@ class TransportIndexDestinationAction @Inject constructor(
                         actionListener.onFailure(t)
                     }
                 })
-            } else {
-                if (!IndexUtils.scheduledJobIndexUpdated) {
+            } else if (!IndexUtils.scheduledJobIndexUpdated) {
                     IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
                             ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
                             object : ActionListener<AcknowledgedResponse> {
@@ -76,19 +79,18 @@ class TransportIndexDestinationAction @Inject constructor(
                                     actionListener.onFailure(t)
                                 }
                             })
-                } else {
-                    prepareDestinationIndexing()
-                }
+            } else {
+                prepareDestinationIndexing()
             }
         }
 
         private fun prepareDestinationIndexing() {
             if (request.method == RestRequest.Method.PUT) updateDestination()
             else {
-                request.destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
+                val destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
                 val indexRequest = IndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
                         .setRefreshPolicy(request.refreshPolicy)
-                        .source(request.destination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
+                        .source(destination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
                         .setIfSeqNo(request.seqNo)
                         .setIfPrimaryTerm(request.primaryTerm)
                         .timeout(indexTimeout)
@@ -97,7 +99,7 @@ class TransportIndexDestinationAction @Inject constructor(
                     override fun onResponse(response: IndexResponse) {
                         checkShardsFailure(response)
                         actionListener.onResponse(IndexDestinationResponse(response.id, response.version, response.seqNo,
-                                response.primaryTerm, RestStatus.CREATED, request.destination))
+                                response.primaryTerm, RestStatus.CREATED, destination))
                     }
                     override fun onFailure(t: Exception) {
                         actionListener.onFailure(t)
@@ -155,10 +157,10 @@ class TransportIndexDestinationAction @Inject constructor(
                         ElasticsearchStatusException("Destination with ${request.destinationId} is not found", RestStatus.NOT_FOUND))
             }
 
-            request.destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
+            val destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
             val indexRequest = IndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(request.refreshPolicy)
-                    .source(request.destination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
+                    .source(destination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
                     .id(request.destinationId)
                     .setIfSeqNo(request.seqNo)
                     .setIfPrimaryTerm(request.primaryTerm)
@@ -168,7 +170,7 @@ class TransportIndexDestinationAction @Inject constructor(
                 override fun onResponse(response: IndexResponse) {
                     checkShardsFailure(response)
                     actionListener.onResponse(IndexDestinationResponse(response.id, response.version, response.seqNo,
-                            response.primaryTerm, RestStatus.CREATED, request.destination))
+                            response.primaryTerm, RestStatus.CREATED, destination))
                 }
                 override fun onFailure(t: Exception) {
                     actionListener.onFailure(t)
