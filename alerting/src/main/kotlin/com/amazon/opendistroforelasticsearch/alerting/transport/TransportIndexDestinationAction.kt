@@ -1,0 +1,191 @@
+package com.amazon.opendistroforelasticsearch.alerting.transport
+
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationRequest
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationResponse
+import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
+import org.elasticsearch.action.get.GetRequest
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.support.ActionFilters
+import org.elasticsearch.action.support.HandledTransportAction
+import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
+import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.tasks.Task
+import org.elasticsearch.transport.TransportService
+
+private val log = LogManager.getLogger(TransportIndexDestinationAction::class.java)
+
+class TransportIndexDestinationAction @Inject constructor(
+    transportService: TransportService,
+    val client: Client,
+    actionFilters: ActionFilters,
+    val scheduledJobIndices: ScheduledJobIndices,
+    val clusterService: ClusterService,
+    settings: Settings
+) : HandledTransportAction<IndexDestinationRequest, IndexDestinationResponse>(
+        IndexDestinationAction.NAME, transportService, actionFilters, ::IndexDestinationRequest
+) {
+
+    @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
+    }
+
+    override fun doExecute(task: Task, request: IndexDestinationRequest, actionListener: ActionListener<IndexDestinationResponse>) {
+        IndexDestinationHandler(client, actionListener, request).start()
+    }
+
+    inner class IndexDestinationHandler(
+        private val client: Client,
+        private val actionListener: ActionListener<IndexDestinationResponse>,
+        private val request: IndexDestinationRequest
+    ) {
+
+        fun start() {
+            if (!scheduledJobIndices.scheduledJobIndexExists()) {
+                scheduledJobIndices.initScheduledJobIndex(object : ActionListener<CreateIndexResponse> {
+                    override fun onResponse(response: CreateIndexResponse) {
+                        onCreateMappingsResponse(response)
+                    }
+                    override fun onFailure(t: Exception) {
+                        actionListener.onFailure(t)
+                    }
+                })
+            } else if (!IndexUtils.scheduledJobIndexUpdated) {
+                    IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
+                            ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
+                            object : ActionListener<AcknowledgedResponse> {
+                                override fun onResponse(response: AcknowledgedResponse) {
+                                    onUpdateMappingsResponse(response)
+                                }
+                                override fun onFailure(t: Exception) {
+                                    actionListener.onFailure(t)
+                                }
+                            })
+            } else {
+                prepareDestinationIndexing()
+            }
+        }
+
+        private fun prepareDestinationIndexing() {
+            if (request.method == RestRequest.Method.PUT) updateDestination()
+            else {
+                val destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
+                val indexRequest = IndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
+                        .setRefreshPolicy(request.refreshPolicy)
+                        .source(destination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
+                        .setIfSeqNo(request.seqNo)
+                        .setIfPrimaryTerm(request.primaryTerm)
+                        .timeout(indexTimeout)
+
+                client.index(indexRequest, object : ActionListener<IndexResponse> {
+                    override fun onResponse(response: IndexResponse) {
+                        checkShardsFailure(response)
+                        actionListener.onResponse(IndexDestinationResponse(response.id, response.version, response.seqNo,
+                                response.primaryTerm, RestStatus.CREATED, destination))
+                    }
+                    override fun onFailure(t: Exception) {
+                        actionListener.onFailure(t)
+                    }
+                })
+            }
+        }
+        private fun onCreateMappingsResponse(response: CreateIndexResponse) {
+            if (response.isAcknowledged) {
+                log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                prepareDestinationIndexing()
+                IndexUtils.scheduledJobIndexUpdated()
+            } else {
+                log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                actionListener.onFailure(
+                    ElasticsearchStatusException(
+                            "Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged",
+                            RestStatus.INTERNAL_SERVER_ERROR
+                    )
+                )
+            }
+        }
+
+        private fun onUpdateMappingsResponse(response: AcknowledgedResponse) {
+            if (response.isAcknowledged) {
+                log.info("Updated  ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                IndexUtils.scheduledJobIndexUpdated()
+                prepareDestinationIndexing()
+            } else {
+                log.error("Update ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                actionListener.onFailure(
+                    ElasticsearchStatusException(
+                        "Updated ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.",
+                        RestStatus.INTERNAL_SERVER_ERROR
+                    )
+                )
+            }
+        }
+
+        private fun updateDestination() {
+            val getRequest = GetRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.destinationId)
+            client.get(getRequest, object : ActionListener<GetResponse> {
+                override fun onResponse(response: GetResponse) {
+                    onGetResponse(response)
+                }
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
+
+        private fun onGetResponse(response: GetResponse) {
+            if (!response.isExists) {
+                actionListener.onFailure(
+                        ElasticsearchStatusException("Destination with ${request.destinationId} is not found", RestStatus.NOT_FOUND))
+            }
+
+            val destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
+            val indexRequest = IndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
+                    .setRefreshPolicy(request.refreshPolicy)
+                    .source(destination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
+                    .id(request.destinationId)
+                    .setIfSeqNo(request.seqNo)
+                    .setIfPrimaryTerm(request.primaryTerm)
+                    .timeout(indexTimeout)
+
+            client.index(indexRequest, object : ActionListener<IndexResponse> {
+                override fun onResponse(response: IndexResponse) {
+                    checkShardsFailure(response)
+                    actionListener.onResponse(IndexDestinationResponse(response.id, response.version, response.seqNo,
+                            response.primaryTerm, RestStatus.CREATED, destination))
+                }
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
+
+        private fun checkShardsFailure(response: IndexResponse) {
+            var failureReasons = StringBuilder()
+            if (response.shardInfo.failed > 0) {
+                response.shardInfo.failures.forEach {
+                    entry -> failureReasons.append(entry.reason())
+                }
+                actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+            }
+        }
+    }
+}

@@ -9,7 +9,7 @@ import java.io.IOException
 
 class DeleteMonitorRequest : ActionRequest {
 
-    var monitorId: String
+    val monitorId: String
     val refreshPolicy: WriteRequest.RefreshPolicy
 
     constructor(monitorId: String, refreshPolicy: WriteRequest.RefreshPolicy) : super() {
