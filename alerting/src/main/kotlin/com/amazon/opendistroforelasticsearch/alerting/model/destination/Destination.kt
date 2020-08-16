@@ -27,6 +27,8 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeFie
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -64,6 +66,34 @@ data class Destination(
 
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
+    }
+
+    @Throws(IOException::class)
+    fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        out.writeLong(version)
+        out.writeInt(schemaVersion)
+        out.writeEnum(type)
+        out.writeString(name)
+        out.writeInstant(lastUpdateTime)
+        if (chime != null) {
+            out.writeBoolean(true)
+            chime.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
+        if (slack != null) {
+            out.writeBoolean(true)
+            slack.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
+        if (customWebhook != null) {
+            out.writeBoolean(true)
+            customWebhook.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
     }
 
     companion object {
@@ -138,6 +168,22 @@ data class Destination(
                     chime,
                     slack,
                     customWebhook)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Destination {
+            return Destination(
+                sin.readString(), // id
+                sin.readLong(), // version
+                sin.readInt(), // schemaVersion
+                sin.readEnum(DestinationType::class.java), // type
+                sin.readString(), // name
+                sin.readInstant(), // lastUpdateTime
+                Chime.readFrom(sin), // chime
+                Slack.readFrom(sin), // slack
+                CustomWebhook.readFrom(sin) // customWebhook
+            )
         }
     }
 
