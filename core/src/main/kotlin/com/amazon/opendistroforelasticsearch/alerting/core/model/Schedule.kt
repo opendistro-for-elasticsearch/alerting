@@ -19,6 +19,9 @@ import com.cronutils.model.CronType
 import com.cronutils.model.definition.CronDefinitionBuilder
 import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -33,7 +36,7 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import java.time.zone.ZoneRulesException
 
-sealed class Schedule : ToXContentObject {
+sealed class Schedule : Writeable, ToXContentObject {
     enum class TYPE { CRON, INTERVAL }
     companion object {
         const val CRON_FIELD = "cron"
@@ -109,6 +112,16 @@ sealed class Schedule : ToXContentObject {
                 throw IllegalArgumentException("Timezone $timeZone is not supported")
             }
         }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Schedule {
+            val type = sin.readEnum(Schedule.TYPE::class.java)
+            if (type == Schedule.TYPE.CRON)
+                return CronSchedule(sin)
+            else
+                return IntervalSchedule(sin)
+        }
     }
 
     /**
@@ -154,6 +167,20 @@ data class CronSchedule(
 ) : Schedule() {
     @Transient
     val executionTime: ExecutionTime = ExecutionTime.forCron(cronParser.parse(expression))
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+        sin.readString(), // expression
+        sin.readZoneId() // timezone
+    )
+
+    companion object {
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): CronSchedule {
+            return CronSchedule(sin)
+        }
+    }
 
     /*
      * @param enabledTime is not used in CronSchedule.
@@ -232,6 +259,12 @@ data class CronSchedule(
                 .endObject()
         return builder
     }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(expression)
+        out.writeZoneId(timezone)
+    }
 }
 
 data class IntervalSchedule(
@@ -240,9 +273,20 @@ data class IntervalSchedule(
     // visible for testing
     @Transient val testInstant: Instant? = null
 ) : Schedule() {
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+        sin.readInt(), // interval
+        sin.readEnum(ChronoUnit::class.java) // unit
+    )
     companion object {
         @Transient
         private val SUPPORTED_UNIT = listOf(ChronoUnit.MINUTES, ChronoUnit.HOURS, ChronoUnit.DAYS)
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): IntervalSchedule {
+            return IntervalSchedule(sin)
+        }
     }
 
     init {
@@ -311,5 +355,11 @@ data class IntervalSchedule(
                 .endObject()
                 .endObject()
         return builder
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeInt(interval)
+        out.writeEnum(unit)
     }
 }

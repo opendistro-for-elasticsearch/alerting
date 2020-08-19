@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.action
 
 import org.elasticsearch.common.UUIDs
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -35,7 +38,7 @@ data class Action(
     val throttleEnabled: Boolean,
     val throttle: Throttle?,
     val id: String = UUIDs.base64UUID()
-) : ToXContentObject {
+) : Writeable, ToXContentObject {
 
     init {
         if (subjectTemplate != null) {
@@ -43,6 +46,17 @@ data class Action(
         }
         require(messageTemplate.lang == Action.MUSTACHE) { "message_template must be a mustache script" }
     }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+        sin.readString(), // name
+        sin.readString(), // destinationId
+        sin.readOptionalWriteable(::Script), // subjectTemplate
+        Script(sin), // messageTemplate
+        sin.readBoolean(), // throttleEnabled
+        sin.readOptionalWriteable(::Throttle), // throttle
+        sin.readString() // id
+    )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         val xContentBuilder = builder.startObject()
@@ -62,6 +76,27 @@ data class Action(
 
     fun asTemplateArg(): Map<String, Any> {
         return mapOf(NAME_FIELD to name)
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(name)
+        out.writeString(destinationId)
+        if (subjectTemplate != null) {
+            out.writeBoolean(true)
+            subjectTemplate.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
+        messageTemplate.writeTo(out)
+        out.writeBoolean(throttleEnabled)
+        if (throttle != null) {
+            out.writeBoolean(true)
+            throttle.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
+        out.writeString(id)
     }
 
     companion object {
@@ -125,6 +160,12 @@ data class Action(
                     throttleEnabled,
                     throttle,
                     id = requireNotNull(id))
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Action {
+            return Action(sin)
         }
     }
 }

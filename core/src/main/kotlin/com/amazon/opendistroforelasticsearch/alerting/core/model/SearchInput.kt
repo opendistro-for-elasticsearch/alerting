@@ -17,6 +17,8 @@ package com.amazon.opendistroforelasticsearch.alerting.core.model
 
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -27,6 +29,12 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 
 data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder) : Input {
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+        sin.readStringList(), // indices
+        SearchSourceBuilder(sin) // query
+    )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
@@ -39,6 +47,12 @@ data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder
 
     override fun name(): String {
         return SEARCH_FIELD
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeStringCollection(indices)
+        query.writeTo(out)
     }
 
     companion object {
@@ -72,6 +86,12 @@ data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder
 
             return SearchInput(indices,
                     requireNotNull(searchSourceBuilder) { "SearchInput query is null" })
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): SearchInput {
+            return SearchInput(sin)
         }
     }
 }

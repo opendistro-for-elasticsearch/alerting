@@ -24,6 +24,10 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
+import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import org.apache.http.Header
 import org.apache.http.HttpEntity
@@ -120,6 +124,40 @@ fun randomActionExecutionResult(
     lastExecutionTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     throttledCount: Int = randomInt()
 ) = ActionExecutionResult(actionId, lastExecutionTime, throttledCount)
+
+fun randomMonitorRunResult(): MonitorRunResult {
+    val triggerResults = mutableMapOf<String, TriggerRunResult>()
+    val triggerRunResult = randomTriggerRunResult()
+    triggerResults.plus(Pair("test", triggerRunResult))
+
+    return MonitorRunResult(
+        "test-monitor",
+        Instant.now(),
+        Instant.now(),
+        null,
+        randomInputRunResults(),
+        triggerResults
+    )
+}
+
+fun randomInputRunResults(): InputRunResults {
+    return InputRunResults(listOf(), null)
+}
+
+fun randomTriggerRunResult(): TriggerRunResult {
+    val map = mutableMapOf<String, ActionRunResult>()
+    map.plus(Pair("key1", randomActionRunResult()))
+    map.plus(Pair("key2", randomActionRunResult()))
+    return TriggerRunResult("trigger-name", true, null, map)
+}
+
+fun randomActionRunResult(): ActionRunResult {
+    val map = mutableMapOf<String, String>()
+    map.plus(Pair("key1", "val1"))
+    map.plus(Pair("key2", "val2"))
+    return ActionRunResult("1234", "test-action", map,
+            false, Instant.now(), null)
+}
 
 fun Monitor.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()

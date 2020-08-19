@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.action
 
 import org.apache.commons.codec.binary.StringUtils
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -28,13 +31,25 @@ import java.util.Locale
 data class Throttle(
     val value: Int,
     val unit: ChronoUnit
-) : ToXContentObject {
+) : Writeable, ToXContentObject {
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this (
+        sin.readInt(), // value
+        sin.readEnum(ChronoUnit::class.java) // unit
+    )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
                 .field(VALUE_FIELD, value)
                 .field(UNIT_FIELD, unit.name)
                 .endObject()
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeInt(value)
+        out.writeEnum(unit)
     }
 
     companion object {
@@ -77,6 +92,12 @@ data class Throttle(
                 }
             }
             return Throttle(value = value, unit = requireNotNull(unit))
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Throttle {
+            return Throttle(sin)
         }
     }
 }
