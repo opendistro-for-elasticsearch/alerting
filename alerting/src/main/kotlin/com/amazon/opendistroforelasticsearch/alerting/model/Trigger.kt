@@ -38,11 +38,11 @@ data class Trigger(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-            sin.readString(),
-            sin.readString(),
-            Script(sin),
-            sin.readList(::Action),
-            sin.readString()
+            sin.readString(), // name
+            sin.readString(), // severity
+            Script(sin), // condition
+            sin.readList(::Action), // actions
+            sin.readString() // id
     )
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
