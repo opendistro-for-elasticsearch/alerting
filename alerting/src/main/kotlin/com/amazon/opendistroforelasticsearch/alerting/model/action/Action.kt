@@ -49,13 +49,13 @@ data class Action(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(),
-        sin.readString(),
-        sin.readOptionalWriteable(::Script),
-        Script(sin),
-        sin.readBoolean(),
-        sin.readOptionalWriteable(::Throttle),
-        sin.readString()
+        sin.readString(), // name
+        sin.readString(), // destinationId
+        sin.readOptionalWriteable(::Script), // subjectTemplate
+        Script(sin), // messageTemplate
+        sin.readBoolean(), // throttleEnabled
+        sin.readOptionalWriteable(::Throttle), // throttle
+        sin.readString() // id
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

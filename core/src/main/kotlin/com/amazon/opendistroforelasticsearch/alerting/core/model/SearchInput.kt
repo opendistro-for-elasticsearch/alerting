@@ -32,8 +32,8 @@ data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readStringList(),
-        SearchSourceBuilder(sin)
+        sin.readStringList(), // indices
+        SearchSourceBuilder(sin) // query
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

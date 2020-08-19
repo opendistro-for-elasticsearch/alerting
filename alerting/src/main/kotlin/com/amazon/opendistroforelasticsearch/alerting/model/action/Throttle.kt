@@ -35,8 +35,8 @@ data class Throttle(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this (
-        sin.readInt(),
-        sin.readEnum(ChronoUnit::class.java)
+        sin.readInt(), // value
+        sin.readEnum(ChronoUnit::class.java) // unit
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

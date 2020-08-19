@@ -170,8 +170,8 @@ data class CronSchedule(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(),
-        sin.readZoneId()
+        sin.readString(), // expression
+        sin.readZoneId() // timezone
     )
 
     companion object {
@@ -275,8 +275,8 @@ data class IntervalSchedule(
 ) : Schedule() {
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readInt(),
-        sin.readEnum(ChronoUnit::class.java)
+        sin.readInt(), // interval
+        sin.readEnum(ChronoUnit::class.java) // unit
     )
     companion object {
         @Transient

@@ -39,12 +39,12 @@ data class MonitorRunResult(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(),
-        sin.readInstant(),
-        sin.readInstant(),
-        sin.readException(),
-        InputRunResults.readFrom(sin),
-        sin.readMap() as Map<String, TriggerRunResult>
+        sin.readString(), // monitorName
+        sin.readInstant(), // periodStart
+        sin.readInstant(), // periodEnd
+        sin.readException(), // error
+        InputRunResults.readFrom(sin), // inputResults
+        sin.readMap() as Map<String, TriggerRunResult> // triggerResults
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -114,12 +114,12 @@ data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val e
         @JvmStatic
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): InputRunResults {
-            val count = sin.readVInt()
+            val count = sin.readVInt() // count
             val list = mutableListOf<Map<String, Any>>()
             for (i in 0 until count) {
-                list.add(sin.readMap())
+                list.add(sin.readMap()) // result(map)
             }
-            val error = sin.readException<Exception>()
+            val error = sin.readException<Exception>() //
             return InputRunResults(list, error)
         }
     }
@@ -134,10 +134,10 @@ data class TriggerRunResult(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(),
-        sin.readBoolean(),
-        sin.readException(),
-        sin.readMap() as MutableMap<String, ActionRunResult>
+        sin.readString(), // triggerName
+        sin.readBoolean(), // triggered
+        sin.readException(), // error
+        sin.readMap() as MutableMap<String, ActionRunResult> // actionResults
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -192,12 +192,12 @@ data class ActionRunResult(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(),
-        sin.readString(),
-        sin.readMap() as Map<String, String>,
-        sin.readBoolean(),
-        sin.readOptionalInstant(),
-        sin.readException()
+        sin.readString(), // actionId
+        sin.readString(), // actionName
+        sin.readMap() as Map<String, String>, // output
+        sin.readBoolean(), // throttled
+        sin.readOptionalInstant(), // executionTime
+        sin.readException() // error
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
