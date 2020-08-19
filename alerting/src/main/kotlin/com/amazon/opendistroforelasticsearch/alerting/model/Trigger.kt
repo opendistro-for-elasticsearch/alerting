@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import org.elasticsearch.common.UUIDs
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -31,8 +34,16 @@ data class Trigger(
     val condition: Script,
     val actions: List<Action>,
     val id: String = UUIDs.base64UUID()
-) : ToXContent {
+) : Writeable, ToXContent {
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+            sin.readString(), // name
+            sin.readString(), // severity
+            Script(sin), // condition
+            sin.readList(::Action), // actions
+            sin.readString() // id
+    )
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
                 .field(ID_FIELD, id)
@@ -50,6 +61,15 @@ data class Trigger(
     fun asTemplateArg(): Map<String, Any> {
         return mapOf(ID_FIELD to id, NAME_FIELD to name, SEVERITY_FIELD to severity,
                 ACTIONS_FIELD to actions.map { it.asTemplateArg() })
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(name)
+        out.writeString(severity)
+        condition.writeTo(out)
+        out.writeCollection(actions)
+        out.writeString(id)
     }
 
     companion object {
@@ -100,6 +120,12 @@ data class Trigger(
                     condition = requireNotNull(condition) { "Trigger is null" },
                     actions = requireNotNull(actions) { "Trigger actions are null" },
                     id = requireNotNull(id) { "Trigger id is null." })
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Trigger {
+            return Trigger(sin)
         }
     }
 }
