@@ -119,7 +119,7 @@ data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val e
             for (i in 0 until count) {
                 list.add(sin.readMap()) // result(map)
             }
-            val error = sin.readException<Exception>() //
+            val error = sin.readException<Exception>() // error
             return InputRunResults(list, error)
         }
     }
