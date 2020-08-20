@@ -21,6 +21,7 @@ import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
+import java.util.Collections
 
 class AcknowledgeAlertRequest : ActionRequest {
     val monitorId: String
@@ -38,11 +39,11 @@ class AcknowledgeAlertRequest : ActionRequest {
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : super() {
-        monitorId = sin.readString()
-        alertIds = sin.readStringList()
-        refreshPolicy = WriteRequest.RefreshPolicy.readFrom(sin)
-    }
+    constructor(sin: StreamInput) : this(
+        sin.readString(), // monitorId
+        Collections.unmodifiableList(sin.readStringList()), // alertIds
+        WriteRequest.RefreshPolicy.readFrom(sin) // refreshPolicy
+    )
 
     override fun validate(): ActionRequestValidationException? {
         return null

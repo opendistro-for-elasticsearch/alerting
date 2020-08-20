@@ -40,9 +40,9 @@ data class ActionExecutionResult(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(),
-        sin.readOptionalInstant(),
-        sin.readInt()
+        sin.readString(), // actionId
+        sin.readOptionalInstant(), // lastExecutionTime
+        sin.readInt() // throttledCount
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

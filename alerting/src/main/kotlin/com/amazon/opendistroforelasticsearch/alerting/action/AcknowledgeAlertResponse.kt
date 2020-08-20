@@ -42,11 +42,11 @@ class AcknowledgeAlertResponse : ActionResponse, ToXContentObject {
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : super() {
-        this.acknowledged = Collections.unmodifiableList(sin.readList(::Alert))
-        this.failed = Collections.unmodifiableList(sin.readList(::Alert))
-        this.missing = sin.readStringList()
-    }
+    constructor(sin: StreamInput) : this(
+        Collections.unmodifiableList(sin.readList(::Alert)), // acknowledged
+        Collections.unmodifiableList(sin.readList(::Alert)), // failed
+        Collections.unmodifiableList(sin.readStringList()) // missing
+    )
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {

@@ -31,8 +31,8 @@ data class AlertError(val timestamp: Instant, val message: String) : Writeable, 
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readInstant(),
-        sin.readString()
+        sin.readInstant(), // timestamp
+        sin.readString() // message
     )
 
     @Throws(IOException::class)
