@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.alerting
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.JobSweeper
@@ -42,6 +45,9 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchMonitorAction
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
@@ -115,7 +121,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
                 RestDeleteMonitorAction(),
                 RestIndexMonitorAction(settings, scheduledJobIndices, clusterService),
                 RestSearchMonitorAction(),
-                RestExecuteMonitorAction(settings, runner),
+                RestExecuteMonitorAction(),
                 RestAcknowledgeAlertAction(),
                 RestScheduledJobStatsHandler("_alerting"),
                 RestIndexDestinationAction(settings),
@@ -126,6 +132,9 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         return listOf(
             ActionPlugin.ActionHandler(ScheduledJobsStatsAction.INSTANCE, ScheduledJobsStatsTransportAction::class.java),
             ActionPlugin.ActionHandler(IndexDestinationAction.INSTANCE, TransportIndexDestinationAction::class.java),
+            ActionPlugin.ActionHandler(IndexMonitorAction.INSTANCE, TransportIndexMonitorAction::class.java),
+            ActionPlugin.ActionHandler(GetMonitorAction.INSTANCE, TransportGetMonitorAction::class.java),
+            ActionPlugin.ActionHandler(ExecuteMonitorAction.INSTANCE, TransportExecuteMonitorAction::class.java),
             ActionPlugin.ActionHandler(SearchMonitorAction.INSTANCE, TransportSearchMonitorAction::class.java),
             ActionPlugin.ActionHandler(DeleteMonitorAction.INSTANCE, TransportDeleteMonitorAction::class.java),
             ActionPlugin.ActionHandler(DeleteDestinationAction.INSTANCE, TransportDeleteDestinationAction::class.java)
