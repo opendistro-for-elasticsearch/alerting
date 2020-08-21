@@ -3,7 +3,7 @@
 ### Infrastructure
   * Add release workflow ([#180](https://github.com/opendistro-for-elasticsearch/alerting/pull/180))
   * Update 'checkout' action in test-workflow.yml ([#183](https://github.com/opendistro-for-elasticsearch/alerting/pull/183))
-  * Add a workflow - Push Notification Jar to Maven ([#174](https://github.com/opendistro-for-elasticsearch/alerting/pull/174))
+  * Add workflow - Push Notification Jar to Maven ([#174](https://github.com/opendistro-for-elasticsearch/alerting/pull/174))
   * Updates java version in push notification workflow ([#187](https://github.com/opendistro-for-elasticsearch/alerting/pull/187))
   
 ### Maintenance
