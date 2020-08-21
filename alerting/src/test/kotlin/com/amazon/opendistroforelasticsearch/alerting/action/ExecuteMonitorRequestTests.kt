@@ -22,35 +22,34 @@ import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class ExecuteMonitorRequestTests : ESTestCase() {
 
     fun `test execute monitor request with id`() {
 
         val req = ExecuteMonitorRequest(false, TimeValue.timeValueSeconds(100L), "1234", null)
-        Assert.assertNotNull(req)
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = ExecuteMonitorRequest(sin)
-        Assert.assertEquals("1234", newReq.monitorId)
-        Assert.assertEquals(false, newReq.dryrun)
-        Assert.assertNull(newReq.monitor)
+        assertEquals("1234", newReq.monitorId)
+        assertEquals(false, newReq.dryrun)
+        assertNull(newReq.monitor)
     }
 
     fun `test execute monitor request with monitor`() {
         val monitor = randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder())))
         val req = ExecuteMonitorRequest(false, TimeValue.timeValueSeconds(100L), null, monitor)
-        Assert.assertNotNull(req.monitor)
+        assertNotNull(req.monitor)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = ExecuteMonitorRequest(sin)
-        Assert.assertNull(newReq.monitorId)
-        Assert.assertEquals(false, newReq.dryrun)
-        Assert.assertNotNull(newReq.monitor)
+        assertNull(newReq.monitorId)
+        assertEquals(false, newReq.dryrun)
+        assertNotNull(newReq.monitor)
     }
 }

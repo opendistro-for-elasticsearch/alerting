@@ -15,12 +15,11 @@
 package com.amazon.opendistroforelasticsearch.alerting.action
 
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class IndexMonitorActionTests : ESTestCase() {
 
     fun `test index monitor action name`() {
-        Assert.assertNotNull(IndexMonitorAction.INSTANCE.name())
-        Assert.assertEquals(IndexMonitorAction.INSTANCE.name(), IndexMonitorAction.NAME)
+        assertNotNull(IndexMonitorAction.INSTANCE.name())
+        assertEquals(IndexMonitorAction.INSTANCE.name(), IndexMonitorAction.NAME)
     }
 }

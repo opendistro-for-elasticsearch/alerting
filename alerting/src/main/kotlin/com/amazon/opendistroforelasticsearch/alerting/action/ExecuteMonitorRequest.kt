@@ -46,7 +46,9 @@ class ExecuteMonitorRequest : ActionRequest {
         sin.readBoolean(), // dryrun
         sin.readTimeValue(), // requestEnd
         sin.readOptionalString(), // monitorId
-        Monitor.readFrom(sin) // monitor
+        if (sin.readBoolean()) {
+            Monitor.readFrom(sin) // monitor
+        } else null
     )
 
     override fun validate(): ActionRequestValidationException? {

@@ -60,7 +60,9 @@ class GetMonitorResponse : ActionResponse, ToXContentObject {
         sin.readLong(), // seqNo
         sin.readLong(), // primaryTerm
         sin.readEnum(RestStatus::class.java), // RestStatus
-        Monitor.readFrom(sin) // monitor
+        if (sin.readBoolean()) {
+            Monitor.readFrom(sin) // monitor
+        } else null
     )
 
     @Throws(IOException::class)

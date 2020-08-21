@@ -20,37 +20,36 @@ import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class GetMonitorRequestTests : ESTestCase() {
 
     fun `test get monitor request`() {
 
         val req = GetMonitorRequest("1234", 1L, RestRequest.Method.GET, FetchSourceContext.FETCH_SOURCE)
-        Assert.assertNotNull(req)
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = GetMonitorRequest(sin)
-        Assert.assertEquals("1234", newReq.monitorId)
-        Assert.assertEquals(1L, newReq.version)
-        Assert.assertEquals(RestRequest.Method.GET, newReq.method)
-        Assert.assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
+        assertEquals("1234", newReq.monitorId)
+        assertEquals(1L, newReq.version)
+        assertEquals(RestRequest.Method.GET, newReq.method)
+        assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
     }
 
     fun `test head monitor request`() {
 
         val req = GetMonitorRequest("1234", 2L, RestRequest.Method.HEAD, FetchSourceContext.FETCH_SOURCE)
-        Assert.assertNotNull(req)
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = GetMonitorRequest(sin)
-        Assert.assertEquals("1234", newReq.monitorId)
-        Assert.assertEquals(2L, newReq.version)
-        Assert.assertEquals(RestRequest.Method.HEAD, newReq.method)
-        Assert.assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
+        assertEquals("1234", newReq.monitorId)
+        assertEquals(2L, newReq.version)
+        assertEquals(RestRequest.Method.HEAD, newReq.method)
+        assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
     }
 }

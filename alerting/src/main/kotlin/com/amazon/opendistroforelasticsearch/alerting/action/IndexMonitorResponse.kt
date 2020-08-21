@@ -35,7 +35,7 @@ class IndexMonitorResponse : ActionResponse, ToXContentObject {
     var seqNo: Long
     var primaryTerm: Long
     var status: RestStatus
-    var monitor: Monitor?
+    var monitor: Monitor
 
     constructor(
         id: String,
@@ -43,7 +43,7 @@ class IndexMonitorResponse : ActionResponse, ToXContentObject {
         seqNo: Long,
         primaryTerm: Long,
         status: RestStatus,
-        monitor: Monitor?
+        monitor: Monitor
     ) : super() {
         this.id = id
         this.version = version
@@ -60,7 +60,7 @@ class IndexMonitorResponse : ActionResponse, ToXContentObject {
         sin.readLong(), // seqNo
         sin.readLong(), // primaryTerm
         sin.readEnum(RestStatus::class.java), // status
-        Monitor.readFrom(sin) // monitor
+        Monitor.readFrom(sin) as Monitor // monitor
     )
 
     @Throws(IOException::class)
@@ -70,7 +70,7 @@ class IndexMonitorResponse : ActionResponse, ToXContentObject {
         out.writeLong(seqNo)
         out.writeLong(primaryTerm)
         out.writeEnum(status)
-        monitor?.writeTo(out)
+        monitor.writeTo(out)
     }
 
     @Throws(IOException::class)

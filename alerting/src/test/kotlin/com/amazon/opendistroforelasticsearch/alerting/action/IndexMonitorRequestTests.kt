@@ -15,42 +15,48 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.action
 
+import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.search.fetch.subphase.FetchSourceContext
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class IndexMonitorRequestTests : ESTestCase() {
 
-    fun `test get monitor request`() {
+    fun `test index monitor post request`() {
 
-        val req = GetMonitorRequest("1234", 1L, RestRequest.Method.GET, FetchSourceContext.FETCH_SOURCE)
-        Assert.assertNotNull(req)
+        val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.POST,
+                randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = GetMonitorRequest(sin)
-        Assert.assertEquals("1234", newReq.monitorId)
-        Assert.assertEquals(1L, newReq.version)
-        Assert.assertEquals(RestRequest.Method.GET, newReq.method)
-        Assert.assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
+        val newReq = IndexMonitorRequest(sin)
+        assertEquals("1234", newReq.monitorId)
+        assertEquals(1L, newReq.seqNo)
+        assertEquals(2L, newReq.primaryTerm)
+        assertEquals(RestRequest.Method.POST, newReq.method)
+        assertNotNull(newReq.monitor)
     }
 
-    fun `test head monitor request`() {
+    fun `test index monitor put request`() {
 
-        val req = GetMonitorRequest("1234", 2L, RestRequest.Method.HEAD, FetchSourceContext.FETCH_SOURCE)
-        Assert.assertNotNull(req)
+        val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.PUT,
+                randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = GetMonitorRequest(sin)
-        Assert.assertEquals("1234", newReq.monitorId)
-        Assert.assertEquals(2L, newReq.version)
-        Assert.assertEquals(RestRequest.Method.HEAD, newReq.method)
-        Assert.assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
+        val newReq = IndexMonitorRequest(sin)
+        assertEquals("1234", newReq.monitorId)
+        assertEquals(1L, newReq.seqNo)
+        assertEquals(2L, newReq.primaryTerm)
+        assertEquals(RestRequest.Method.PUT, newReq.method)
+        assertNotNull(newReq.monitor)
     }
 }

@@ -21,7 +21,6 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 import java.time.Instant
 import java.time.ZoneId
 
@@ -29,16 +28,16 @@ class GetMonitorResponseTests : ESTestCase() {
 
     fun `test get monitor response`() {
         val req = GetMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK, null)
-        Assert.assertNotNull(req)
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = GetMonitorResponse(sin)
-        Assert.assertEquals("1234", newReq.id)
-        Assert.assertEquals(1L, newReq.version)
-        Assert.assertEquals(RestStatus.OK, newReq.status)
-        Assert.assertEquals(null, newReq.monitor)
+        assertEquals("1234", newReq.id)
+        assertEquals(1L, newReq.version)
+        assertEquals(RestStatus.OK, newReq.status)
+        assertEquals(null, newReq.monitor)
     }
 
     fun `test get monitor response with monitor`() {
@@ -53,15 +52,15 @@ class GetMonitorResponseTests : ESTestCase() {
                         Instant.now(), 0, mutableListOf(), mutableListOf(), mutableMapOf()
 
                 ))
-        Assert.assertNotNull(req)
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = GetMonitorResponse(sin)
-        Assert.assertEquals("1234", newReq.id)
-        Assert.assertEquals(1L, newReq.version)
-        Assert.assertEquals(RestStatus.OK, newReq.status)
-        Assert.assertNotNull(newReq.monitor)
+        assertEquals("1234", newReq.id)
+        assertEquals(1L, newReq.version)
+        assertEquals(RestStatus.OK, newReq.status)
+        assertNotNull(newReq.monitor)
     }
 }

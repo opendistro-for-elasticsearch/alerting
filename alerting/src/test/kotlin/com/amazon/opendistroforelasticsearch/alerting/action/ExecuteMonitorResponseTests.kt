@@ -15,53 +15,24 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.action
 
-import com.amazon.opendistroforelasticsearch.alerting.core.model.CronSchedule
-import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.randomMonitorRunResult
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.junit.Assert
-import java.time.Instant
-import java.time.ZoneId
 
 class ExecuteMonitorResponseTests : ESTestCase() {
 
-    fun `test get monitor response`() {
-        val req = GetMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK, null)
+    fun `test exec monitor response`() {
+        val req = ExecuteMonitorResponse(randomMonitorRunResult())
         Assert.assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = GetMonitorResponse(sin)
-        Assert.assertEquals("1234", newReq.id)
-        Assert.assertEquals(1L, newReq.version)
-        Assert.assertEquals(RestStatus.OK, newReq.status)
-        Assert.assertEquals(null, newReq.monitor)
-    }
-
-    fun `test get monitor response with monitor`() {
-        val cronExpression = "31 * * * *" // Run at minute 31.
-        val testInstance = Instant.ofEpochSecond(1538164858L)
-
-        val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Kolkata"), testInstance)
-        val req = GetMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK,
-                Monitor(
-                "123",
-                        0L, "test-monitor", true, cronSchedule, Instant.now(),
-                        Instant.now(), 0, mutableListOf(), mutableListOf(), mutableMapOf()
-
-                ))
-        Assert.assertNotNull(req)
-
-        val out = BytesStreamOutput()
-        req.writeTo(out)
-        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = GetMonitorResponse(sin)
-        Assert.assertEquals("1234", newReq.id)
-        Assert.assertEquals(1L, newReq.version)
-        Assert.assertEquals(RestStatus.OK, newReq.status)
-        Assert.assertNotNull(newReq.monitor)
+        val newReq = ExecuteMonitorResponse(sin)
+        assertNotNull(newReq.monitorRunResult)
+        assertEquals("test-monitor", newReq.monitorRunResult.monitorName)
+        assertNotNull(newReq.monitorRunResult.inputResults)
     }
 }
