@@ -19,6 +19,9 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -45,7 +48,7 @@ data class Alert(
     val errorHistory: List<AlertError>,
     val severity: String,
     val actionExecutionResults: List<ActionExecutionResult>
-) : ToXContent {
+) : Writeable, ToXContent {
 
     init {
         if (errorMessage != null) require(state == State.DELETED || state == State.ERROR) {
@@ -72,7 +75,49 @@ data class Alert(
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR, DELETED
     }
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+            sin.readString(), // id
+            sin.readLong(), // version
+            sin.readInt(), // schemaVersion
+            sin.readString(), // monitorId
+            sin.readString(), // monitorName
+            sin.readLong(), // monitorVersion
+            sin.readString(), // triggerId
+            sin.readString(), // triggerName
+            sin.readEnum(State::class.java), // state
+            sin.readInstant(), // startTime
+            sin.readOptionalInstant(), // endTime
+            sin.readOptionalInstant(), // lastNotificationTime
+            sin.readOptionalInstant(), // acknowledgedTime
+            sin.readOptionalString(), // errorMessage
+            sin.readList(::AlertError), // errorHistory
+            sin.readString(), // severity
+            sin.readList(::ActionExecutionResult) // actionExecutionResults
+    )
+
     fun isAcknowledged(): Boolean = (state == State.ACKNOWLEDGED)
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        out.writeLong(version)
+        out.writeInt(schemaVersion)
+        out.writeString(monitorId)
+        out.writeString(monitorName)
+        out.writeLong(monitorVersion)
+        out.writeString(triggerId)
+        out.writeString(triggerName)
+        out.writeEnum(state)
+        out.writeInstant(startTime)
+        out.writeOptionalInstant(endTime)
+        out.writeOptionalInstant(lastNotificationTime)
+        out.writeOptionalInstant(acknowledgedTime)
+        out.writeOptionalString(errorMessage)
+        out.writeCollection(errorHistory)
+        out.writeString(severity)
+        out.writeCollection(actionExecutionResults)
+    }
 
     companion object {
 
@@ -158,6 +203,12 @@ data class Alert(
                     lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
                     errorMessage = errorMessage, errorHistory = errorHistory, severity = severity,
                     actionExecutionResults = actionExecutionResults)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Alert {
+            return Alert(sin)
         }
     }
 

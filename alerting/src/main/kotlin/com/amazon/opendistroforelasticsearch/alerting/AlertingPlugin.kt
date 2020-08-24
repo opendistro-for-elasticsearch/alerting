@@ -14,6 +14,7 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.action.AcknowledgeAlertAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
@@ -39,6 +40,7 @@ import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonit
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportAcknowledgeAlertAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteMonitorAction
@@ -128,7 +130,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
             ActionPlugin.ActionHandler(IndexDestinationAction.INSTANCE, TransportIndexDestinationAction::class.java),
             ActionPlugin.ActionHandler(SearchMonitorAction.INSTANCE, TransportSearchMonitorAction::class.java),
             ActionPlugin.ActionHandler(DeleteMonitorAction.INSTANCE, TransportDeleteMonitorAction::class.java),
-            ActionPlugin.ActionHandler(DeleteDestinationAction.INSTANCE, TransportDeleteDestinationAction::class.java)
+            ActionPlugin.ActionHandler(DeleteDestinationAction.INSTANCE, TransportDeleteDestinationAction::class.java),
+            ActionPlugin.ActionHandler(AcknowledgeAlertAction.INSTANCE, TransportAcknowledgeAlertAction::class.java)
         )
     }
 
