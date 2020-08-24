@@ -62,7 +62,7 @@ class ExecuteMonitorRequest : ActionRequest {
         out.writeOptionalString(monitorId)
         if (monitor != null) {
             out.writeBoolean(true)
-            monitor?.writeTo(out)
+            monitor.writeTo(out)
         } else {
             out.writeBoolean(false)
         }

@@ -87,7 +87,7 @@ data class Monitor(
         sin.readInt(), // schemaVersion
         sin.readList(::SearchInput), // inputs
         sin.readList(::Trigger), // triggers
-        sin.readMap() // uiMetadata
+        suppressWarning(sin.readMap()) // uiMetadata
     )
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -225,6 +225,11 @@ data class Monitor(
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): Monitor? {
             return Monitor(sin)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, Any> {
+            return map as MutableMap<String, Any>
         }
     }
 }
