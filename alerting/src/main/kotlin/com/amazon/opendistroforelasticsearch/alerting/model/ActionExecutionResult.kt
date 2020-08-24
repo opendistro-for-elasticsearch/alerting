@@ -17,13 +17,15 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import java.io.IOException
-import java.lang.IllegalStateException
 import java.time.Instant
 
 /**
@@ -34,7 +36,14 @@ data class ActionExecutionResult(
     val actionId: String,
     val lastExecutionTime: Instant?,
     val throttledCount: Int = 0
-) : ToXContentObject {
+) : Writeable, ToXContentObject {
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+        sin.readString(), // actionId
+        sin.readOptionalInstant(), // lastExecutionTime
+        sin.readInt() // throttledCount
+    )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
@@ -42,6 +51,13 @@ data class ActionExecutionResult(
                 .optionalTimeField(LAST_EXECUTION_TIME_FIELD, lastExecutionTime)
                 .field(THROTTLED_COUNT_FIELD, throttledCount)
                 .endObject()
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(actionId)
+        out.writeOptionalInstant(lastExecutionTime)
+        out.writeInt(throttledCount)
     }
 
     companion object {
@@ -73,6 +89,12 @@ data class ActionExecutionResult(
 
             requireNotNull(actionId) { "Must set action id" }
             return ActionExecutionResult(actionId, lastExecutionTime, throttledCount)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): ActionExecutionResult {
+            return ActionExecutionResult(sin)
         }
     }
 }
