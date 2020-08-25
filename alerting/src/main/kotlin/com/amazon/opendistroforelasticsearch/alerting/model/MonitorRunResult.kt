@@ -38,6 +38,7 @@ data class MonitorRunResult(
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
     constructor(sin: StreamInput): this(
         sin.readString(), // monitorName
         sin.readInstant(), // periodStart
@@ -143,6 +144,7 @@ data class TriggerRunResult(
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
     constructor(sin: StreamInput): this(
         sin.readString(), // triggerName
         sin.readBoolean(), // triggered
@@ -206,6 +208,7 @@ data class ActionRunResult(
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
     constructor(sin: StreamInput): this(
         sin.readString(), // actionId
         sin.readString(), // actionName

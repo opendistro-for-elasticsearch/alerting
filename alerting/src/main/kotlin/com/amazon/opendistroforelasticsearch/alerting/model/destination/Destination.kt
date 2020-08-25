@@ -101,6 +101,8 @@ data class Destination(
         if (email != null) {
             out.writeBoolean(true)
             email.writeTo(out)
+        } else {
+            out.writeBoolean(false)
         }
     }
 

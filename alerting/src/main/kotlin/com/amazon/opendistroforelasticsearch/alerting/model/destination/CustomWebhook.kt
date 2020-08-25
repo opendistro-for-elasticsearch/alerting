@@ -128,6 +128,7 @@ data class CustomWebhook(
 
         @JvmStatic
         @Throws(IOException::class)
+        @Suppress("UNCHECKED_CAST")
         fun readFrom(sin: StreamInput): CustomWebhook? {
             return if (sin.readBoolean()) {
                 CustomWebhook(
