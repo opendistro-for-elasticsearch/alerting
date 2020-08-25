@@ -61,10 +61,10 @@ class RestSearchEmailGroupAction : BaseRestHandler() {
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
 
-        // A term query is added on top of the user's query to ensure that only documents of email_group type
+        // An exists query is added on top of the user's query to ensure that only documents of email_group type
         // are searched
         searchSourceBuilder.query(QueryBuilders.boolQuery().must(searchSourceBuilder.query())
-                .filter(QueryBuilders.termQuery(EmailGroup.EMAIL_GROUP_TYPE + ".type", EmailGroup.EMAIL_GROUP_TYPE)))
+                .filter(QueryBuilders.existsQuery(EmailGroup.EMAIL_GROUP_TYPE)))
                 .seqNoAndPrimaryTerm(true)
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
@@ -83,7 +83,7 @@ class RestSearchEmailGroupAction : BaseRestHandler() {
                 for (hit in response.hits) {
                     XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
                             LoggingDeprecationHandler.INSTANCE, hit.sourceAsString).use { hitsParser ->
-                                val emailGroup = EmailGroup.parse(hitsParser, hit.id)
+                                val emailGroup = EmailGroup.parseWithType(hitsParser, hit.id)
                                 val xcb = emailGroup.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)
                                 hit.sourceRef(BytesReference.bytes(xcb))
                             }

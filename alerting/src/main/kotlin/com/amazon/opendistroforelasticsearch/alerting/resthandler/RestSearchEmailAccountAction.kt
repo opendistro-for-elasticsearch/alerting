@@ -61,10 +61,10 @@ class RestSearchEmailAccountAction : BaseRestHandler() {
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
 
-        // A term query is added on top of the user's query to ensure that only documents of email_account type
+        // An exists query is added on top of the user's query to ensure that only documents of email_account type
         // are searched
         searchSourceBuilder.query(QueryBuilders.boolQuery().must(searchSourceBuilder.query())
-                .filter(QueryBuilders.termQuery(EmailAccount.EMAIL_ACCOUNT_TYPE + ".type", EmailAccount.EMAIL_ACCOUNT_TYPE)))
+                .filter(QueryBuilders.existsQuery(EmailAccount.EMAIL_ACCOUNT_TYPE)))
                 .seqNoAndPrimaryTerm(true)
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
@@ -83,7 +83,7 @@ class RestSearchEmailAccountAction : BaseRestHandler() {
                 for (hit in response.hits) {
                     XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
                             LoggingDeprecationHandler.INSTANCE, hit.sourceAsString).use { hitsParser ->
-                                val emailAccount = EmailAccount.parse(hitsParser, hit.id)
+                                val emailAccount = EmailAccount.parseWithType(hitsParser, hit.id)
                                 val xcb = emailAccount.toXContent(jsonBuilder(), EMPTY_PARAMS)
                                 hit.sourceRef(BytesReference.bytes(xcb))
                             }
