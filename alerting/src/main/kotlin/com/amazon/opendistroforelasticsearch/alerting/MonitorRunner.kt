@@ -512,7 +512,7 @@ class MonitorRunner(
                 // so non-null assertion calls are made here
                 Recipient.RecipientType.EMAIL -> uniqueRecipients.add(recipient.email!!)
                 Recipient.RecipientType.EMAIL_GROUP -> {
-                    val emailGroup = getEmailGroupInfo(recipient.emailGroupId!!)
+                    val emailGroup = getEmailGroupInfo(recipient.emailGroupID!!)
                     emailGroup.getEmailsAsListOfString().map { uniqueRecipients.add(it) }
                 }
             }

@@ -98,6 +98,10 @@ data class Destination(
         } else {
             out.writeBoolean(false)
         }
+        if (email != null) {
+            out.writeBoolean(true)
+            email.writeTo(out)
+        }
     }
 
     companion object {
@@ -193,7 +197,8 @@ data class Destination(
                 sin.readInstant(), // lastUpdateTime
                 Chime.readFrom(sin), // chime
                 Slack.readFrom(sin), // slack
-                CustomWebhook.readFrom(sin) // customWebhook
+                CustomWebhook.readFrom(sin), // customWebhook
+                Email.readFrom(sin) // email
             )
         }
     }

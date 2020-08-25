@@ -15,6 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model.destination.email
 
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -42,6 +45,12 @@ data class Email(
                 .field(EMAIL_ACCOUNT_ID_FIELD, emailAccountID)
                 .field(RECIPIENTS_FIELD, recipients.toTypedArray())
                 .endObject()
+    }
+
+    @Throws(IOException::class)
+    fun writeTo(out: StreamOutput) {
+        out.writeString(emailAccountID)
+        out.writeCollection(recipients)
     }
 
     companion object {
@@ -79,6 +88,17 @@ data class Email(
                     recipients
             )
         }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Email? {
+            return if (sin.readBoolean()) {
+                Email(
+                    sin.readString(), // emailAccountID
+                    sin.readList(::Recipient) // recipients
+                )
+            } else null
+        }
     }
 }
 
@@ -87,26 +107,40 @@ data class Email(
  */
 data class Recipient(
     val type: RecipientType,
-    val emailGroupId: String?,
+    val emailGroupID: String?,
     val email: String?
-) : ToXContent {
+) : Writeable, ToXContent {
 
     init {
         when (type) {
-            RecipientType.EMAIL_GROUP -> requireNotNull(emailGroupId) { "Email group ID is null" }
+            RecipientType.EMAIL_GROUP -> requireNotNull(emailGroupID) { "Email group ID is null" }
             RecipientType.EMAIL -> requireNotNull(email) { "Email is null" }
         }
     }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+        sin.readEnum(Recipient.RecipientType::class.java), // type
+        sin.readOptionalString(), // emailGroupId
+        sin.readOptionalString() // email
+    )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject().field(TYPE_FIELD, type.value)
 
         when (type) {
-            RecipientType.EMAIL_GROUP -> builder.field(EMAIL_GROUP_ID_FIELD, emailGroupId)
+            RecipientType.EMAIL_GROUP -> builder.field(EMAIL_GROUP_ID_FIELD, emailGroupID)
             RecipientType.EMAIL -> builder.field(EMAIL_FIELD, email)
         }
 
         return builder.endObject()
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeEnum(type)
+        out.writeOptionalString(emailGroupID)
+        out.writeOptionalString(email)
     }
 
     enum class RecipientType(val value: String) {
@@ -148,6 +182,16 @@ data class Recipient(
                     RecipientType.valueOf(type.toUpperCase(Locale.ROOT)),
                     emailGroupID,
                     email
+            )
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Recipient {
+            return Recipient(
+                    sin.readEnum(Recipient.RecipientType::class.java), // type
+                    sin.readOptionalString(), // emailGroupId
+                    sin.readOptionalString() // email
             )
         }
     }

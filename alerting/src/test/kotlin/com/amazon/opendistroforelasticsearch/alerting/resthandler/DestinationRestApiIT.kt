@@ -156,7 +156,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
     }
 
     fun `test creating an email destination`() {
-        val recipient = Recipient(type = Recipient.RecipientType.EMAIL, emailGroupId = null, email = "test@email.com")
+        val recipient = Recipient(type = Recipient.RecipientType.EMAIL, emailGroupID = null, email = "test@email.com")
         val email = Email("", listOf(recipient))
         val destination = Destination(
                 type = DestinationType.EMAIL,
@@ -179,7 +179,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
 
     fun `test updating an email destination`() {
         val destination = createDestination()
-        val recipient = Recipient(type = Recipient.RecipientType.EMAIL, emailGroupId = null, email = "test@email.com")
+        val recipient = Recipient(type = Recipient.RecipientType.EMAIL, emailGroupID = null, email = "test@email.com")
         val email = Email("", listOf(recipient))
 
         var updatedDestination = updateDestination(destination.copy(type = DestinationType.EMAIL, name = "updatedName", email = email))
@@ -192,14 +192,14 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         assertEquals("Incorrect email destination recipient email after update",
                 updatedDestination.email?.recipients?.get(0)?.email, "test@email.com")
 
-        val updatedRecipient = Recipient(type = Recipient.RecipientType.EMAIL_GROUP, emailGroupId = "testID", email = null)
+        val updatedRecipient = Recipient(type = Recipient.RecipientType.EMAIL_GROUP, emailGroupID = "testID", email = null)
         val updatedEmail = Email("testEmailAccountID", listOf(updatedRecipient))
         Assert.assertNotNull("Email object should not be null", updatedDestination.email)
         updatedDestination = updateDestination(destination.copy(type = DestinationType.EMAIL, name = "updatedName", email = updatedEmail))
         assertEquals("Incorrect email destination recipient type after update", updatedDestination.email?.recipients?.get(0)?.type,
                 Recipient.RecipientType.EMAIL_GROUP)
         assertEquals("Incorrect email destination recipient email group ID after update",
-                updatedDestination.email?.recipients?.get(0)?.emailGroupId, "testID")
+                updatedDestination.email?.recipients?.get(0)?.emailGroupID, "testID")
     }
 
     fun `test delete destination`() {
