@@ -54,21 +54,27 @@ class DestinationSettings {
             val emailAccountNames: Set<String> = settings.getGroups(EMAIL_DESTINATION_SETTING_PREFIX).keys
             val emailAccounts: MutableMap<String, SecureDestinationSettings> = mutableMapOf()
             for (emailAccountName in emailAccountNames) {
-                emailAccounts[emailAccountName] = getSecureDestinationSettings(settings, emailAccountName)
+                // Only adding the settings if they exist
+                getSecureDestinationSettings(settings, emailAccountName)?.let {
+                    emailAccounts[emailAccountName] = it
+                }
             }
 
             return emailAccounts
         }
 
-        private fun getSecureDestinationSettings(settings: Settings, emailAccountName: String): SecureDestinationSettings {
-            val emailUsername: SecureString = getEmailSettingValue(settings, emailAccountName, EMAIL_USERNAME)
-            val emailPassword: SecureString = getEmailSettingValue(settings, emailAccountName, EMAIL_PASSWORD)
-            arrayOf(emailUsername, emailPassword).let {
-                return SecureDestinationSettings(emailUsername = emailUsername, emailPassword = emailPassword)
+        private fun getSecureDestinationSettings(settings: Settings, emailAccountName: String): SecureDestinationSettings? {
+            // Using 'use' to emulate Java's try-with-resources on multiple closeable resources.
+            // Values are cloned so that we maintain a SecureString, the original SecureStrings will be closed after
+            // they have left the scope of this function.
+            return getEmailSettingValue(settings, emailAccountName, EMAIL_USERNAME)?.use { emailUsername ->
+                getEmailSettingValue(settings, emailAccountName, EMAIL_PASSWORD)?.use { emailPassword ->
+                    SecureDestinationSettings(emailUsername = emailUsername.clone(), emailPassword = emailPassword.clone())
+                }
             }
         }
 
-        private fun <T> getEmailSettingValue(settings: Settings, emailAccountName: String, emailSetting: Setting.AffixSetting<T>): T {
+        private fun <T> getEmailSettingValue(settings: Settings, emailAccountName: String, emailSetting: Setting.AffixSetting<T>): T? {
             val concreteSetting = emailSetting.getConcreteSettingForNamespace(emailAccountName)
             return concreteSetting.get(settings)
         }
