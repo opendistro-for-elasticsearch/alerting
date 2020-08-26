@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWe
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
@@ -108,6 +109,7 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.chime)
         assertNull(newDest.slack)
         assertNull(newDest.customWebhook)
+        assertNull(newDest.email)
     }
 
     fun `test slack destination create using stream`() {
@@ -129,6 +131,7 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNotNull(newDest.slack)
         assertNull(newDest.customWebhook)
+        assertNull(newDest.email)
     }
 
     fun `test customwebhook destination create using stream`() {
@@ -169,6 +172,7 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNull(newDest.slack)
         assertNotNull(newDest.customWebhook)
+        assertNull(newDest.email)
     }
 
     fun `test customwebhook destination create using stream with optionals`() {
@@ -209,5 +213,48 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNull(newDest.slack)
         assertNotNull(newDest.customWebhook)
+        assertNull(newDest.email)
+    }
+
+    fun `test email destination create using stream`() {
+        val recipients = listOf(
+                Recipient(
+                    Recipient.RecipientType.EMAIL,
+                    null,
+                    "test@email.com"
+                )
+        )
+        val mailDest = Destination(
+                "2345",
+                1L,
+                2,
+                DestinationType.EMAIL,
+                "TestEmailDest",
+                Instant.now(),
+                null,
+                null,
+                null,
+                Email("3456", recipients)
+        )
+
+        val out = BytesStreamOutput()
+        mailDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("2345", newDest.id)
+        assertEquals(1, newDest.version)
+        assertEquals(2, newDest.schemaVersion)
+        assertEquals(DestinationType.EMAIL, newDest.type)
+        assertEquals("TestEmailDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNull(newDest.chime)
+        assertNull(newDest.slack)
+        assertNull(newDest.customWebhook)
+        assertNotNull(newDest.email)
+
+        assertEquals("3456", newDest.email!!.emailAccountID)
+        assertEquals(recipients, newDest.email!!.recipients)
     }
 }

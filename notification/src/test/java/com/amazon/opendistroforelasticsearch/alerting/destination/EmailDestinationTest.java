@@ -23,13 +23,11 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailM
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationEmailClient;
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationEmailResponse;
 import org.easymock.EasyMock;
+import org.elasticsearch.common.settings.SecureString;
 import org.junit.Assert;
 import org.junit.Test;
 import javax.mail.Message;
 import javax.mail.MessagingException;
-
-import java.util.Arrays;
-import java.util.Collections;
 
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
@@ -58,7 +56,49 @@ public class EmailDestinationTest {
         BaseMessage bm = new EmailMessage.Builder("abc")
                 .withMessage(message)
                 .withHost("abc.com")
+                .withPort(465)
                 .withFrom("test@abc.com")
+                .withMethod("ssl")
+                .withSubject("Test")
+                .withMessage("Test alert")
+                .withRecipients(singletonList("test@abc.com")).build();
+
+        DestinationEmailResponse actualEmailResponse = (DestinationEmailResponse) Notification.publish(bm);
+        assertEquals(expectedEmailResponse.getResponseContent(), actualEmailResponse.getResponseContent());
+        assertEquals(expectedEmailResponse.getStatusCode(), actualEmailResponse.getStatusCode());
+    }
+
+    @Test
+    public void testMailMessageWithAuth() throws Exception {
+
+        DestinationEmailResponse expectedEmailResponse = new DestinationEmailResponse.Builder()
+                .withResponseContent("Sent")
+                .withStatusCode(0).build();
+
+        DestinationEmailClient emailClient = EasyMock.partialMockBuilder(DestinationEmailClient.class)
+                .addMockedMethod("SendMessage").createMock();
+        emailClient.SendMessage(EasyMock.anyObject(Message.class));
+
+        EmailDestinationFactory emailDestinationFactory = new EmailDestinationFactory();
+        emailDestinationFactory.setClient(emailClient);
+
+        DestinationFactoryProvider.setFactory(DestinationType.EMAIL, emailDestinationFactory);
+
+        String message = "{\"text\":\"Vamshi Message gughjhjlkh Body emoji test: :) :+1: " +
+                "link test: http://sample.com email test: marymajor@example.com All member callout: " +
+                "@All All Present member callout: @Present\"}";
+        SecureString username = new SecureString("user1".toCharArray());
+        SecureString password = new SecureString("password".toCharArray());
+        BaseMessage bm = new EmailMessage.Builder("abc")
+                .withMessage(message)
+                .withHost("abc.com")
+                .withPort(465)
+                .withFrom("test@abc.com")
+                .withMethod("ssl")
+                .withSubject("Test")
+                .withMessage("Test alert")
+                .withUserName(username)
+                .withPassword(password)
                 .withRecipients(singletonList("test@abc.com")).build();
 
         DestinationEmailResponse actualEmailResponse = (DestinationEmailResponse) Notification.publish(bm);
