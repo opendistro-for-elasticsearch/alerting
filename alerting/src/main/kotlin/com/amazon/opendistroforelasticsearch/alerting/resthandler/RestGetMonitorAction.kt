@@ -14,32 +14,19 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.util._ID
-import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
-import com.amazon.opendistroforelasticsearch.alerting.util.context
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
-import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
-import org.elasticsearch.action.get.GetRequest
-import org.elasticsearch.action.get.GetResponse
+import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorRequest
+import com.amazon.opendistroforelasticsearch.alerting.util.context
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
-import org.elasticsearch.rest.BytesRestResponse
-import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestRequest.Method.HEAD
-import org.elasticsearch.rest.RestResponse
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActions
-import org.elasticsearch.rest.action.RestResponseListener
+import org.elasticsearch.rest.action.RestToXContentListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 
 /**
@@ -64,40 +51,14 @@ class RestGetMonitorAction : BaseRestHandler() {
         if (monitorId == null || monitorId.isEmpty()) {
             throw IllegalArgumentException("missing id")
         }
-        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, monitorId)
-                .version(RestActions.parseVersion(request))
-                .fetchSourceContext(context(request))
 
+        var srcContext = context(request)
         if (request.method() == HEAD) {
-            getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE)
+            srcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         }
-        return RestChannelConsumer { channel -> client.get(getRequest, getMonitorResponse(channel)) }
-    }
-
-    private fun getMonitorResponse(channel: RestChannel): RestResponseListener<GetResponse> {
-        return object : RestResponseListener<GetResponse>(channel) {
-            @Throws(Exception::class)
-            override fun buildResponse(response: GetResponse): RestResponse {
-                if (!response.isExists) {
-                    return BytesRestResponse(RestStatus.NOT_FOUND, channel.newBuilder())
-                }
-
-                val builder = channel.newBuilder()
-                        .startObject()
-                        .field(_ID, response.id)
-                        .field(_VERSION, response.version)
-                        .field(_SEQ_NO, response.seqNo)
-                        .field(_PRIMARY_TERM, response.primaryTerm)
-                if (!response.isSourceEmpty) {
-                    XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                            response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                                val monitor = ScheduledJob.parse(xcp, response.id, response.version)
-                                builder.field("monitor", monitor)
-                            }
-                }
-                builder.endObject()
-                return BytesRestResponse(RestStatus.OK, builder)
-            }
+        val getMonitorRequest = GetMonitorRequest(monitorId, RestActions.parseVersion(request), request.method(), srcContext)
+        return RestChannelConsumer {
+            channel -> client.execute(GetMonitorAction.INSTANCE, getMonitorRequest, RestToXContentListener(channel))
         }
     }
 }

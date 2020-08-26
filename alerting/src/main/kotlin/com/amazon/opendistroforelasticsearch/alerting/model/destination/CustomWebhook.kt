@@ -121,6 +121,11 @@ data class CustomWebhook(
             return CustomWebhook(url, scheme, host, port, path, queryParams, headerParams, username, password)
         }
 
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, String> {
+            return map as Map<String, String>
+        }
+
         @JvmStatic
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): CustomWebhook? {
@@ -131,8 +136,8 @@ data class CustomWebhook(
                     sin.readString(), // host
                     sin.readOptionalInt(), // port
                     sin.readOptionalString(), // path
-                    sin.readMap() as Map<String, String>, // queryParams
-                    sin.readMap() as Map<String, String>, // headerParams
+                    suppressWarning(sin.readMap()), // queryParams)
+                    suppressWarning(sin.readMap()), // headerParams)
                     sin.readOptionalString(), // username
                     sin.readOptionalString() // password
                 )
