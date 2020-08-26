@@ -37,6 +37,7 @@ class ExecuteMonitorRequestTests : ESTestCase() {
         assertEquals("1234", newReq.monitorId)
         assertEquals(false, newReq.dryrun)
         assertNull(newReq.monitor)
+        assertEquals(req.monitor, newReq.monitor)
     }
 
     fun `test execute monitor request with monitor`() {
@@ -51,5 +52,6 @@ class ExecuteMonitorRequestTests : ESTestCase() {
         assertNull(newReq.monitorId)
         assertEquals(false, newReq.dryrun)
         assertNotNull(newReq.monitor)
+        assertEquals(req.monitor, newReq.monitor)
     }
 }

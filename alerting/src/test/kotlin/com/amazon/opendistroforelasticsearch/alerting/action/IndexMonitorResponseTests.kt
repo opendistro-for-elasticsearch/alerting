@@ -32,12 +32,8 @@ class IndexMonitorResponseTests : ESTestCase() {
 
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Kolkata"), testInstance)
         val req = IndexMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK,
-                Monitor(
-                "123",
-                        0L, "test-monitor", true, cronSchedule, Instant.now(),
-                        Instant.now(), 0, mutableListOf(), mutableListOf(), mutableMapOf()
-
-                ))
+                Monitor("123", 0L, "test-monitor", true, cronSchedule, Instant.now(),
+                        Instant.now(), 0, mutableListOf(), mutableListOf(), mutableMapOf()))
         assertNotNull(req)
 
         val out = BytesStreamOutput()

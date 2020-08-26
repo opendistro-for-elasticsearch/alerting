@@ -119,7 +119,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
     ): List<RestHandler> {
         return listOf(RestGetMonitorAction(),
                 RestDeleteMonitorAction(),
-                RestIndexMonitorAction(settings, scheduledJobIndices, clusterService),
+                RestIndexMonitorAction(),
                 RestSearchMonitorAction(),
                 RestExecuteMonitorAction(),
                 RestAcknowledgeAlertAction(),

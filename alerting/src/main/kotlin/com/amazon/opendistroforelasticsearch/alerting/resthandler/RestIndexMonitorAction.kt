@@ -18,20 +18,13 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorResponse
-import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERTING_MAX_MONITORS
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -55,28 +48,7 @@ private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
 /**
  * Rest handlers to create and update monitors.
  */
-class RestIndexMonitorAction(
-    settings: Settings,
-    jobIndices: ScheduledJobIndices,
-    clusterService: ClusterService
-) : BaseRestHandler() {
-
-    private var scheduledJobIndices: ScheduledJobIndices
-    private val clusterService: ClusterService
-    @Volatile private var maxMonitors = ALERTING_MAX_MONITORS.get(settings)
-    @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
-    @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
-    @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
-
-    init {
-        scheduledJobIndices = jobIndices
-
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(MAX_ACTION_THROTTLE_VALUE) { maxActionThrottle = it }
-        this.clusterService = clusterService
-    }
+class RestIndexMonitorAction : BaseRestHandler() {
 
     override fun getName(): String {
         return "index_monitor_action"
