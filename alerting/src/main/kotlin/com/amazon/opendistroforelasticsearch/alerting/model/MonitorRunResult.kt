@@ -44,7 +44,7 @@ data class MonitorRunResult(
         sin.readInstant(), // periodEnd
         sin.readException(), // error
         InputRunResults.readFrom(sin), // inputResults
-        sin.readMap() as Map<String, TriggerRunResult> // triggerResults
+        suppressWarning(sin.readMap()) // triggerResults
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -79,6 +79,11 @@ data class MonitorRunResult(
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): MonitorRunResult {
             return MonitorRunResult(sin)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, TriggerRunResult> {
+            return map as Map<String, TriggerRunResult>
         }
     }
 
@@ -117,10 +122,15 @@ data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val e
             val count = sin.readVInt() // count
             val list = mutableListOf<Map<String, Any>>()
             for (i in 0 until count) {
-                list.add(sin.readMap()) // result(map)
+                list.add(suppressWarning(sin.readMap())) // result(map)
             }
             val error = sin.readException<Exception>() // error
             return InputRunResults(list, error)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, Any> {
+            return map as Map<String, Any>
         }
     }
 }
@@ -137,7 +147,7 @@ data class TriggerRunResult(
         sin.readString(), // triggerName
         sin.readBoolean(), // triggered
         sin.readException(), // error
-        sin.readMap() as MutableMap<String, ActionRunResult> // actionResults
+        suppressWarning(sin.readMap()) // actionResults
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -178,6 +188,11 @@ data class TriggerRunResult(
         fun readFrom(sin: StreamInput): TriggerRunResult {
             return TriggerRunResult(sin)
         }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, ActionRunResult> {
+            return map as MutableMap<String, ActionRunResult>
+        }
     }
 }
 
@@ -194,7 +209,7 @@ data class ActionRunResult(
     constructor(sin: StreamInput): this(
         sin.readString(), // actionId
         sin.readString(), // actionName
-        sin.readMap() as Map<String, String>, // output
+        suppressWarning(sin.readMap()), // output
         sin.readBoolean(), // throttled
         sin.readOptionalInstant(), // executionTime
         sin.readException() // error
@@ -226,6 +241,11 @@ data class ActionRunResult(
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): ActionRunResult {
             return ActionRunResult(sin)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, String> {
+            return map as MutableMap<String, String>
         }
     }
 }
