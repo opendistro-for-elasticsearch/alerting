@@ -34,7 +34,7 @@ import java.util.Locale
 data class Email(
     val emailAccountID: String,
     val recipients: List<Recipient>
-) : ToXContent {
+) : Writeable, ToXContent {
 
     init {
         require(recipients.isNotEmpty()) { "At least one recipient must be provided" }
@@ -48,7 +48,7 @@ data class Email(
     }
 
     @Throws(IOException::class)
-    fun writeTo(out: StreamOutput) {
+    override fun writeTo(out: StreamOutput) {
         out.writeString(emailAccountID)
         out.writeCollection(recipients)
     }
