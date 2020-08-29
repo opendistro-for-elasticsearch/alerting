@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMe
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationEmailClient;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationEmailResponse;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse;
 import org.easymock.EasyMock;
 import org.elasticsearch.common.settings.SecureString;
 import org.junit.Assert;
@@ -37,7 +37,7 @@ public class EmailDestinationTest {
     @Test
     public void testMailMessage() throws Exception {
 
-        DestinationEmailResponse expectedEmailResponse = new DestinationEmailResponse.Builder()
+        DestinationResponse expectedEmailResponse = new DestinationResponse.Builder()
                 .withResponseContent("Sent")
                 .withStatusCode(0).build();
 
@@ -63,7 +63,7 @@ public class EmailDestinationTest {
                 .withMessage("Test alert")
                 .withRecipients(singletonList("test@abc.com")).build();
 
-        DestinationEmailResponse actualEmailResponse = (DestinationEmailResponse) Notification.publish(bm);
+        DestinationResponse actualEmailResponse = (DestinationResponse) Notification.publish(bm);
         assertEquals(expectedEmailResponse.getResponseContent(), actualEmailResponse.getResponseContent());
         assertEquals(expectedEmailResponse.getStatusCode(), actualEmailResponse.getStatusCode());
     }
@@ -71,7 +71,7 @@ public class EmailDestinationTest {
     @Test
     public void testMailMessageWithAuth() throws Exception {
 
-        DestinationEmailResponse expectedEmailResponse = new DestinationEmailResponse.Builder()
+        DestinationResponse expectedEmailResponse = new DestinationResponse.Builder()
                 .withResponseContent("Sent")
                 .withStatusCode(0).build();
 
@@ -101,7 +101,7 @@ public class EmailDestinationTest {
                 .withPassword(password)
                 .withRecipients(singletonList("test@abc.com")).build();
 
-        DestinationEmailResponse actualEmailResponse = (DestinationEmailResponse) Notification.publish(bm);
+        DestinationResponse actualEmailResponse = (DestinationResponse) Notification.publish(bm);
         assertEquals(expectedEmailResponse.getResponseContent(), actualEmailResponse.getResponseContent());
         assertEquals(expectedEmailResponse.getStatusCode(), actualEmailResponse.getStatusCode());
     }
@@ -109,7 +109,7 @@ public class EmailDestinationTest {
     @Test
     public void testFailingMailMessage() throws Exception {
 
-        DestinationEmailResponse expectedEmailResponse = new DestinationEmailResponse.Builder()
+        DestinationResponse expectedEmailResponse = new DestinationResponse.Builder()
                 .withResponseContent("Couldn't connect to host, port: localhost, 55555; timeout -1")
                 .withStatusCode(1).build();
 
@@ -135,7 +135,7 @@ public class EmailDestinationTest {
                 .withFrom("test@abc.com")
                 .withRecipients(singletonList("test@abc.com")).build();
 
-        DestinationEmailResponse actualEmailResponse = (DestinationEmailResponse) Notification.publish(bm);
+        DestinationResponse actualEmailResponse = (DestinationResponse) Notification.publish(bm);
         EasyMock.verify(emailClient);
         assertEquals(expectedEmailResponse.getResponseContent(), actualEmailResponse.getResponseContent());
         assertEquals(expectedEmailResponse.getStatusCode(), actualEmailResponse.getStatusCode());

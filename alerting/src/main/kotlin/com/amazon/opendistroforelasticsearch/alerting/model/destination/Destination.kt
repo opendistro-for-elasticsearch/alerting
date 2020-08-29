@@ -21,8 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeM
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationEmailResponse
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
@@ -253,15 +252,11 @@ data class Destination(
                 return "test action"
             }
         }
-        if (type == DestinationType.EMAIL) {
-            val response = Notification.publish(destinationMessage) as DestinationEmailResponse
-            responseContent = response.responseContent
-            responseStatusCode = response.statusCode
-        } else {
-            val response = Notification.publish(destinationMessage) as DestinationHttpResponse
-            responseContent = response.responseContent
-            responseStatusCode = response.statusCode
-        }
+
+        val response = Notification.publish(destinationMessage) as DestinationResponse
+        responseContent = response.responseContent
+        responseStatusCode = response.statusCode
+
         logger.info("Message published for action name: $name, messageid: $responseContent, statuscode: $responseStatusCode")
         return responseContent
     }

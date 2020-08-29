@@ -18,13 +18,13 @@ package com.amazon.opendistroforelasticsearch.alerting.destination.response;
 import org.elasticsearch.common.Strings;
 
 /**
- * This class is a place holder for http response metadata
+ * This class is a place holder for destination response metadata
  */
-public class DestinationEmailResponse extends BaseResponse {
+public class DestinationResponse extends BaseResponse {
 
     private String responseContent;
 
-    private DestinationEmailResponse(final String responseString, final int statusCode) {
+    private DestinationResponse(final String responseString, final int statusCode) {
         super(statusCode);
         if (Strings.isNullOrEmpty(responseString)) {
             throw new IllegalArgumentException("Response is missing");
@@ -36,18 +36,18 @@ public class DestinationEmailResponse extends BaseResponse {
         private String responseContent;
         private Integer statusCode = null;
 
-        public DestinationEmailResponse.Builder withResponseContent(String responseContent) {
+        public DestinationResponse.Builder withResponseContent(String responseContent) {
             this.responseContent = responseContent;
             return this;
         }
 
-        public DestinationEmailResponse.Builder withStatusCode(Integer statusCode) {
+        public DestinationResponse.Builder withStatusCode(Integer statusCode) {
             this.statusCode = statusCode;
             return this;
         }
 
-        public DestinationEmailResponse build() {
-            return new DestinationEmailResponse(responseContent, statusCode);
+        public DestinationResponse build() {
+            return new DestinationResponse(responseContent, statusCode);
         }
     }
 
