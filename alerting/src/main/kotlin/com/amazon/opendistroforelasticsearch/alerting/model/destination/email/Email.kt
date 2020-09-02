@@ -188,11 +188,7 @@ data class Recipient(
         @JvmStatic
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): Recipient {
-            return Recipient(
-                    sin.readEnum(Recipient.RecipientType::class.java), // type
-                    sin.readOptionalString(), // emailGroupId
-                    sin.readOptionalString() // email
-            )
+            return Recipient(sin)
         }
     }
 }

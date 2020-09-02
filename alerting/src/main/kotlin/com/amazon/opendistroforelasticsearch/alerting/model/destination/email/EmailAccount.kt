@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.destination.email
 
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.settings.SecureString
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -38,7 +41,7 @@ data class EmailAccount(
     val method: MethodType,
     val username: SecureString? = null,
     val password: SecureString? = null
-) : ToXContent {
+) : Writeable, ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -55,6 +58,19 @@ data class EmailAccount(
 
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        out.writeInt(schemaVersion)
+        out.writeString(name)
+        out.writeString(email)
+        out.writeString(host)
+        out.writeInt(port)
+        out.writeEnum(method)
+        out.writeOptionalSecureString(username)
+        out.writeOptionalSecureString(password)
     }
 
     enum class MethodType(val value: String) {
@@ -129,6 +145,22 @@ data class EmailAccount(
             val emailAccount = parse(xcp, id)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return emailAccount
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): EmailAccount {
+            return EmailAccount(
+                sin.readString(), // id
+                sin.readInt(), // schemaVersion
+                sin.readString(), // name
+                sin.readString(), // email
+                sin.readString(), // host
+                sin.readInt(), // port
+                sin.readEnum(MethodType::class.java), // method
+                sin.readOptionalSecureString(), // username
+                sin.readOptionalSecureString() // password
+            )
         }
     }
 }

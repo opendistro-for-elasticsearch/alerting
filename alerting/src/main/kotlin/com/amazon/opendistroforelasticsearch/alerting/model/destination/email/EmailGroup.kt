@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.alerting.model.destination.email
 
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -32,7 +35,7 @@ data class EmailGroup(
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val name: String,
     val emails: List<EmailEntry>
-) : ToXContent {
+) : Writeable, ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -46,6 +49,14 @@ data class EmailGroup(
 
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        out.writeInt(schemaVersion)
+        out.writeString(name)
+        out.writeCollection(emails)
     }
 
     fun getEmailsAsListOfString(): List<String> {
@@ -105,19 +116,40 @@ data class EmailGroup(
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return emailGroup
         }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): EmailGroup {
+            return EmailGroup(
+                sin.readString(), // id
+                sin.readInt(), // schemaVersion
+                sin.readString(), // name
+                sin.readList(::EmailEntry) // emails
+            )
+        }
     }
 }
 
-data class EmailEntry(val email: String) : ToXContent {
+data class EmailEntry(val email: String) : Writeable, ToXContent {
 
     init {
         require(!Strings.isEmpty(email)) { "Email entry must have a non-empty email" }
     }
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput): this(
+        sin.readString() // email
+    )
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
                 .field(EMAIL_FIELD, email)
                 .endObject()
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(email)
     }
 
     companion object {
@@ -142,6 +174,12 @@ data class EmailEntry(val email: String) : ToXContent {
             }
 
             return EmailEntry(email)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): EmailEntry {
+            return EmailEntry(sin)
         }
     }
 }
