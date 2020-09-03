@@ -16,19 +16,23 @@
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailGroupRequest
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
-import org.elasticsearch.action.delete.DeleteRequest
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.action.RestStatusToXContentListener
+import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
 
+private val log: Logger = LogManager.getLogger(RestDeleteEmailGroupAction::class.java)
+
 /**
- * Rest handler to delete EmailAccount.
+ * Rest handler to delete EmailGroup.
  */
 class RestDeleteEmailGroupAction : BaseRestHandler() {
 
@@ -45,12 +49,13 @@ class RestDeleteEmailGroupAction : BaseRestHandler() {
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val emailGroupID = request.param("emailGroupID")
+        log.debug("${request.method()} ${AlertingPlugin.EMAIL_GROUP_BASE_URI}/$emailGroupID")
+
         val refreshPolicy = WriteRequest.RefreshPolicy.parse(request.param(REFRESH, WriteRequest.RefreshPolicy.IMMEDIATE.value))
+        val deleteEmailGroupRequest = DeleteEmailGroupRequest(emailGroupID, refreshPolicy)
 
         return RestChannelConsumer { channel ->
-            val deleteEmailGroupRequest = DeleteRequest(SCHEDULED_JOBS_INDEX, emailGroupID)
-                    .setRefreshPolicy(refreshPolicy)
-            client.delete(deleteEmailGroupRequest, RestStatusToXContentListener(channel))
+            client.execute(DeleteEmailGroupAction.INSTANCE, deleteEmailGroupRequest, RestToXContentListener(channel))
         }
     }
 }
