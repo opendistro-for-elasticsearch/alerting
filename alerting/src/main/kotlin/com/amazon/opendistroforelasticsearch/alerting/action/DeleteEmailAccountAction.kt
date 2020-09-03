@@ -15,13 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.action
 
-import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
+import org.elasticsearch.action.ActionType
+import org.elasticsearch.action.delete.DeleteResponse
 
-class DeleteDestinationActionTests : ESTestCase() {
-
-    fun `test delete destination action name`() {
-        Assert.assertNotNull(DeleteDestinationAction.INSTANCE.name())
-        Assert.assertEquals(DeleteDestinationAction.INSTANCE.name(), DeleteDestinationAction.NAME)
+class DeleteEmailAccountAction private constructor() : ActionType<DeleteResponse>(NAME, ::DeleteResponse) {
+    companion object {
+        val INSTANCE = DeleteEmailAccountAction()
+        const val NAME = "cluster:admin/alerting/destination/email_account/delete"
     }
 }
