@@ -30,6 +30,7 @@ categories:
     labels:
       - 'build'
       - 'testing'
+      - 'CI/CD'
   - title: 'Documentation'
     labels:
       - 'documentation'
