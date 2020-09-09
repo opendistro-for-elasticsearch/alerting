@@ -202,14 +202,17 @@ class TransportIndexEmailAccountAction @Inject constructor(
             }
         }
 
-        private fun indexEmailAccount() {
+        private fun indexEmailAccount(update: Boolean = false) {
             request.emailAccount = request.emailAccount.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
-            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
+            var indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(request.refreshPolicy)
                     .source(request.emailAccount.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
                     .setIfSeqNo(request.seqNo)
                     .setIfPrimaryTerm(request.primaryTerm)
                     .timeout(indexTimeout)
+
+            // If request is to update, then add id to index request
+            if (update) indexRequest = indexRequest.id(request.emailAccountID)
 
             client.index(indexRequest, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {
@@ -246,28 +249,7 @@ class TransportIndexEmailAccountAction @Inject constructor(
                 )
             }
 
-            request.emailAccount = request.emailAccount.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
-            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
-                    .setRefreshPolicy(request.refreshPolicy)
-                    .source(request.emailAccount.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
-                    .id(request.emailAccountID)
-                    .setIfSeqNo(request.seqNo)
-                    .setIfPrimaryTerm(request.primaryTerm)
-                    .timeout(indexTimeout)
-
-            client.index(indexRequest, object : ActionListener<IndexResponse> {
-                override fun onResponse(response: IndexResponse) {
-                    checkShardsFailure(response)
-                    actionListener.onResponse(
-                        IndexEmailAccountResponse(response.id, response.seqNo, response.primaryTerm,
-                            RestStatus.CREATED, request.emailAccount)
-                    )
-                }
-
-                override fun onFailure(e: Exception) {
-                    actionListener.onFailure(e)
-                }
-            })
+            indexEmailAccount(update = true)
         }
 
         private fun checkShardsFailure(response: IndexResponse) {

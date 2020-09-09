@@ -144,14 +144,17 @@ class TransportIndexEmailGroupAction @Inject constructor(
             }
         }
 
-        private fun indexEmailGroup() {
+        private fun indexEmailGroup(update: Boolean = false) {
             request.emailGroup = request.emailGroup.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
-            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
+            var indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
                 .setRefreshPolicy(request.refreshPolicy)
                 .source(request.emailGroup.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
                 .setIfSeqNo(request.seqNo)
                 .setIfPrimaryTerm(request.primaryTerm)
                 .timeout(indexTimeout)
+
+            // If request is to update, then add id to index request
+            if (update) indexRequest = indexRequest.id(request.emailGroupID)
 
             client.index(indexRequest, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {
@@ -188,28 +191,7 @@ class TransportIndexEmailGroupAction @Inject constructor(
                 )
             }
 
-            request.emailGroup = request.emailGroup.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
-            val indexRequest = IndexRequest(SCHEDULED_JOBS_INDEX)
-                    .setRefreshPolicy(request.refreshPolicy)
-                    .source(request.emailGroup.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
-                    .id(request.emailGroupID)
-                    .setIfSeqNo(request.seqNo)
-                    .setIfPrimaryTerm(request.primaryTerm)
-                    .timeout(indexTimeout)
-
-            client.index(indexRequest, object : ActionListener<IndexResponse> {
-                override fun onResponse(response: IndexResponse) {
-                    checkShardsFailure(response)
-                    actionListener.onResponse(
-                        IndexEmailGroupResponse(response.id, response.seqNo, response.primaryTerm,
-                            RestStatus.CREATED, request.emailGroup)
-                    )
-                }
-
-                override fun onFailure(e: Exception) {
-                    actionListener.onFailure(e)
-                }
-            })
+            indexEmailGroup(update = true)
         }
 
         private fun checkShardsFailure(response: IndexResponse) {
