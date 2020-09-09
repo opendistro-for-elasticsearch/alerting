@@ -21,7 +21,9 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailAccountRe
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
@@ -31,6 +33,8 @@ import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.master.AcknowledgedResponse
@@ -41,8 +45,10 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
@@ -60,10 +66,12 @@ class TransportIndexEmailAccountAction @Inject constructor(
     IndexEmailAccountAction.NAME, transportService, actionFilters, ::IndexEmailAccountRequest
 ) {
 
-    @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
+    @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
+    @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
 
     init {
-        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
     }
 
     override fun doExecute(task: Task, request: IndexEmailAccountRequest, actionListener: ActionListener<IndexEmailAccountResponse>) {
@@ -106,11 +114,60 @@ class TransportIndexEmailAccountAction @Inject constructor(
 
         private fun prepareEmailAccountIndexing() {
 
-            // TODO: Add validation on name here
+            val query = QueryBuilders.boolQuery()
+                .must(QueryBuilders.termQuery(
+                    "${EmailAccount.EMAIL_ACCOUNT_TYPE}.${EmailAccount.NAME_FIELD}.keyword", request.emailAccount.name)
+                )
+                .filter(QueryBuilders.existsQuery(EmailAccount.EMAIL_ACCOUNT_TYPE))
+            val searchSource = SearchSourceBuilder().query(query).timeout(requestTimeout)
+            val searchRequest = SearchRequest(SCHEDULED_JOBS_INDEX).source(searchSource)
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(searchResponse: SearchResponse) {
+                    onSearchResponse(searchResponse)
+                }
 
-            if (request.method == RestRequest.Method.PUT) return updateEmailAccount()
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(e)
+                }
+            })
+        }
 
-            indexEmailAccount()
+        /**
+         * After searching for all existing email accounts with the same name as the one in the request
+         * we validate if the name has already been used or not.
+         */
+        private fun onSearchResponse(response: SearchResponse) {
+            if (request.method == RestRequest.Method.POST) {
+                // For a request to create a new email account, check if the name exists for another email account
+                val totalHits = response.hits.totalHits?.value
+                if (totalHits != null && totalHits > 0) {
+                    log.error("Unable to create email group with name=[${request.emailAccount.name}] because name is already in use.")
+                    actionListener.onFailure(
+                        IllegalArgumentException(
+                            "Unable to create email group with name=[${request.emailAccount.name}] because name is already in use."
+                        )
+                    )
+                } else {
+                    indexEmailAccount()
+                }
+            } else {
+                // For an update request, check if the name is being used by an email account other than the one being updated
+                for (hit in response.hits) {
+                    if (hit.id != request.emailAccountID) {
+                        log.error("Unable to update email group with name=[${request.emailAccount.name}] because name is already in use.")
+                        actionListener.onFailure(
+                            IllegalArgumentException(
+                                "Unable to update email group with name=[${request.emailAccount.name}] because name is already in use."
+                            )
+                        )
+                        // Return early if name is invalid
+                        return
+                    }
+                }
+
+                // Call update if name is valid
+                updateEmailAccount()
+            }
         }
 
         private fun onCreateMappingsResponse(response: CreateIndexResponse) {
