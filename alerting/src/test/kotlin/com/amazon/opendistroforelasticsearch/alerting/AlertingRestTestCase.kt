@@ -282,7 +282,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return shuffleXContent(toXContent(builder)).string()
     }
 
-    private fun Destination.toHttpEntity(): HttpEntity {
+    protected fun Destination.toHttpEntity(): HttpEntity {
         return StringEntity(toJsonString(), APPLICATION_JSON)
     }
 
