@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
@@ -64,6 +65,7 @@ import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteM
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportExecuteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchMonitorAction
 import org.elasticsearch.action.ActionRequest
@@ -150,7 +152,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 RestDeleteEmailAccountAction(),
                 RestSearchEmailAccountAction(),
                 RestGetEmailAccountAction(),
-                RestIndexEmailGroupAction(settings, scheduledJobIndices, clusterService),
+                RestIndexEmailGroupAction(),
                 RestDeleteEmailGroupAction(),
                 RestSearchEmailGroupAction(),
                 RestGetEmailGroupAction())
@@ -169,6 +171,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
             ActionPlugin.ActionHandler(AcknowledgeAlertAction.INSTANCE, TransportAcknowledgeAlertAction::class.java),
             ActionPlugin.ActionHandler(IndexEmailAccountAction.INSTANCE, TransportIndexEmailAccountAction::class.java),
             ActionPlugin.ActionHandler(DeleteEmailAccountAction.INSTANCE, TransportDeleteEmailAccountAction::class.java),
+            ActionPlugin.ActionHandler(IndexEmailGroupAction.INSTANCE, TransportIndexEmailGroupAction::class.java),
             ActionPlugin.ActionHandler(DeleteEmailGroupAction.INSTANCE, TransportDeleteEmailGroupAction::class.java)
         )
     }
