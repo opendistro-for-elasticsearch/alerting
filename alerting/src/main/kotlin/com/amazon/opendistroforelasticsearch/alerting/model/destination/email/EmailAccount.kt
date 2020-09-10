@@ -33,6 +33,7 @@ import java.io.IOException
  */
 data class EmailAccount(
     val id: String = NO_ID,
+    val version: Long = NO_VERSION,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val name: String,
     val email: String,
@@ -63,6 +64,7 @@ data class EmailAccount(
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
+        out.writeLong(version)
         out.writeInt(schemaVersion)
         out.writeString(name)
         out.writeString(email)
@@ -88,6 +90,7 @@ data class EmailAccount(
     companion object {
         const val EMAIL_ACCOUNT_TYPE = "email_account"
         const val NO_ID = ""
+        const val NO_VERSION = 1L
         const val SCHEMA_VERSION = "schema_version"
         const val NAME_FIELD = "name"
         const val EMAIL_FIELD = "email"
@@ -97,7 +100,7 @@ data class EmailAccount(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID): EmailAccount {
+        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): EmailAccount {
             var schemaVersion = NO_SCHEMA_VERSION
             lateinit var name: String
             lateinit var email: String
@@ -127,6 +130,7 @@ data class EmailAccount(
             }
 
             return EmailAccount(id,
+                    version,
                     schemaVersion,
                     name,
                     email,
@@ -138,11 +142,11 @@ data class EmailAccount(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser, id: String = NO_ID): EmailAccount {
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): EmailAccount {
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val emailAccount = parse(xcp, id)
+            val emailAccount = parse(xcp, id, version)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return emailAccount
         }
@@ -152,6 +156,7 @@ data class EmailAccount(
         fun readFrom(sin: StreamInput): EmailAccount {
             return EmailAccount(
                 sin.readString(), // id
+                sin.readLong(), // version
                 sin.readInt(), // schemaVersion
                 sin.readString(), // name
                 sin.readString(), // email

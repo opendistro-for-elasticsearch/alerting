@@ -86,7 +86,7 @@ class RestSearchEmailAccountAction : BaseRestHandler() {
                 for (hit in response.hits) {
                     XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
                             LoggingDeprecationHandler.INSTANCE, hit.sourceAsString).use { hitsParser ->
-                                val emailAccount = EmailAccount.parseWithType(hitsParser, hit.id)
+                                val emailAccount = EmailAccount.parseWithType(hitsParser, hit.id, hit.version)
                                 val xcb = emailAccount.toXContent(jsonBuilder(), EMPTY_PARAMS)
                                 hit.sourceRef(BytesReference.bytes(xcb))
                             }

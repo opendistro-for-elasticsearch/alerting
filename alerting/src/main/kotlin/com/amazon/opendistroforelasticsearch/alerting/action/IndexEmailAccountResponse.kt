@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
+import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -30,6 +31,7 @@ import java.io.IOException
 
 class IndexEmailAccountResponse : ActionResponse, ToXContentObject {
     var id: String
+    var version: Long
     var seqNo: Long
     var primaryTerm: Long
     var status: RestStatus
@@ -37,12 +39,14 @@ class IndexEmailAccountResponse : ActionResponse, ToXContentObject {
 
     constructor(
         id: String,
+        version: Long,
         seqNo: Long,
         primaryTerm: Long,
         status: RestStatus,
         emailAccount: EmailAccount
     ): super() {
         this.id = id
+        this.version = version
         this.seqNo = seqNo
         this.primaryTerm = primaryTerm
         this.status = status
@@ -52,6 +56,7 @@ class IndexEmailAccountResponse : ActionResponse, ToXContentObject {
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
         sin.readString(), // id
+        sin.readLong(), // version
         sin.readLong(), // seqNo
         sin.readLong(), // primaryTerm
         sin.readEnum(RestStatus::class.java), // status
@@ -61,6 +66,7 @@ class IndexEmailAccountResponse : ActionResponse, ToXContentObject {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
+        out.writeLong(version)
         out.writeLong(seqNo)
         out.writeLong(primaryTerm)
         out.writeEnum(status)
@@ -71,6 +77,7 @@ class IndexEmailAccountResponse : ActionResponse, ToXContentObject {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
             .field(_ID, id)
+            .field(_VERSION, version)
             .field(_SEQ_NO, seqNo)
             .field(_PRIMARY_TERM, primaryTerm)
             .field("email_account", emailAccount)

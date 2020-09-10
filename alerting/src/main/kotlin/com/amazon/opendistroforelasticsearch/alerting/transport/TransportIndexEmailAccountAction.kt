@@ -218,7 +218,7 @@ class TransportIndexEmailAccountAction @Inject constructor(
                 override fun onResponse(response: IndexResponse) {
                     checkShardsFailure(response)
                     actionListener.onResponse(
-                        IndexEmailAccountResponse(response.id, response.seqNo, response.primaryTerm,
+                        IndexEmailAccountResponse(response.id, response.version, response.seqNo, response.primaryTerm,
                             RestStatus.CREATED, request.emailAccount)
                     )
                 }

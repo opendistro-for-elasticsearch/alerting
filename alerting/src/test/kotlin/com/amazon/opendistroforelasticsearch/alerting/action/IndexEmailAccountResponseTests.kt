@@ -26,7 +26,7 @@ class IndexEmailAccountResponseTests : ESTestCase() {
     fun `test index email account response with email account`() {
 
         val testEmailAccount = randomEmailAccount(name = "test-email-account")
-        val res = IndexEmailAccountResponse("1234", 1L, 2L, RestStatus.OK, testEmailAccount)
+        val res = IndexEmailAccountResponse("1234", 1L, 1L, 2L, RestStatus.OK, testEmailAccount)
         assertNotNull(res)
 
         val out = BytesStreamOutput()
@@ -34,6 +34,7 @@ class IndexEmailAccountResponseTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newRes = IndexEmailAccountResponse(sin)
         assertEquals("1234", newRes.id)
+        assertEquals(1L, newRes.version)
         assertEquals(1L, newRes.seqNo)
         assertEquals(RestStatus.OK, newRes.status)
         assertNotNull(newRes.emailAccount)
