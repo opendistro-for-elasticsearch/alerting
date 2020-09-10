@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailGroupAct
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailGroupAction
@@ -65,6 +66,7 @@ import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteE
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailGroupAction
@@ -174,11 +176,12 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
             ActionPlugin.ActionHandler(DeleteDestinationAction.INSTANCE, TransportDeleteDestinationAction::class.java),
             ActionPlugin.ActionHandler(AcknowledgeAlertAction.INSTANCE, TransportAcknowledgeAlertAction::class.java),
             ActionPlugin.ActionHandler(IndexEmailAccountAction.INSTANCE, TransportIndexEmailAccountAction::class.java),
-            ActionPlugin.ActionHandler(DeleteEmailAccountAction.INSTANCE, TransportDeleteEmailAccountAction::class.java),
+            ActionPlugin.ActionHandler(GetEmailAccountAction.INSTANCE, TransportGetEmailAccountAction::class.java),
             ActionPlugin.ActionHandler(SearchEmailAccountAction.INSTANCE, TransportSearchEmailAccountAction::class.java),
+            ActionPlugin.ActionHandler(DeleteEmailAccountAction.INSTANCE, TransportDeleteEmailAccountAction::class.java),
             ActionPlugin.ActionHandler(IndexEmailGroupAction.INSTANCE, TransportIndexEmailGroupAction::class.java),
-            ActionPlugin.ActionHandler(DeleteEmailGroupAction.INSTANCE, TransportDeleteEmailGroupAction::class.java),
-            ActionPlugin.ActionHandler(SearchEmailGroupAction.INSTANCE, TransportSearchEmailGroupAction::class.java)
+            ActionPlugin.ActionHandler(SearchEmailGroupAction.INSTANCE, TransportSearchEmailGroupAction::class.java),
+            ActionPlugin.ActionHandler(DeleteEmailGroupAction.INSTANCE, TransportDeleteEmailGroupAction::class.java)
         )
     }
 
