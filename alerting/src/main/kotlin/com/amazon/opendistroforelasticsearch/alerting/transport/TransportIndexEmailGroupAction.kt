@@ -160,7 +160,7 @@ class TransportIndexEmailGroupAction @Inject constructor(
                 override fun onResponse(response: IndexResponse) {
                     checkShardsFailure(response)
                     actionListener.onResponse(
-                        IndexEmailGroupResponse(response.id, response.seqNo, response.primaryTerm,
+                        IndexEmailGroupResponse(response.id, response.version, response.seqNo, response.primaryTerm,
                             RestStatus.CREATED, request.emailGroup)
                     )
                 }

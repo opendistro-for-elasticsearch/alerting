@@ -32,6 +32,7 @@ import java.io.IOException
  */
 data class EmailGroup(
     val id: String = NO_ID,
+    val version: Long = NO_VERSION,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val name: String,
     val emails: List<EmailEntry>
@@ -54,6 +55,7 @@ data class EmailGroup(
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
+        out.writeLong(version)
         out.writeInt(schemaVersion)
         out.writeString(name)
         out.writeCollection(emails)
@@ -68,13 +70,14 @@ data class EmailGroup(
     companion object {
         const val EMAIL_GROUP_TYPE = "email_group"
         const val NO_ID = ""
+        const val NO_VERSION = 1L
         const val SCHEMA_VERSION = "schema_version"
         const val NAME_FIELD = "name"
         const val EMAILS_FIELD = "emails"
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID): EmailGroup {
+        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): EmailGroup {
             var schemaVersion = NO_SCHEMA_VERSION
             lateinit var name: String
             val emails: MutableList<EmailEntry> = mutableListOf()
@@ -100,6 +103,7 @@ data class EmailGroup(
             }
 
             return EmailGroup(id,
+                    version,
                     schemaVersion,
                     requireNotNull(name) { "Email group name is null" },
                     emails
@@ -108,11 +112,11 @@ data class EmailGroup(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser, id: String = NO_ID): EmailGroup {
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): EmailGroup {
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val emailGroup = parse(xcp, id)
+            val emailGroup = parse(xcp, id, version)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return emailGroup
         }
@@ -122,6 +126,7 @@ data class EmailGroup(
         fun readFrom(sin: StreamInput): EmailGroup {
             return EmailGroup(
                 sin.readString(), // id
+                sin.readLong(), // version
                 sin.readInt(), // schemaVersion
                 sin.readString(), // name
                 sin.readList(::EmailEntry) // emails

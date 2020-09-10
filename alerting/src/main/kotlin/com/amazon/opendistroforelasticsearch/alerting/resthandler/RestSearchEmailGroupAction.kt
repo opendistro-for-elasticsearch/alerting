@@ -86,7 +86,7 @@ class RestSearchEmailGroupAction : BaseRestHandler() {
                 for (hit in response.hits) {
                     XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
                             LoggingDeprecationHandler.INSTANCE, hit.sourceAsString).use { hitsParser ->
-                                val emailGroup = EmailGroup.parseWithType(hitsParser, hit.id)
+                                val emailGroup = EmailGroup.parseWithType(hitsParser, hit.id, hit.version)
                                 val xcb = emailGroup.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)
                                 hit.sourceRef(BytesReference.bytes(xcb))
                             }

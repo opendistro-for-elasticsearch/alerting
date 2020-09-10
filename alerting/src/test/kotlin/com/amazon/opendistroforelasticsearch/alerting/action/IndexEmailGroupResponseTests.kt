@@ -26,7 +26,7 @@ class IndexEmailGroupResponseTests : ESTestCase() {
     fun `test index email group response with email group`() {
 
         val testEmailGroup = randomEmailGroup(name = "test-email-group")
-        val res = IndexEmailGroupResponse("1234", 1L, 2L, RestStatus.OK, testEmailGroup)
+        val res = IndexEmailGroupResponse("1234", 1L, 1L, 2L, RestStatus.OK, testEmailGroup)
         assertNotNull(res)
 
         val out = BytesStreamOutput()
@@ -34,6 +34,7 @@ class IndexEmailGroupResponseTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newRes = IndexEmailGroupResponse(sin)
         assertEquals("1234", newRes.id)
+        assertEquals(1L, newRes.version)
         assertEquals(1L, newRes.seqNo)
         assertEquals(RestStatus.OK, newRes.status)
         assertNotNull(newRes.emailGroup)
