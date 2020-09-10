@@ -15,11 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.transport
 
-import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountAction
-import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountRequest
-import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountResponse
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupRequest
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupResponse
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -37,44 +37,44 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
-private val log = LogManager.getLogger(TransportGetEmailAccountAction::class.java)
+private val log = LogManager.getLogger(TransportGetEmailGroupAction::class.java)
 
-class TransportGetEmailAccountAction @Inject constructor(
+class TransportGetEmailGroupAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
     actionFilters: ActionFilters,
     val xContentRegistry: NamedXContentRegistry
-) : HandledTransportAction<GetEmailAccountRequest, GetEmailAccountResponse>(
-    GetEmailAccountAction.NAME, transportService, actionFilters, ::GetEmailAccountRequest
+) : HandledTransportAction<GetEmailGroupRequest, GetEmailGroupResponse>(
+    GetEmailGroupAction.NAME, transportService, actionFilters, ::GetEmailGroupRequest
 ) {
 
     override fun doExecute(
         task: Task,
-        getEmailAccountRequest: GetEmailAccountRequest,
-        actionListener: ActionListener<GetEmailAccountResponse>
+        getEmailGroupRequest: GetEmailGroupRequest,
+        actionListener: ActionListener<GetEmailGroupResponse>
     ) {
 
-        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, getEmailAccountRequest.emailAccountID)
-                .version(getEmailAccountRequest.version)
-                .fetchSourceContext(getEmailAccountRequest.srcContext)
+        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, getEmailGroupRequest.emailGroupID)
+                .version(getEmailGroupRequest.version)
+                .fetchSourceContext(getEmailGroupRequest.srcContext)
 
         client.get(getRequest, object : ActionListener<GetResponse> {
             override fun onResponse(response: GetResponse) {
                 if (!response.isExists) {
-                    actionListener.onFailure(ElasticsearchStatusException("Email Account not found.", RestStatus.NOT_FOUND))
+                    actionListener.onFailure(ElasticsearchStatusException("Email Group not found.", RestStatus.NOT_FOUND))
                 }
 
-                var emailAccount: EmailAccount? = null
+                var emailGroup: EmailGroup? = null
                 if (!response.isSourceEmpty) {
                     XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                             response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                        emailAccount = EmailAccount.parseWithType(xcp, response.id, response.version)
+                        emailGroup = EmailGroup.parseWithType(xcp, response.id, response.version)
                     }
                 }
 
                 actionListener.onResponse(
-                    GetEmailAccountResponse(response.id, response.version, response.seqNo, response.primaryTerm,
-                        RestStatus.OK, emailAccount)
+                    GetEmailGroupResponse(response.id, response.version, response.seqNo, response.primaryTerm,
+                        RestStatus.OK, emailGroup)
                 )
             }
 
