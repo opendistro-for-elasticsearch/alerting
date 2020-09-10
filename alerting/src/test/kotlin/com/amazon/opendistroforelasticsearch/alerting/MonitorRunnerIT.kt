@@ -145,7 +145,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         var exception: ResponseException? = null
         try {
             executeMonitor(monitor.id + "bad")
-        } catch (ex : ResponseException) {
+        } catch (ex: ResponseException) {
             exception = ex
         }
         Assert.assertEquals(404, exception?.response?.statusLine?.statusCode)
