@@ -53,7 +53,7 @@ However, to build the `alerting` plugin subproject, we also use the Elastic buil
 4. `./gradlew :alerting:integTest` launches a single node cluster with the alerting plugin installed and runs all integ tests.
 5. `./gradlew :alerting:integTest -PnumNodes=3` launches a multi-node cluster with the alerting plugin installed and runs all integ tests.
 6. `./gradlew :alerting:integTest -Dtests.class="*MonitorRunnerIT"` runs a single integ test class
-7. ` ./gradlew :alerting:integTest -Dtests.method="test execute monitor with dryrun"` runs a single integ test method
+7. `./gradlew :alerting:integTest -Dtests.method="test execute monitor with dryrun"` runs a single integ test method
  (remember to quote the test method name if it contains spaces).
 
 When launching a cluster using one of the above commands, logs are placed in `alerting/build/testclusters/integTest-0/logs/`. Though the logs are teed to the console, in practices it's best to check the actual log file.
