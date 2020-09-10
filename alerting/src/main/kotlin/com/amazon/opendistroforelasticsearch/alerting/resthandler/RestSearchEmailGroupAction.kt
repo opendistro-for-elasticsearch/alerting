@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.util.context
@@ -69,7 +70,9 @@ class RestSearchEmailGroupAction : BaseRestHandler() {
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
                 .indices(SCHEDULED_JOBS_INDEX)
-        return RestChannelConsumer { channel -> client.search(searchRequest, searchEmailGroupResponse(channel)) }
+        return RestChannelConsumer { channel ->
+            client.execute(SearchEmailGroupAction.INSTANCE, searchRequest, searchEmailGroupResponse(channel))
+        }
     }
 
     private fun searchEmailGroupResponse(channel: RestChannel): RestResponseListener<SearchResponse> {
