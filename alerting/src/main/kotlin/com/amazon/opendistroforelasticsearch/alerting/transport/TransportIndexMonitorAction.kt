@@ -133,6 +133,7 @@ class TransportIndexMonitorAction @Inject constructor(
                 validateActionThrottle(request.monitor, maxActionThrottle, TimeValue.timeValueMinutes(1))
             } catch (e: RuntimeException) {
                 actionListener.onFailure(e)
+                return
             }
 
             if (request.method == RestRequest.Method.PUT) return updateMonitor()
@@ -221,7 +222,11 @@ class TransportIndexMonitorAction @Inject constructor(
                     .timeout(indexTimeout)
             client.index(indexRequest, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {
-                    checkShardsFailure(response)
+                    val failureReasons = checkShardsFailure(response)
+                    if (failureReasons != null) {
+                        actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                        return
+                    }
                     actionListener.onResponse(IndexMonitorResponse(response.id, response.version, response.seqNo,
                             response.primaryTerm, RestStatus.CREATED, request.monitor))
                 }
@@ -247,6 +252,7 @@ class TransportIndexMonitorAction @Inject constructor(
             if (!response.isExists) {
                 actionListener.onFailure(
                         ElasticsearchStatusException("Monitor with ${request.monitorId} is not found", RestStatus.NOT_FOUND))
+                return
             }
 
             val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
@@ -268,7 +274,11 @@ class TransportIndexMonitorAction @Inject constructor(
 
             client.index(indexRequest, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {
-                    checkShardsFailure(response)
+                    val failureReasons = checkShardsFailure(response)
+                    if (failureReasons != null) {
+                        actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                        return
+                    }
                     actionListener.onResponse(
                         IndexMonitorResponse(response.id, response.version, response.seqNo,
                                 response.primaryTerm, RestStatus.CREATED, request.monitor)
@@ -280,14 +290,15 @@ class TransportIndexMonitorAction @Inject constructor(
             })
         }
 
-        private fun checkShardsFailure(response: IndexResponse) {
+        private fun checkShardsFailure(response: IndexResponse): String? {
             var failureReasons = StringBuilder()
             if (response.shardInfo.failed > 0) {
                 response.shardInfo.failures.forEach {
                     entry -> failureReasons.append(entry.reason())
                 }
-                actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                return failureReasons.toString()
             }
+            return null
         }
     }
 }
