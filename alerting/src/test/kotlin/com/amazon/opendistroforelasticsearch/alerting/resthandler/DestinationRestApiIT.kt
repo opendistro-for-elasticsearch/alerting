@@ -15,13 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
-import com.amazon.opendistroforelasticsearch.alerting.DESTINATION_BASE_URI
 import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
+import com.amazon.opendistroforelasticsearch.alerting.DESTINATION_BASE_URI
+import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
-import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
@@ -147,6 +147,28 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 destination.copy(name = "updatedName", customWebhook = updatedCustomWebhook,
                         type = DestinationType.CUSTOM_WEBHOOK))
         assertEquals("Incorrect destination url after update", "abc.com", updatedDestination.customWebhook?.host)
+    }
+
+    @Throws(Exception::class)
+    fun `test creating a destination`() {
+        val chime = Chime("http://abc.com")
+        val destination = Destination(
+                type = DestinationType.CHIME,
+                name = "test",
+                lastUpdateTime = Instant.now(),
+                chime = chime,
+                slack = null,
+                customWebhook = null)
+
+        val createResponse = client().makeRequest("POST", DESTINATION_BASE_URI, emptyMap(), destination.toHttpEntity())
+
+        assertEquals("Create destination failed", RestStatus.CREATED, createResponse.restStatus())
+        val responseBody = createResponse.asMap()
+        val createdId = responseBody["_id"] as String
+        val createdVersion = responseBody["_version"] as Int
+        assertNotEquals("response is missing Id", Destination.NO_ID, createdId)
+        assertTrue("incorrect version", createdVersion > 0)
+        assertEquals("Incorrect Location header", "$DESTINATION_BASE_URI/$createdId", createResponse.getHeader("Location"))
     }
 
     fun `test delete destination`() {

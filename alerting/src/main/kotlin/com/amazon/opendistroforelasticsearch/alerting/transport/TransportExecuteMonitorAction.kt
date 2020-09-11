@@ -69,6 +69,7 @@ class TransportExecuteMonitorAction @Inject constructor(
                         actionListener.onFailure(
                             ElasticsearchStatusException("Can't find monitor with id: ${response.id}", RestStatus.NOT_FOUND)
                         )
+                        return
                     }
                     if (!response.isSourceEmpty) {
                         XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
