@@ -46,70 +46,75 @@ class TransportGetDestinationsAction @Inject constructor(
         getDestinationsRequest: GetDestinationsRequest,
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
+        val ctx = client.threadPool().threadContext.stashContext()
+        try {
+            val searchSourceBuilder = SearchSourceBuilder()
+            searchSourceBuilder.fetchSource(FetchSourceContext(true, Strings.EMPTY_ARRAY, Strings.EMPTY_ARRAY))
+            if (getDestinationsRequest.destinationId.isNullOrBlank()) {
+                searchSourceBuilder
+                        .query(QueryBuilders.boolQuery()
+                                .must(QueryBuilders.existsQuery("destination"))
+                        )
+                        .seqNoAndPrimaryTerm(true)
+                        .version(true)
+            } else {
+                searchSourceBuilder
+                        .query(QueryBuilders.boolQuery()
+                                .filter(QueryBuilders.termQuery("_id", getDestinationsRequest.destinationId))
+                                .must(QueryBuilders.existsQuery("destination"))
+                        )
+                        .seqNoAndPrimaryTerm(true)
+                        .version(true)
+            }
+            val searchRequest = SearchRequest()
+                    .source(searchSourceBuilder)
+                    .indices(ScheduledJob.SCHEDULED_JOBS_INDEX)
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(response: SearchResponse) {
+                    var builder = XContentFactory.jsonBuilder()
+                    builder = response.toXContent(builder, ToXContent.EMPTY_PARAMS)
+                    val jObject = JsonParser.parseString(builder.string()).asJsonObject
+                    val hits = jObject.getAsJsonObject("hits")
+                    val count = hits.getAsJsonObject("total").get("value").asInt
+                    val hitArr = hits.getAsJsonArray("hits")
+                    var destinations = mutableListOf<Destination>()
+                    for (i in 0 until count) {
+                        val dest = hitArr.get(i).asJsonObject
+                        val id = dest.get("_id").asString
+                        val version = dest.get("_version").asLong
+                        val seqNo = dest.get("_seq_no").asInt
+                        val primaryTerm = dest.get("_primary_term").asInt
+                        val curDest = dest.getAsJsonObject("_source").toString()
+                        var xcp = XContentFactory.xContent(XContentType.JSON)
+                                .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, curDest)
+                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                        val d = Destination.parse(xcp, id, version, seqNo, primaryTerm)
+                        destinations.add(d)
+                    }
 
-        val searchSourceBuilder = SearchSourceBuilder()
-        searchSourceBuilder.fetchSource(FetchSourceContext(true, Strings.EMPTY_ARRAY, Strings.EMPTY_ARRAY))
-        if (getDestinationsRequest.destinationId.isNullOrBlank()) {
-            searchSourceBuilder
-                    .query(QueryBuilders.boolQuery()
-                            .must(QueryBuilders.existsQuery("destination"))
-                    )
-                    .seqNoAndPrimaryTerm(true)
-                    .version(true)
-        } else {
-            searchSourceBuilder
-                    .query(QueryBuilders.boolQuery()
-                            .filter(QueryBuilders.termQuery("_id", getDestinationsRequest.destinationId))
-                            .must(QueryBuilders.existsQuery("destination"))
-                    )
-                    .seqNoAndPrimaryTerm(true)
-                    .version(true)
+                    if (getDestinationsRequest.sortString.equals("name")) {
+                        destinations.sortBy { it.name }
+                    } else {
+                        destinations.sortBy { it.type }
+                    }
+
+                    if (getDestinationsRequest.sortOrder.equals("desc")) {
+                        destinations.reverse()
+                    }
+
+                    actionListener.onResponse(GetDestinationsResponse(RestStatus.OK, destinations))
+                }
+
+                override fun onFailure(t: Exception) {
+                    log.error("fail to get destinations", t)
+                    actionListener.onFailure(t)
+                }
+            })
+        } finally {
+            ctx.close()
         }
-        val searchRequest = SearchRequest()
-                .source(searchSourceBuilder)
-                .indices(ScheduledJob.SCHEDULED_JOBS_INDEX)
-        client.search(searchRequest, object : ActionListener<SearchResponse> {
-            override fun onResponse(response: SearchResponse) {
-                var builder = XContentFactory.jsonBuilder()
-                builder = response.toXContent(builder, ToXContent.EMPTY_PARAMS)
-                val jObject = JsonParser.parseString(builder.string()).asJsonObject
-                val hits = jObject.getAsJsonObject("hits")
-                val count = hits.getAsJsonObject("total").get("value").asInt
-                val hitArr = hits.getAsJsonArray("hits")
-                var destinations = mutableListOf<Destination>()
-                for (i in 0 until count) {
-                    val dest = hitArr.get(i).asJsonObject
-                    val id = dest.get("_id").asString
-                    val version = dest.get("_version").asLong
-                    val seqNo = dest.get("_seq_no").asInt
-                    val primaryTerm = dest.get("_primary_term").asInt
-                    val curDest = dest.getAsJsonObject("_source").toString()
-                    var xcp = XContentFactory.xContent(XContentType.JSON)
-                            .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, curDest)
-                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-                    val d = Destination.parse(xcp, id, version, seqNo, primaryTerm)
-                    destinations.add(d)
-                }
-
-                if (getDestinationsRequest.sortString.equals("name")) {
-                    destinations.sortBy { it.name }
-                } else {
-                    destinations.sortBy { it.type }
-                }
-
-                if (getDestinationsRequest.sortOrder.equals("desc")) {
-                    destinations.reverse()
-                }
-
-                actionListener.onResponse(GetDestinationsResponse(RestStatus.OK, destinations))
-            }
-
-            override fun onFailure(t: Exception) {
-                log.error("fail to get destinations", t)
-                actionListener.onFailure(t)
-            }
-        })
     }
+
 }
