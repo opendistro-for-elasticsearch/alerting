@@ -46,8 +46,7 @@ class TransportGetDestinationsAction @Inject constructor(
         getDestinationsRequest: GetDestinationsRequest,
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
-        val ctx = client.threadPool().threadContext.stashContext()
-        try {
+        client.threadPool().threadContext.stashContext().use {
             val searchSourceBuilder = SearchSourceBuilder()
             searchSourceBuilder.fetchSource(FetchSourceContext(true, Strings.EMPTY_ARRAY, Strings.EMPTY_ARRAY))
             if (getDestinationsRequest.destinationId.isNullOrBlank()) {
@@ -112,9 +111,6 @@ class TransportGetDestinationsAction @Inject constructor(
                     actionListener.onFailure(t)
                 }
             })
-        } finally {
-            ctx.close()
         }
     }
-
 }
