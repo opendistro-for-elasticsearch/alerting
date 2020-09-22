@@ -40,8 +40,7 @@ class TransportGetAlertsAction @Inject constructor(
         getDestinationsRequest: GetAlertsRequest,
         actionListener: ActionListener<GetAlertsResponse>
     ) {
-        val ctx = client.threadPool().threadContext.stashContext()
-        try {
+        client.threadPool().threadContext.stashContext().use {
             val searchRequest = SearchRequest()
                     .indices(AlertIndices.ALL_INDEX_PATTERN)
                     .source(SearchSourceBuilder().version(true).seqNoAndPrimaryTerm(true)
@@ -64,8 +63,6 @@ class TransportGetAlertsAction @Inject constructor(
                     actionListener.onFailure(t)
                 }
             })
-        } finally {
-            ctx.close()
         }
     }
 }
