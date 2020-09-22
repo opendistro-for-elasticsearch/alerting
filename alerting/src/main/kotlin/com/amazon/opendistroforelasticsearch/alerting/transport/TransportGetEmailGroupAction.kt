@@ -62,6 +62,7 @@ class TransportGetEmailGroupAction @Inject constructor(
             override fun onResponse(response: GetResponse) {
                 if (!response.isExists) {
                     actionListener.onFailure(ElasticsearchStatusException("Email Group not found.", RestStatus.NOT_FOUND))
+                    return
                 }
 
                 var emailGroup: EmailGroup? = null

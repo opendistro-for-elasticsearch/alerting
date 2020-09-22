@@ -62,6 +62,7 @@ class TransportGetEmailAccountAction @Inject constructor(
             override fun onResponse(response: GetResponse) {
                 if (!response.isExists) {
                     actionListener.onFailure(ElasticsearchStatusException("Email Account not found.", RestStatus.NOT_FOUND))
+                    return
                 }
 
                 var emailAccount: EmailAccount? = null

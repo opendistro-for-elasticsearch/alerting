@@ -46,7 +46,9 @@ class GetEmailGroupRequest : ActionRequest {
         sin.readString(), // emailGroupID
         sin.readLong(), // version
         sin.readEnum(RestRequest.Method::class.java), // method
-        FetchSourceContext(sin) // srcContext
+        if (sin.readBoolean()) {
+            FetchSourceContext(sin) // srcContext
+        } else null
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -58,6 +60,11 @@ class GetEmailGroupRequest : ActionRequest {
         out.writeString(emailGroupID)
         out.writeLong(version)
         out.writeEnum(method)
-        srcContext?.writeTo(out)
+        if (srcContext != null) {
+            out.writeBoolean(true)
+            srcContext.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
     }
 }

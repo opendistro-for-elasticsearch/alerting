@@ -216,7 +216,11 @@ class TransportIndexEmailAccountAction @Inject constructor(
 
             client.index(indexRequest, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {
-                    checkShardsFailure(response)
+                    val failureReasons = checkShardsFailure(response)
+                    if (failureReasons != null) {
+                        actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                        return
+                    }
                     actionListener.onResponse(
                         IndexEmailAccountResponse(response.id, response.version, response.seqNo, response.primaryTerm,
                             RestStatus.CREATED, request.emailAccount)
@@ -247,19 +251,23 @@ class TransportIndexEmailAccountAction @Inject constructor(
                 actionListener.onFailure(
                     ElasticsearchStatusException("EmailAccount with ${request.emailAccountID} was not found", RestStatus.NOT_FOUND)
                 )
+                return
             }
 
             indexEmailAccount(update = true)
         }
 
-        private fun checkShardsFailure(response: IndexResponse) {
+        private fun checkShardsFailure(response: IndexResponse): String? {
             val failureReasons = StringBuilder()
             if (response.shardInfo.failed > 0) {
                 response.shardInfo.failures.forEach {
                     entry -> failureReasons.append(entry.reason())
                 }
-                actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+
+                return failureReasons.toString()
             }
+
+            return null
         }
     }
 }
