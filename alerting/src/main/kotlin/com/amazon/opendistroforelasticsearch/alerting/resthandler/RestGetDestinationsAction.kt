@@ -14,7 +14,7 @@ import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.apache.logging.log4j.LogManager
 
 /**
- * This class consists of the REST handler to retrieve a monitor .
+ * This class consists of the REST handler to retrieve destinations .
  */
 class RestGetDestinationsAction : BaseRestHandler() {
 
@@ -26,7 +26,7 @@ class RestGetDestinationsAction : BaseRestHandler() {
 
     override fun routes(): List<RestHandler.Route> {
         return listOf(
-                // Get a specific monitor
+                // Get a specific destination
                 RestHandler.Route(RestRequest.Method.GET, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}"),
                 RestHandler.Route(RestRequest.Method.GET, "${AlertingPlugin.DESTINATION_BASE_URI}/all")
         )
@@ -42,8 +42,6 @@ class RestGetDestinationsAction : BaseRestHandler() {
 
         var sortString = request.param("sortString", "name")
         var sortOrder = request.param("sortOrder", "asc")
-        log.info(sortString)
-        log.info(sortOrder)
         val getDestinationsRequest = GetDestinationsRequest(
                 destinationId,
                 RestActions.parseVersion(request),

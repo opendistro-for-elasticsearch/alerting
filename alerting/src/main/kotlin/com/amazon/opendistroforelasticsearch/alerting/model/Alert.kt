@@ -121,9 +121,9 @@ data class Alert(
 
     companion object {
 
-        const val ALERT_ID_FIELD = "id"
+        const val ALERT_ID_FIELD = "alert_id"
         const val SCHEMA_VERSION_FIELD = "schema_version"
-        const val ALERT_VERSION_FIELD = "version"
+        const val ALERT_VERSION_FIELD = "alert_version"
         const val MONITOR_ID_FIELD = "monitor_id"
         const val MONITOR_VERSION_FIELD = "monitor_version"
         const val MONITOR_NAME_FIELD = "monitor_name"
@@ -193,6 +193,9 @@ data class Alert(
                             actionExecutionResults.add(ActionExecutionResult.parse(xcp))
                         }
                     }
+//                    else -> {
+//                        xcp.skipChildren()
+//                    }
                 }
             }
 
@@ -214,6 +217,8 @@ data class Alert(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
+                .field(ALERT_ID_FIELD, id)
+                .field(ALERT_VERSION_FIELD, version)
                 .field(MONITOR_ID_FIELD, monitorId)
                 .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(MONITOR_VERSION_FIELD, monitorVersion)
