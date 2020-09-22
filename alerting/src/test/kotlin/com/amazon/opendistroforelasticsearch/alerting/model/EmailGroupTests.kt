@@ -30,4 +30,26 @@ class EmailGroupTests : ESTestCase() {
         assertEquals("Email group emails count was changed", emailGroup.emails.size, 1)
         assertEquals("Email group email entry was changed", emailGroup.emails[0].email, "test@email.com")
     }
+
+    fun `test email group with invalid name fails`() {
+        try {
+            EmailGroup(
+                name = "invalid name",
+                emails = listOf(EmailEntry("test@email.com"))
+            )
+            fail("Creating an email group with an invalid name did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
+    fun `test email group with invalid email fails`() {
+        try {
+            EmailGroup(
+                name = "test",
+                emails = listOf(EmailEntry("invalid.com"))
+            )
+            fail("Creating an email group with an invalid email did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
 }

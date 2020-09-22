@@ -63,6 +63,26 @@ class DestinationTests : ESTestCase() {
         }
     }
 
+    fun `test email recipient with valid email`() {
+        Recipient(
+            Recipient.RecipientType.EMAIL,
+            null,
+            "test@email.com"
+        )
+    }
+
+    fun `test email recipient with invalid email fails`() {
+        try {
+            Recipient(
+                Recipient.RecipientType.EMAIL,
+                null,
+                "invalid@email"
+            )
+            fail("Creating an email recipient with an invalid email did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
     fun `test custom webhook destination with url and no host`() {
         val customWebhook = CustomWebhook("http://abc.com", null, null, -1, null, emptyMap(), emptyMap(), null, null)
         assertEquals("Url is manipulated", customWebhook.url, "http://abc.com")

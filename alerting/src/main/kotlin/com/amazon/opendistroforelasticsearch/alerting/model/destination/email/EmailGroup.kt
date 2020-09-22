@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.destination.email
 
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
+import com.amazon.opendistroforelasticsearch.alerting.util.ModelUtils
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -37,6 +38,13 @@ data class EmailGroup(
     val name: String,
     val emails: List<EmailEntry>
 ) : Writeable, ToXContent {
+
+    init {
+        val validNamePattern = Regex("[A-Z0-9_-]+", RegexOption.IGNORE_CASE)
+        require(validNamePattern.matches(name)) {
+            "Invalid email group name. Valid characters are upper and lowercase a-z, 0-9, _ (underscore) and - (hyphen)."
+        }
+    }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -139,6 +147,7 @@ data class EmailEntry(val email: String) : Writeable, ToXContent {
 
     init {
         require(!Strings.isEmpty(email)) { "Email entry must have a non-empty email" }
+        require(ModelUtils.isValidEmail(email)) { "Invalid email" }
     }
 
     @Throws(IOException::class)

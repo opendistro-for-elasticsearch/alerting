@@ -25,7 +25,7 @@ class IndexEmailAccountResponseTests : ESTestCase() {
 
     fun `test index email account response with email account`() {
 
-        val testEmailAccount = randomEmailAccount(name = "test-email-account")
+        val testEmailAccount = randomEmailAccount(name = "test_email_account")
         val res = IndexEmailAccountResponse("1234", 1L, 1L, 2L, RestStatus.OK, testEmailAccount)
         assertNotNull(res)
 
@@ -38,6 +38,6 @@ class IndexEmailAccountResponseTests : ESTestCase() {
         assertEquals(1L, newRes.seqNo)
         assertEquals(RestStatus.OK, newRes.status)
         assertNotNull(newRes.emailAccount)
-        assertEquals("test-email-account", newRes.emailAccount.name)
+        assertEquals("test_email_account", newRes.emailAccount.name)
     }
 }

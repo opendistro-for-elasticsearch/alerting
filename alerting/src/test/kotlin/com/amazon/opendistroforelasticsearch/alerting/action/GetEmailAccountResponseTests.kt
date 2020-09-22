@@ -40,7 +40,7 @@ class GetEmailAccountResponseTests : ESTestCase() {
 
     fun `test get email account with email account`() {
 
-        val emailAccount = randomEmailAccount(name = "test-email-account")
+        val emailAccount = randomEmailAccount(name = "test_email_account")
         val res = GetEmailAccountResponse("1234", 1L, 2L, 0L, RestStatus.OK, emailAccount)
         assertNotNull(res)
 
@@ -52,6 +52,6 @@ class GetEmailAccountResponseTests : ESTestCase() {
         assertEquals(1L, newRes.version)
         assertEquals(RestStatus.OK, newRes.status)
         assertNotNull(newRes.emailAccount)
-        assertEquals("test-email-account", newRes.emailAccount?.name)
+        assertEquals("test_email_account", newRes.emailAccount?.name)
     }
 }

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model.destination.email
 
+import com.amazon.opendistroforelasticsearch.alerting.util.ModelUtils
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -114,7 +115,10 @@ data class Recipient(
     init {
         when (type) {
             RecipientType.EMAIL_GROUP -> requireNotNull(emailGroupID) { "Email group ID is null" }
-            RecipientType.EMAIL -> requireNotNull(email) { "Email is null" }
+            RecipientType.EMAIL -> {
+                requireNotNull(email) { "Email is null" }
+                require(ModelUtils.isValidEmail(email)) { "Invalid email" }
+            }
         }
     }
 
