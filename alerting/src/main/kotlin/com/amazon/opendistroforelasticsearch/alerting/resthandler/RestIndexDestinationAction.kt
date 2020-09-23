@@ -101,7 +101,7 @@ class RestIndexDestinationAction(
 
                 val restResponse = BytesRestResponse(returnStatus, response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
                 if (returnStatus == RestStatus.CREATED) {
-                    val location = AlertingPlugin.DESTINATION_BASE_URI + response.id
+                    val location = "${AlertingPlugin.DESTINATION_BASE_URI}/${response.id}"
                     restResponse.addHeader("Location", location)
                 }
                 return restResponse

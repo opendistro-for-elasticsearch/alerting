@@ -27,11 +27,13 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.junit.Assert
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -132,6 +134,21 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
         verifyAlert(alerts.single(), monitor, ERROR)
+    }
+
+    fun `test execute monitor wrong monitorid`() {
+        // use a non-existent monitoid to trigger a 404.
+        val input = SearchInput(indices = listOf("foo"), query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
+        val monitor = createMonitor(randomMonitor(inputs = listOf(input),
+                triggers = listOf(randomTrigger(condition = NEVER_RUN))))
+
+        var exception: ResponseException? = null
+        try {
+            executeMonitor(monitor.id + "bad")
+        } catch (ex: ResponseException) {
+            exception = ex
+        }
+        Assert.assertEquals(404, exception?.response?.statusLine?.statusCode)
     }
 
     fun `test acknowledged alert does not suppress subsequent errors`() {

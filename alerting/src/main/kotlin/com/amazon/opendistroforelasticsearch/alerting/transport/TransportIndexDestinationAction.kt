@@ -97,7 +97,11 @@ class TransportIndexDestinationAction @Inject constructor(
 
                 client.index(indexRequest, object : ActionListener<IndexResponse> {
                     override fun onResponse(response: IndexResponse) {
-                        checkShardsFailure(response)
+                        val failureReasons = checkShardsFailure(response)
+                        if (failureReasons != null) {
+                            actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                            return
+                        }
                         actionListener.onResponse(IndexDestinationResponse(response.id, response.version, response.seqNo,
                                 response.primaryTerm, RestStatus.CREATED, destination))
                     }
@@ -155,6 +159,7 @@ class TransportIndexDestinationAction @Inject constructor(
             if (!response.isExists) {
                 actionListener.onFailure(
                         ElasticsearchStatusException("Destination with ${request.destinationId} is not found", RestStatus.NOT_FOUND))
+                return
             }
 
             val destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
@@ -168,7 +173,11 @@ class TransportIndexDestinationAction @Inject constructor(
 
             client.index(indexRequest, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {
-                    checkShardsFailure(response)
+                    val failureReasons = checkShardsFailure(response)
+                    if (failureReasons != null) {
+                        actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                        return
+                    }
                     actionListener.onResponse(IndexDestinationResponse(response.id, response.version, response.seqNo,
                             response.primaryTerm, RestStatus.CREATED, destination))
                 }
@@ -178,14 +187,15 @@ class TransportIndexDestinationAction @Inject constructor(
             })
         }
 
-        private fun checkShardsFailure(response: IndexResponse) {
+        private fun checkShardsFailure(response: IndexResponse): String? {
             var failureReasons = StringBuilder()
             if (response.shardInfo.failed > 0) {
                 response.shardInfo.failures.forEach {
                     entry -> failureReasons.append(entry.reason())
                 }
-                actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                return failureReasons.toString()
             }
+            return null
         }
     }
 }

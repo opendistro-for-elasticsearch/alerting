@@ -58,6 +58,7 @@ class TransportGetMonitorAction @Inject constructor(
             override fun onResponse(response: GetResponse) {
                 if (!response.isExists) {
                     actionListener.onFailure(ElasticsearchStatusException("Monitor not found.", RestStatus.NOT_FOUND))
+                    return
                 }
 
                 var monitor: Monitor? = null
