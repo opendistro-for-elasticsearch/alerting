@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin.Companion.EMAIL_ACCOUNT_BASE_URI
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin.Companion.EMAIL_GROUP_BASE_URI
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
@@ -23,6 +25,8 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
@@ -109,6 +113,120 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return destination.copy(id = destinationJson["_id"] as String, version = (destinationJson["_version"] as Int).toLong())
     }
 
+    protected fun getEmailAccount(
+        emailAccountID: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): EmailAccount {
+        val response = client().makeRequest("GET", "$EMAIL_ACCOUNT_BASE_URI/$emailAccountID", null, header)
+        assertEquals("Unable to get email account $emailAccountID", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+
+        lateinit var id: String
+        var version: Long = 0
+        lateinit var emailAccount: EmailAccount
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                "_id" -> id = parser.text()
+                "_version" -> version = parser.longValue()
+                "email_account" -> emailAccount = EmailAccount.parse(parser)
+            }
+        }
+
+        return emailAccount.copy(id = id, version = version)
+    }
+
+    protected fun createEmailAccount(emailAccount: EmailAccount = getTestEmailAccount(), refresh: Boolean = true): EmailAccount {
+        val response = client().makeRequest(
+                "POST",
+                "$EMAIL_ACCOUNT_BASE_URI?refresh=$refresh",
+                emptyMap(),
+                emailAccount.toHttpEntity())
+        assertEquals("Unable to create a new email account", RestStatus.CREATED, response.restStatus())
+        val emailAccountJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailAccount.copy(id = emailAccountJson["_id"] as String)
+    }
+
+    protected fun createRandomEmailAccount(refresh: Boolean = true): EmailAccount {
+        val emailAccount = randomEmailAccount()
+        val emailAccountID = createEmailAccount(emailAccount, refresh).id
+        return getEmailAccount(emailAccountID = emailAccountID)
+    }
+
+    protected fun updateEmailAccount(emailAccount: EmailAccount, refresh: Boolean = true): EmailAccount {
+        val response = client().makeRequest(
+                "PUT",
+                "$EMAIL_ACCOUNT_BASE_URI/${emailAccount.id}?refresh=$refresh",
+                emptyMap(),
+                emailAccount.toHttpEntity())
+        assertEquals("Unable to update email account", RestStatus.OK, response.restStatus())
+        val emailAccountJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailAccount.copy(id = emailAccountJson["_id"] as String)
+    }
+
+    protected fun getEmailGroup(
+        emailGroupID: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): EmailGroup {
+        val response = client().makeRequest("GET", "$EMAIL_GROUP_BASE_URI/$emailGroupID", null, header)
+        assertEquals("Unable to get email group $emailGroupID", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+
+        lateinit var id: String
+        var version: Long = 0
+        lateinit var emailGroup: EmailGroup
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                "_id" -> id = parser.text()
+                "_version" -> version = parser.longValue()
+                "email_group" -> emailGroup = EmailGroup.parse(parser)
+            }
+        }
+
+        return emailGroup.copy(id = id, version = version)
+    }
+
+    protected fun createEmailGroup(emailGroup: EmailGroup = getTestEmailGroup(), refresh: Boolean = true): EmailGroup {
+        val response = client().makeRequest(
+                "POST",
+                "$EMAIL_GROUP_BASE_URI?refresh=$refresh",
+                emptyMap(),
+                emailGroup.toHttpEntity())
+        assertEquals("Unable to create a new email group", RestStatus.CREATED, response.restStatus())
+        val emailGroupJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailGroup.copy(id = emailGroupJson["_id"] as String)
+    }
+
+    protected fun createRandomEmailGroup(refresh: Boolean = true): EmailGroup {
+        val emailGroup = randomEmailGroup()
+        val emailGroupID = createEmailGroup(emailGroup, refresh).id
+        return getEmailGroup(emailGroupID = emailGroupID)
+    }
+
+    protected fun updateEmailGroup(emailGroup: EmailGroup, refresh: Boolean = true): EmailGroup {
+        val response = client().makeRequest(
+                "PUT",
+                "$EMAIL_GROUP_BASE_URI/${emailGroup.id}?refresh=$refresh",
+                emptyMap(),
+                emailGroup.toHttpEntity())
+        assertEquals("Unable to update email group", RestStatus.OK, response.restStatus())
+        val emailGroupJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailGroup.copy(id = emailGroupJson["_id"] as String)
+    }
+
     private fun getTestDestination(): Destination {
         return Destination(
                 type = DestinationType.TEST_ACTION,
@@ -116,7 +234,27 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
+    }
+
+    private fun getTestEmailAccount(): EmailAccount {
+        return EmailAccount(
+                name = "test",
+                email = "test@email.com",
+                host = "smtp.com",
+                port = 25,
+                method = EmailAccount.MethodType.NONE,
+                username = null,
+                password = null
+        )
+    }
+
+    private fun getTestEmailGroup(): EmailGroup {
+        return EmailGroup(
+                name = "test",
+                emails = listOf()
+        )
     }
 
     protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {
@@ -288,6 +426,24 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
 
     private fun Destination.toJsonString(): String {
         val builder = XContentFactory.jsonBuilder()
+        return shuffleXContent(toXContent(builder)).string()
+    }
+
+    protected fun EmailAccount.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), APPLICATION_JSON)
+    }
+
+    private fun EmailAccount.toJsonString(): String {
+        val builder = jsonBuilder()
+        return shuffleXContent(toXContent(builder)).string()
+    }
+
+    protected fun EmailGroup.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), APPLICATION_JSON)
+    }
+
+    private fun EmailGroup.toJsonString(): String {
+        val builder = jsonBuilder()
         return shuffleXContent(toXContent(builder)).string()
     }
 

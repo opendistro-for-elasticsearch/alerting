@@ -21,6 +21,8 @@ import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.rest.RestStatus
@@ -40,7 +42,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = chime,
                 slack = null,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.CHIME)
@@ -70,7 +73,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = slack,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.SLACK)
@@ -100,7 +104,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
-                customWebhook = customWebhook)
+                customWebhook = customWebhook,
+                email = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.CUSTOM_WEBHOOK)
@@ -116,7 +121,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
-                customWebhook = customWebhook)
+                customWebhook = customWebhook,
+                email = null)
         val createdDestination = createDestination(destination = destination)
         assertEquals("Incorrect destination name", createdDestination.name, "test")
         assertEquals("Incorrect destination type", createdDestination.type, DestinationType.CUSTOM_WEBHOOK)
@@ -149,6 +155,53 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         assertEquals("Incorrect destination url after update", "abc.com", updatedDestination.customWebhook?.host)
     }
 
+    fun `test creating an email destination`() {
+        val recipient = Recipient(type = Recipient.RecipientType.EMAIL, emailGroupID = null, email = "test@email.com")
+        val email = Email("", listOf(recipient))
+        val destination = Destination(
+                type = DestinationType.EMAIL,
+                name = "test",
+                lastUpdateTime = Instant.now(),
+                chime = null,
+                slack = null,
+                customWebhook = null,
+                email = email)
+
+        val createdDestination = createDestination(destination = destination)
+        Assert.assertNotNull("Email object should not be null", createdDestination.email)
+        assertEquals("Incorrect destination name", createdDestination.name, "test")
+        assertEquals("Incorrect destination type", createdDestination.type, DestinationType.EMAIL)
+        assertEquals("Incorrect email destination recipient type", createdDestination.email?.recipients?.get(0)?.type,
+                Recipient.RecipientType.EMAIL)
+        assertEquals("Incorrect email destination recipient email", createdDestination.email?.recipients?.get(0)?.email,
+                "test@email.com")
+    }
+
+    fun `test updating an email destination`() {
+        val destination = createDestination()
+        val recipient = Recipient(type = Recipient.RecipientType.EMAIL, emailGroupID = null, email = "test@email.com")
+        val email = Email("", listOf(recipient))
+
+        var updatedDestination = updateDestination(destination.copy(type = DestinationType.EMAIL, name = "updatedName", email = email))
+        Assert.assertNotNull("Email object should not be null", updatedDestination.email)
+        assertEquals("Incorrect destination name after update", updatedDestination.name, "updatedName")
+        assertEquals("Incorrect destination ID after update", updatedDestination.id, destination.id)
+        assertEquals("Incorrect destination type after update", updatedDestination.type, DestinationType.EMAIL)
+        assertEquals("Incorrect email destination recipient type after update", updatedDestination.email?.recipients?.get(0)?.type,
+                Recipient.RecipientType.EMAIL)
+        assertEquals("Incorrect email destination recipient email after update",
+                updatedDestination.email?.recipients?.get(0)?.email, "test@email.com")
+
+        val updatedRecipient = Recipient(type = Recipient.RecipientType.EMAIL_GROUP, emailGroupID = "testID", email = null)
+        val updatedEmail = Email("testEmailAccountID", listOf(updatedRecipient))
+        Assert.assertNotNull("Email object should not be null", updatedDestination.email)
+        updatedDestination = updateDestination(destination.copy(type = DestinationType.EMAIL, name = "updatedName", email = updatedEmail))
+        assertEquals("Incorrect email destination recipient type after update", updatedDestination.email?.recipients?.get(0)?.type,
+                Recipient.RecipientType.EMAIL_GROUP)
+        assertEquals("Incorrect email destination recipient email group ID after update",
+                updatedDestination.email?.recipients?.get(0)?.emailGroupID, "testID")
+    }
+
     @Throws(Exception::class)
     fun `test creating a destination`() {
         val chime = Chime("http://abc.com")
@@ -158,7 +211,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = chime,
                 slack = null,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
 
         val createResponse = client().makeRequest("POST", DESTINATION_BASE_URI, emptyMap(), destination.toHttpEntity())
 
