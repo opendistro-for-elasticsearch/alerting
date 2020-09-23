@@ -211,7 +211,8 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = chime,
                 slack = null,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
 
         val createResponse = client().makeRequest("POST", DESTINATION_BASE_URI, emptyMap(), destination.toHttpEntity())
 
