@@ -21,6 +21,6 @@ import org.elasticsearch.action.delete.DeleteResponse
 class DeleteMonitorAction private constructor() : ActionType<DeleteResponse>(NAME, ::DeleteResponse) {
     companion object {
         val INSTANCE = DeleteMonitorAction()
-        val NAME = "cluster:admin/alerting/monitor/delete"
+        val NAME = "cluster:admin/opendistro/alerting/monitor/delete"
     }
 }
