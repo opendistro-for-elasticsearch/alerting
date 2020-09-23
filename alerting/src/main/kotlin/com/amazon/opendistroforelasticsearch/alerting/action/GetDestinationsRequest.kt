@@ -13,17 +13,20 @@ class GetDestinationsRequest : ActionRequest {
     val version: Long
     val srcContext: FetchSourceContext?
     val table: Table
+    val destinationType: String
 
     constructor(
         destinationId: String?,
         version: Long,
         srcContext: FetchSourceContext?,
-        table: Table
+        table: Table,
+        destinationType: String
     ) : super() {
         this.destinationId = destinationId
         this.version = version
         this.srcContext = srcContext
         this.table = table
+        this.destinationType = destinationType
     }
 
     @Throws(IOException::class)
@@ -31,7 +34,8 @@ class GetDestinationsRequest : ActionRequest {
         sin.readOptionalString(), // monitorId
         sin.readLong(), // version
         FetchSourceContext(sin), // srcContext
-        Table.readFrom(sin)
+        Table.readFrom(sin), // table
+        sin.readString()
     )
 
     override fun validate(): ActionRequestValidationException? {

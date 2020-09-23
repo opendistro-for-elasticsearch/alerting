@@ -10,7 +10,8 @@ data class Table(
     val sortString: String,
     val missing: String?,
     val size: Int,
-    val startIndex: Int
+    val startIndex: Int,
+    val searchString: String?
 ) : Writeable {
 
     @Throws(IOException::class)
@@ -19,7 +20,8 @@ data class Table(
             sin.readString(), // sortString
             sin.readOptionalString(), // missing
             sin.readInt(), // size
-            sin.readInt() // startIndex
+            sin.readInt(), // startIndex
+            sin.readOptionalString()
     )
 
     @Throws(IOException::class)
@@ -29,6 +31,7 @@ data class Table(
         out.writeOptionalString(missing)
         out.writeInt(size)
         out.writeInt(startIndex)
+        out.writeOptionalString(searchString)
     }
 
     companion object {

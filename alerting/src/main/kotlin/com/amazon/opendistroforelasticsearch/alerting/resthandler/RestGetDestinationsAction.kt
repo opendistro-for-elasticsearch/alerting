@@ -41,25 +41,29 @@ class RestGetDestinationsAction : BaseRestHandler() {
             srcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         }
 
-        val sortString = request.param("sortString", "name")
+        val sortString = request.param("sortString", "destination.name.keyword")
         val sortOrder = request.param("sortOrder", "asc")
         val missing: String? = request.param("missing")
         val size = request.paramAsInt("size", 20)
         val startIndex = request.paramAsInt("startIndex", 0)
+        val searchString = request.param("searchString", "")
+        val destinationType = request.param("destinationType", "ALL")
 
         val table = Table(
                 sortOrder,
                 sortString,
                 missing,
                 size,
-                startIndex
+                startIndex,
+                searchString
         )
 
         val getDestinationsRequest = GetDestinationsRequest(
                 destinationId,
                 RestActions.parseVersion(request),
                 srcContext,
-                table
+                table,
+                destinationType
         )
         return RestChannelConsumer {
             channel -> client.execute(GetDestinationsAction.INSTANCE, getDestinationsRequest, RestToXContentListener(channel))

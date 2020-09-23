@@ -12,13 +12,16 @@ import java.io.IOException
 
 class GetDestinationsResponse : ActionResponse, ToXContentObject {
     var status: RestStatus
+    var totalDestinations: Int
     var destinations: List<Destination>
 
     constructor(
         status: RestStatus,
+        totalDestinations: Int,
         destinations: List<Destination>
     ) : super() {
         this.status = status
+        this.totalDestinations = totalDestinations
         this.destinations = destinations
     }
 
@@ -26,8 +29,9 @@ class GetDestinationsResponse : ActionResponse, ToXContentObject {
     constructor(sin: StreamInput) {
         this.status = sin.readEnum(RestStatus::class.java)
         val destinations = mutableListOf<Destination>()
-        var totalDestinations = sin.readInt()
-        for (i in 0 until totalDestinations) {
+        this.totalDestinations = sin.readInt()
+        var currentSize = sin.readInt()
+        for (i in 0 until currentSize) {
             destinations.add(Destination.readFrom(sin))
         }
         this.destinations = destinations
@@ -36,6 +40,7 @@ class GetDestinationsResponse : ActionResponse, ToXContentObject {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeEnum(status)
+        out.writeInt(totalDestinations)
         out.writeInt(destinations.size)
         for (destination in destinations) {
             destination.writeTo(out)
@@ -45,6 +50,7 @@ class GetDestinationsResponse : ActionResponse, ToXContentObject {
     @Throws(IOException::class)
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
+                .field("totalDestinations", totalDestinations)
                 .field("destinations", destinations)
 
         return builder.endObject()

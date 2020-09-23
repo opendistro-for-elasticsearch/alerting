@@ -23,6 +23,7 @@ import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -67,18 +68,26 @@ class TransportGetDestinationsAction @Inject constructor(
                     .fetchSource(FetchSourceContext(true, Strings.EMPTY_ARRAY, Strings.EMPTY_ARRAY))
                     .seqNoAndPrimaryTerm(true)
                     .version(true)
-            if (getDestinationsRequest.destinationId.isNullOrBlank()) {
-                searchSourceBuilder
-                        .query(QueryBuilders.boolQuery()
-                                .must(QueryBuilders.existsQuery("destination"))
-                        )
-            } else {
-                searchSourceBuilder
-                        .query(QueryBuilders.boolQuery()
-                                .filter(QueryBuilders.termQuery("_id", getDestinationsRequest.destinationId))
-                                .must(QueryBuilders.existsQuery("destination"))
-                        )
+            val queryBuilder = QueryBuilders.boolQuery()
+                    .must(QueryBuilders.existsQuery("destination"))
+
+            if (!getDestinationsRequest.destinationId.isNullOrBlank())
+                queryBuilder.filter(QueryBuilders.termQuery("_id", getDestinationsRequest.destinationId))
+
+            if (getDestinationsRequest.destinationType != "ALL")
+                queryBuilder.filter(QueryBuilders.termQuery("destination.type", getDestinationsRequest.destinationType))
+
+            if (!tableProp.searchString.isNullOrBlank()) {
+                queryBuilder
+                        .must(QueryBuilders
+                                .queryStringQuery(tableProp.searchString)
+                                .defaultOperator(Operator.AND)
+                                .field("destination.type")
+                                .field("destination.name"))
             }
+
+            searchSourceBuilder.query(queryBuilder)
+
             val searchRequest = SearchRequest()
                     .source(searchSourceBuilder)
                     .indices(ScheduledJob.SCHEDULED_JOBS_INDEX)
@@ -88,7 +97,8 @@ class TransportGetDestinationsAction @Inject constructor(
                     builder = response.toXContent(builder, ToXContent.EMPTY_PARAMS)
                     val jObject = JsonParser.parseString(builder.string()).asJsonObject
                     val hits = jObject.getAsJsonObject("hits")
-                    val count = min(tableProp.size, hits.getAsJsonObject("total").get("value").asInt - tableProp.startIndex)
+                    val totalDestinationCount = hits.getAsJsonObject("total").get("value").asInt
+                    val count = min(tableProp.size, totalDestinationCount - tableProp.startIndex)
                     val hitArr = hits.getAsJsonArray("hits")
                     var destinations = mutableListOf<Destination>()
                     for (i in 0 until count) {
@@ -107,7 +117,7 @@ class TransportGetDestinationsAction @Inject constructor(
                         destinations.add(d)
                     }
 
-                    actionListener.onResponse(GetDestinationsResponse(RestStatus.OK, destinations))
+                    actionListener.onResponse(GetDestinationsResponse(RestStatus.OK, totalDestinationCount, destinations))
                 }
 
                 override fun onFailure(t: Exception) {
