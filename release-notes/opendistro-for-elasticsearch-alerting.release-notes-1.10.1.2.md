@@ -1,4 +1,4 @@
-## 2020-09-08, Version 1.10.1.1
+## 2020-09-08, Version 1.10.1.2
 
 Compatible with Elasticsearch 7.9.1
 
