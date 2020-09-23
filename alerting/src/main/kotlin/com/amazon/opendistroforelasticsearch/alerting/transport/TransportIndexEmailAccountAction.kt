@@ -147,6 +147,7 @@ class TransportIndexEmailAccountAction @Inject constructor(
                             "Unable to create email group with name=[${request.emailAccount.name}] because name is already in use."
                         )
                     )
+                    return
                 } else {
                     indexEmailAccount()
                 }

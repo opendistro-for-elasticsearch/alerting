@@ -43,13 +43,10 @@ class DestinationContextFactory(
         // Populate DestinationContext based on Destination type
         if (destination.type == DestinationType.EMAIL) {
             val email = destination.email
-            // Email should not be null in this case but checking here to make safe calls to the attributes below
             requireNotNull(email) { "Email in Destination: $destination was null" }
 
-            // Get the EmailAccount information by doc ID
             var emailAccount = AlertingConfigAccessor.getEmailAccountInfo(client, xContentRegistry, email.emailAccountID)
 
-            // Populate the username and password for the EmailAccount if authentication is enabled
             emailAccount = addEmailCredentials(emailAccount)
 
             // Get the email recipients as a unique list of email strings since

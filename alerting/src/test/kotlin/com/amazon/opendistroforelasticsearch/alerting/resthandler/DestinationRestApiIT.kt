@@ -201,7 +201,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         assertEquals("Incorrect email destination recipient email group ID after update",
                 updatedDestination.email?.recipients?.get(0)?.emailGroupID, "testID")
     }
-  
+
     @Throws(Exception::class)
     fun `test creating a destination`() {
         val chime = Chime("http://abc.com")
