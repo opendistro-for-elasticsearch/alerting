@@ -52,6 +52,7 @@ data class Monitor(
     override val schedule: Schedule,
     override val lastUpdateTime: Instant,
     override val enabledTime: Instant?,
+    val user: User?,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val inputs: List<Input>,
     val triggers: List<Trigger>,
@@ -81,9 +82,12 @@ data class Monitor(
         sin.readLong(), // version
         sin.readString(), // name
         sin.readBoolean(), // enabled
-        Schedule.readFrom(sin),
+        Schedule.readFrom(sin), // schedule
         sin.readInstant(), // lastUpdateTime
         sin.readOptionalInstant(), // enabledTime
+        if (sin.readBoolean()) {
+            User.readFrom(sin) // user
+        } else null,
         sin.readInt(), // schemaVersion
         sin.readList(::SearchInput), // inputs
         sin.readList(::Trigger), // triggers
@@ -104,6 +108,7 @@ data class Monitor(
         builder.field(TYPE_FIELD, type)
                 .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(NAME_FIELD, name)
+                .optionalUserField(user)
                 .field(ENABLED_FIELD, enabled)
                 .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
                 .field(SCHEDULE_FIELD, schedule)
@@ -117,8 +122,15 @@ data class Monitor(
 
     override fun fromDocument(id: String, version: Long): Monitor = copy(id = id, version = version)
 
+    private fun XContentBuilder.optionalUserField(user: User?): XContentBuilder {
+        if (user == null) {
+            return nullField(USER_FIELD)
+        }
+        return this.field(USER_FIELD, user)
+    }
+
     @Throws(IOException::class)
-    fun writeTo(out: StreamOutput) {
+    override fun writeTo(out: StreamOutput) {
         out.writeString(id)
         out.writeLong(version)
         out.writeString(name)
@@ -131,6 +143,12 @@ data class Monitor(
         schedule.writeTo(out)
         out.writeInstant(lastUpdateTime)
         out.writeOptionalInstant(enabledTime)
+        if (user != null) {
+            out.writeBoolean(true)
+            user.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
         out.writeInt(schemaVersion)
         out.writeCollection(inputs)
         out.writeCollection(triggers)
@@ -142,6 +160,7 @@ data class Monitor(
         const val TYPE_FIELD = "type"
         const val SCHEMA_VERSION_FIELD = "schema_version"
         const val NAME_FIELD = "name"
+        const val USER_FIELD = "user"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
         const val TRIGGERS_FIELD = "triggers"
@@ -163,6 +182,7 @@ data class Monitor(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
             lateinit var name: String
+            var user: User? = null
             lateinit var schedule: Schedule
             var lastUpdateTime: Instant? = null
             var enabledTime: Instant? = null
@@ -180,6 +200,7 @@ data class Monitor(
                 when (fieldName) {
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     NAME_FIELD -> name = xcp.text()
+                    USER_FIELD -> user = User.parse(xcp)
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
                     INPUTS_FIELD -> {
@@ -215,6 +236,7 @@ data class Monitor(
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     lastUpdateTime ?: Instant.now(),
                     enabledTime,
+                    user,
                     schemaVersion,
                     inputs.toList(),
                     triggers.toList(),

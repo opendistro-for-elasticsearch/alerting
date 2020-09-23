@@ -62,7 +62,7 @@ class GetMonitorRequest : ActionRequest {
         out.writeEnum(method)
         if (srcContext != null) {
             out.writeBoolean(true)
-            srcContext?.writeTo(out)
+            srcContext.writeTo(out)
         } else {
             out.writeBoolean(false)
         }

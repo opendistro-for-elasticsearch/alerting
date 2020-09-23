@@ -26,6 +26,8 @@ import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
+import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.test.ESTestCase
@@ -125,5 +127,30 @@ class XContentTests : ESTestCase() {
             fail("Creating a monitor with duplicate triggers did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
+    }
+
+    fun `test user parsing`() {
+        val user = randomUser()
+        val userString = user.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedUser = User.parse(parser(userString))
+        assertEquals("Round tripping user doesn't work", user, parsedUser)
+    }
+
+    fun `test empty user parsing`() {
+        val user = randomUserEmpty()
+        val userString = user.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+
+        val parsedUser = User.parse(parser(userString))
+        assertEquals("Round tripping user doesn't work", user, parsedUser)
+        assertEquals("", parsedUser.name)
+        assertEquals(0, parsedUser.roles.size)
+    }
+
+    fun `test monitor parsing without user`() {
+        val prevVersionMonitorStr = "{\"type\":\"monitor\",\"schema_version\":0,\"name\":\"bkHIMJSbfj\",\"enabled\":true,\"enabled_time" +
+                "\":1600052622174,\"schedule\":{\"period\":{\"interval\":5,\"unit\":\"MINUTES\"}},\"inputs\":[{\"search\":{\"indices\"" +
+                ":[],\"query\":{\"query\":{\"match_all\":{\"boost\":1.0}}}}}],\"triggers\":[],\"last_update_time\":1600052622174}"
+        val parsedMonitor = Monitor.parse(parser(prevVersionMonitorStr))
+        assertNull(parsedMonitor.user)
     }
 }

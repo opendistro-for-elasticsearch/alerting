@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
@@ -37,6 +38,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         val destination = Destination(
                 type = DestinationType.CHIME,
                 name = "test",
+                user = randomUser(),
                 lastUpdateTime = Instant.now(),
                 chime = chime,
                 slack = null,
@@ -67,6 +69,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         val destination = Destination(
                 type = DestinationType.SLACK,
                 name = "test",
+                user = randomUser(),
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = slack,
@@ -97,6 +100,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         val destination = Destination(
                 type = DestinationType.CUSTOM_WEBHOOK,
                 name = "test",
+                user = randomUser(),
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
@@ -113,6 +117,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         val destination = Destination(
                 type = DestinationType.CUSTOM_WEBHOOK,
                 name = "test",
+                user = randomUser(),
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
@@ -155,6 +160,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         val destination = Destination(
                 type = DestinationType.CHIME,
                 name = "test",
+                user = randomUser(),
                 lastUpdateTime = Instant.now(),
                 chime = chime,
                 slack = null,
