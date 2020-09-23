@@ -20,6 +20,7 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.search.sort.SortBuilders
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
@@ -41,10 +42,24 @@ class TransportGetAlertsAction @Inject constructor(
         actionListener: ActionListener<GetAlertsResponse>
     ) {
         client.threadPool().threadContext.stashContext().use {
+
+            val tableProp = getDestinationsRequest.table
+            val sortBuilder = SortBuilders
+                    .fieldSort(tableProp.sortString)
+                    .order(SortOrder.fromString(tableProp.sortOrder))
+            if (!tableProp.missing.isNullOrBlank()) {
+                sortBuilder.missing(tableProp.missing)
+            }
+
             val searchRequest = SearchRequest()
                     .indices(AlertIndices.ALL_INDEX_PATTERN)
-                    .source(SearchSourceBuilder().version(true).seqNoAndPrimaryTerm(true)
-                            .sort(getDestinationsRequest.sortString, SortOrder.fromString(getDestinationsRequest.sortOrder)))
+                    .source(SearchSourceBuilder()
+                            .version(true)
+                            .seqNoAndPrimaryTerm(true)
+                            .sort(sortBuilder)
+                            .size(tableProp.size)
+                            .from(tableProp.startIndex)
+                    )
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {

@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.alerting.resthandler
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsRequest
+import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import com.amazon.opendistroforelasticsearch.alerting.util.context
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
@@ -40,14 +41,26 @@ class RestGetDestinationsAction : BaseRestHandler() {
             srcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         }
 
-        var sortString = request.param("sortString", "name")
-        var sortOrder = request.param("sortOrder", "asc")
+        val sortString = request.param("sortString", "name")
+        val sortOrder = request.param("sortOrder", "asc")
+        val missing: String? = request.param("missing")
+        val size = request.paramAsInt("size", 20)
+        val startIndex = request.paramAsInt("startIndex", 0)
+
+        val table = Table(
+                sortOrder,
+                sortString,
+                missing,
+                size,
+                startIndex
+        )
+
         val getDestinationsRequest = GetDestinationsRequest(
                 destinationId,
                 RestActions.parseVersion(request),
-                sortOrder,
-                sortString,
-                srcContext)
+                srcContext,
+                table
+        )
         return RestChannelConsumer {
             channel -> client.execute(GetDestinationsAction.INSTANCE, getDestinationsRequest, RestToXContentListener(channel))
         }

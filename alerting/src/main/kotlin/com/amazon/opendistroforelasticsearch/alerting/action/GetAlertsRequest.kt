@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.alerting.action
 
+import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.common.io.stream.StreamInput
@@ -7,21 +8,17 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
 
 class GetAlertsRequest : ActionRequest {
-    val sortOrder: String?
-    val sortString: String?
+    val table: Table
 
     constructor(
-        sortOrder: String,
-        sortString: String
+        table: Table
     ) : super() {
-        this.sortOrder = sortOrder
-        this.sortString = sortString
+        this.table = table
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            sin.readString(), // sortOrder
-            sin.readString() // sortString
+        Table.readFrom(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -30,7 +27,6 @@ class GetAlertsRequest : ActionRequest {
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeString(sortOrder)
-        out.writeString(sortString)
+        table.writeTo(out)
     }
 }

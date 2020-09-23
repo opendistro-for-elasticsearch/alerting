@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.alerting.resthandler
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsRequest
+import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
@@ -31,9 +32,18 @@ class RestGetAlertsAction : BaseRestHandler() {
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val sortString = request.param("sortString", "name")
         val sortOrder = request.param("sortOrder", "asc")
-        val getAlertsRequest = GetAlertsRequest(
+        val missing: String? = request.param("missing")
+        val size = request.paramAsInt("size", 20)
+        val startIndex = request.paramAsInt("startIndex", 0)
+
+        val table = Table(
                 sortOrder,
-                sortString)
+                sortString,
+                missing,
+                size,
+                startIndex
+        )
+        val getAlertsRequest = GetAlertsRequest(table)
         return RestChannelConsumer {
             channel -> client.execute(GetAlertsAction.INSTANCE, getAlertsRequest, RestToXContentListener(channel))
         }
