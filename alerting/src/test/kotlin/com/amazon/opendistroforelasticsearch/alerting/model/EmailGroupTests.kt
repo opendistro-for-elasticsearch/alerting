@@ -31,6 +31,20 @@ class EmailGroupTests : ESTestCase() {
         assertEquals("Email group email entry was changed", emailGroup.emails[0].email, "test@email.com")
     }
 
+    fun `test email group get emails as list of string`() {
+        val emailGroup = EmailGroup(
+            name = "test",
+            emails = listOf(
+                EmailEntry("test@email.com"),
+                EmailEntry("test2@email.com")
+            )
+        )
+
+        assertEquals("List of email strings does not match email entries",
+            listOf("test@email.com", "test2@email.com"), emailGroup.getEmailsAsListOfString()
+        )
+    }
+
     fun `test email group with invalid name fails`() {
         try {
             EmailGroup(

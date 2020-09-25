@@ -21,11 +21,18 @@ import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
+import org.apache.http.entity.ContentType
+import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 
 @TestLogging("level:DEBUG", reason = "Debug for tests.")
+@Suppress("UNCHECKED_CAST")
 class EmailGroupRestApiIT : AlertingRestTestCase() {
 
     fun `test creating an email group`() {
@@ -105,5 +112,58 @@ class EmailGroupRestApiIT : AlertingRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())
         }
+    }
+
+    fun `test querying an email group that exists`() {
+        val emailGroup = createRandomEmailGroup()
+
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", emailGroup.id)).toString()
+        val searchResponse = client().makeRequest(
+            "GET",
+            "$EMAIL_GROUP_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search email group failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberOfDocsFound = hits["total"]?.get("value")
+        assertEquals("Email group not found during search", 1, numberOfDocsFound)
+    }
+
+    fun `test querying an email group that exists with POST`() {
+        val emailGroup = createRandomEmailGroup()
+
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", emailGroup.id)).toString()
+        val searchResponse = client().makeRequest(
+            "POST",
+            "$EMAIL_GROUP_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search email group failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberOfDocsFound = hits["total"]?.get("value")
+        assertEquals("Email group not found during search", 1, numberOfDocsFound)
+    }
+
+    fun `test querying an email group that doesn't exist`() {
+        // Create a random email group to create the ScheduledJob index. Otherwise the test will fail with a 404 index not found error.
+        createRandomEmailGroup()
+        val search = SearchSourceBuilder()
+            .query(QueryBuilders.termQuery(
+                ESTestCase.randomAlphaOfLength(5),
+                ESTestCase.randomAlphaOfLength(5)
+            )).toString()
+
+        val searchResponse = client().makeRequest(
+            "GET",
+            "$EMAIL_GROUP_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search email group failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberOfDocsFound = hits["total"]?.get("value")
+        assertEquals("Email group found during search when no document was present", 0, numberOfDocsFound)
     }
 }
