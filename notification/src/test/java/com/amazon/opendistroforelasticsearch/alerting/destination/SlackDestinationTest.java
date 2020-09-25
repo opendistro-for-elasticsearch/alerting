@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.factory.SlackD
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -40,7 +40,7 @@ public class SlackDestinationTest {
 
         CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
 
-        DestinationHttpResponse expectedSlackResponse = new DestinationHttpResponse.Builder().withResponseContent("{}")
+        DestinationResponse expectedSlackResponse = new DestinationResponse.Builder().withResponseContent("{}")
                 .withStatusCode(RestStatus.OK.getStatus()).build();
         CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
         EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse);
@@ -67,7 +67,7 @@ public class SlackDestinationTest {
         BaseMessage bm = new SlackMessage.Builder("abc").withMessage(message).
                 withUrl("https://hooks.slack.com/services/xxxx/xxxxxx/xxxxxxxxx").build();
 
-        DestinationHttpResponse actualSlackResponse = (DestinationHttpResponse) Notification.publish(bm);
+        DestinationResponse actualSlackResponse = (DestinationResponse) Notification.publish(bm);
 
         assertEquals(expectedSlackResponse.getResponseContent(), actualSlackResponse.getResponseContent());
         assertEquals(expectedSlackResponse.getStatusCode(), actualSlackResponse.getStatusCode());

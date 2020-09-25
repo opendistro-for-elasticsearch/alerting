@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 1
+    "schema_version": 2
   },
   "properties": {
     "monitor": {
@@ -226,6 +226,73 @@
               "type": "text"
             },
             "password": {
+              "type": "text"
+            }
+          }
+        },
+        "email": {
+          "properties": {
+            "email_account_id": {
+              "type": "keyword"
+            },
+            "recipients": {
+              "type": "nested",
+              "properties": {
+                "type": {
+                  "type": "keyword"
+                },
+                "email_group_id": {
+                  "type": "keyword"
+                },
+                "email": {
+                  "type": "text"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "email_account": {
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "host": {
+          "type": "text"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "method": {
+          "type": "text"
+        },
+        "from": {
+          "type": "text"
+        }
+      }
+    },
+    "email_group": {
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "emails": {
+          "type": "nested",
+          "properties": {
+            "email": {
               "type": "text"
             }
           }

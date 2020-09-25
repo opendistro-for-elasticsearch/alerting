@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
@@ -34,6 +33,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.DELETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
+import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
@@ -43,13 +43,14 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
-import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
@@ -64,8 +65,6 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.delete.DeleteRequest
-import org.elasticsearch.action.get.GetRequest
-import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -115,6 +114,9 @@ class MonitorRunner(
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
 
+    @Volatile private var destinationSettings = loadDestinationSettings(settings)
+    @Volatile private var destinationContextFactory = DestinationContextFactory(client, xContentRegistry, destinationSettings)
+
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
@@ -122,6 +124,14 @@ class MonitorRunner(
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
+    }
+
+    /** Update destination settings when the reload API is called so that new keystore values are visible */
+    fun reloadDestinationSettings(settings: Settings) {
+        destinationSettings = loadDestinationSettings(settings)
+
+        // Update destinationContextFactory as well since destinationSettings has been updated
+        destinationContextFactory.updateDestinationSettings(destinationSettings)
     }
 
     override fun doStart() {
@@ -432,8 +442,13 @@ class MonitorRunner(
             }
             if (!dryrun) {
                 withContext(Dispatchers.IO) {
-                    val destination = getDestinationInfo(action.destinationId)
-                    actionOutput[MESSAGE_ID] = destination.publish(actionOutput[SUBJECT], actionOutput[MESSAGE]!!)
+                    val destination = AlertingConfigAccessor.getDestinationInfo(client, xContentRegistry, action.destinationId)
+                    val destinationCtx = destinationContextFactory.getDestinationContext(destination)
+                    actionOutput[MESSAGE_ID] = destination.publish(
+                        actionOutput[SUBJECT],
+                        actionOutput[MESSAGE]!!,
+                        destinationCtx
+                    )
                 }
             }
             ActionRunResult(action.id, action.name, actionOutput, false, currentTime(), null)
@@ -446,26 +461,6 @@ class MonitorRunner(
         return scriptService.compile(template, TemplateScript.CONTEXT)
                 .newInstance(template.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()
-    }
-
-    private suspend fun getDestinationInfo(destinationId: String): Destination {
-        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId).routing(destinationId)
-        val getResponse: GetResponse = client.suspendUntil { client.get(getRequest, it) }
-        if (!getResponse.isExists || getResponse.isSourceEmpty) {
-            throw IllegalStateException("Destination document with id $destinationId not found or source is empty")
-        }
-
-        val jobSource = getResponse.sourceAsBytesRef
-        return withContext(Dispatchers.IO) {
-            val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                jobSource, XContentType.JSON)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val destination = Destination.parse(xcp)
-            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            destination
-        }
     }
 
     private fun List<AlertError>?.update(alertError: AlertError?): List<AlertError> {

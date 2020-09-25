@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 class AlertingSettings {
 
     companion object {
+
         const val MONITOR_MAX_INPUTS = 1
         const val MONITOR_MAX_TRIGGERS = 10
 
@@ -117,6 +118,7 @@ class AlertingSettings {
         val MAX_ACTION_THROTTLE_VALUE = Setting.positiveTimeSetting(
                 "opendistro.alerting.action_throttle_max_value",
                 TimeValue.timeValueHours(24),
-                Setting.Property.NodeScope, Setting.Property.Dynamic)
+                Setting.Property.NodeScope, Setting.Property.Dynamic
+        )
     }
 }

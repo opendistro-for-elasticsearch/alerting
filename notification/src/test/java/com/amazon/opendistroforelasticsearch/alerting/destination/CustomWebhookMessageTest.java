@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.factory.Destin
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -42,7 +42,7 @@ public class CustomWebhookMessageTest {
 
         CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
 
-        DestinationHttpResponse expectedCustomWebhookResponse = new DestinationHttpResponse.Builder().withResponseContent("{}")
+        DestinationResponse expectedCustomWebhookResponse = new DestinationResponse.Builder().withResponseContent("{}")
                 .withStatusCode(RestStatus.OK.getStatus()).build();
         CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
         EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse);
@@ -73,7 +73,7 @@ public class CustomWebhookMessageTest {
                 withPath("incomingwebhooks/383c0e2b-d028-44f4-8d38-696754bc4574").
                 withMessage(message).
                 withQueryParams(queryParams).build();
-        DestinationHttpResponse actualCustomResponse = (DestinationHttpResponse) Notification.publish(bm);
+        DestinationResponse actualCustomResponse = (DestinationResponse) Notification.publish(bm);
 
         assertEquals(expectedCustomWebhookResponse.getResponseContent(), actualCustomResponse.getResponseContent());
         assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
