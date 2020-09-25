@@ -25,6 +25,8 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.response.Desti
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
@@ -48,6 +50,7 @@ data class Destination(
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val type: DestinationType,
     val name: String,
+    val user: User?,
     val lastUpdateTime: Instant,
     val chime: Chime?,
     val slack: Slack?,
@@ -60,6 +63,7 @@ data class Destination(
         if (params.paramAsBoolean("with_type", false)) builder.startObject(DESTINATION)
         builder.field(TYPE_FIELD, type.value)
                 .field(NAME_FIELD, name)
+                .optionalUserField(USER_FIELD, user)
                 .field(SCHEMA_VERSION, schemaVersion)
                 .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
                 .field(type.value, constructResponseForDestinationType(type))
@@ -78,37 +82,24 @@ data class Destination(
         out.writeInt(schemaVersion)
         out.writeEnum(type)
         out.writeString(name)
+        out.writeBoolean(user != null)
+        user?.writeTo(out)
         out.writeInstant(lastUpdateTime)
-        if (chime != null) {
-            out.writeBoolean(true)
-            chime.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
-        if (slack != null) {
-            out.writeBoolean(true)
-            slack.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
-        if (customWebhook != null) {
-            out.writeBoolean(true)
-            customWebhook.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
-        if (email != null) {
-            out.writeBoolean(true)
-            email.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
+        out.writeBoolean(chime != null)
+        chime?.writeTo(out)
+        out.writeBoolean(slack != null)
+        slack?.writeTo(out)
+        out.writeBoolean(customWebhook != null)
+        customWebhook?.writeTo(out)
+        out.writeBoolean(email != null)
+        email?.writeTo(out)
     }
 
     companion object {
         const val DESTINATION = "destination"
         const val TYPE_FIELD = "type"
         const val NAME_FIELD = "name"
+        const val USER_FIELD = "user"
         const val NO_ID = ""
         const val NO_VERSION = 1L
         const val SCHEMA_VERSION = "schema_version"
@@ -128,6 +119,7 @@ data class Destination(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Destination {
             lateinit var name: String
+            var user: User? = null
             lateinit var type: String
             var slack: Slack? = null
             var chime: Chime? = null
@@ -143,6 +135,7 @@ data class Destination(
 
                 when (fieldName) {
                     NAME_FIELD -> name = xcp.text()
+                    USER_FIELD -> user = User.parse(xcp)
                     TYPE_FIELD -> {
                         type = xcp.text()
                         val allowedTypes = DestinationType.values().map { it.value }
@@ -179,6 +172,7 @@ data class Destination(
                     schemaVersion,
                     DestinationType.valueOf(type.toUpperCase(Locale.ROOT)),
                     requireNotNull(name) { "Destination name is null" },
+                    user,
                     lastUpdateTime ?: Instant.now(),
                     chime,
                     slack,
@@ -190,16 +184,19 @@ data class Destination(
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): Destination {
             return Destination(
-                sin.readString(), // id
-                sin.readLong(), // version
-                sin.readInt(), // schemaVersion
-                sin.readEnum(DestinationType::class.java), // type
-                sin.readString(), // name
-                sin.readInstant(), // lastUpdateTime
-                Chime.readFrom(sin), // chime
-                Slack.readFrom(sin), // slack
-                CustomWebhook.readFrom(sin), // customWebhook
-                Email.readFrom(sin) // email
+                id = sin.readString(),
+                version = sin.readLong(),
+                schemaVersion = sin.readInt(),
+                type = sin.readEnum(DestinationType::class.java),
+                name = sin.readString(),
+                user = if (sin.readBoolean()) {
+                    User(sin)
+                } else null,
+                lastUpdateTime = sin.readInstant(),
+                chime = Chime.readFrom(sin),
+                slack = Slack.readFrom(sin),
+                customWebhook = CustomWebhook.readFrom(sin),
+                email = Email.readFrom(sin)
             )
         }
     }
