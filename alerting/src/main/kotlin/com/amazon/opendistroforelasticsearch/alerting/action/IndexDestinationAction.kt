@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class IndexDestinationAction private constructor() : ActionType<IndexDestinationResponse>(NAME, ::IndexDestinationResponse) {
     companion object {
         val INSTANCE = IndexDestinationAction()
-        val NAME = "cluster:admin/alerting/destination/write"
+        val NAME = "cluster:admin/opendistro/alerting/destination/write"
     }
 }

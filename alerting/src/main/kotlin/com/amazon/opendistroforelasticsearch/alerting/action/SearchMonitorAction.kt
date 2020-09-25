@@ -21,6 +21,6 @@ import org.elasticsearch.action.search.SearchResponse
 class SearchMonitorAction private constructor() : ActionType<SearchResponse>(NAME, ::SearchResponse) {
     companion object {
         val INSTANCE = SearchMonitorAction()
-        val NAME = "cluster:admin/alerting/monitor/search"
+        val NAME = "cluster:admin/opendistro/alerting/monitor/search"
     }
 }
