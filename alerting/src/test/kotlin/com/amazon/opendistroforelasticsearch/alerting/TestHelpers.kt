@@ -28,8 +28,9 @@ import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
-import com.amazon.opendistroforelasticsearch.alerting.model.User
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import org.apache.commons.text.RandomStringGenerator
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
@@ -183,7 +184,11 @@ fun Monitor.toJsonString(): String {
 }
 
 fun randomUser(): User {
-    return User("joe", listOf("ops", "backup"), listOf("all_access"), listOf("test_attr=test"))
+    val ranStrGen = RandomStringGenerator.Builder().build()
+    val randomUser = ranStrGen.generate(5)
+    val bckEndRole1 = ranStrGen.generate(10)
+    val bckEndRole2 = ranStrGen.generate(10)
+    return User(randomUser, listOf(bckEndRole1, bckEndRole2), listOf("all_access"), listOf("test_attr=test"))
 }
 
 fun randomUserEmpty(): User {

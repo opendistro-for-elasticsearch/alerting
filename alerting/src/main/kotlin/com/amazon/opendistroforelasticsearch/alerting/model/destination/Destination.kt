@@ -24,7 +24,8 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.response.Desti
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
-import com.amazon.opendistroforelasticsearch.alerting.model.User
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.apache.logging.log4j.LogManager
@@ -59,7 +60,7 @@ data class Destination(
         if (params.paramAsBoolean("with_type", false)) builder.startObject(DESTINATION)
         builder.field(TYPE_FIELD, type.value)
                 .field(NAME_FIELD, name)
-                .optionalUserField(user)
+                .optionalUserField(USER_FIELD, user)
                 .field(SCHEMA_VERSION, schemaVersion)
                 .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
                 .field(type.value, constructResponseForDestinationType(type))
@@ -71,13 +72,6 @@ data class Destination(
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
     }
 
-    private fun XContentBuilder.optionalUserField(user: User?): XContentBuilder {
-        if (user == null) {
-            return nullField(USER_FIELD)
-        }
-        return this.field(USER_FIELD, user)
-    }
-
     @Throws(IOException::class)
     fun writeTo(out: StreamOutput) {
         out.writeString(id)
@@ -85,31 +79,15 @@ data class Destination(
         out.writeInt(schemaVersion)
         out.writeEnum(type)
         out.writeString(name)
-        if (user != null) {
-            out.writeBoolean(true)
-            user.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
+        out.writeBoolean(user != null)
+        user?.writeTo(out)
         out.writeInstant(lastUpdateTime)
-        if (chime != null) {
-            out.writeBoolean(true)
-            chime.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
-        if (slack != null) {
-            out.writeBoolean(true)
-            slack.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
-        if (customWebhook != null) {
-            out.writeBoolean(true)
-            customWebhook.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
+        out.writeBoolean(chime != null)
+        chime?.writeTo(out)
+        out.writeBoolean(slack != null)
+        slack?.writeTo(out)
+        out.writeBoolean(customWebhook != null)
+        customWebhook?.writeTo(out)
     }
 
     companion object {
@@ -194,18 +172,18 @@ data class Destination(
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): Destination {
             return Destination(
-                sin.readString(), // id
-                sin.readLong(), // version
-                sin.readInt(), // schemaVersion
-                sin.readEnum(DestinationType::class.java), // type
-                sin.readString(), // name
-                if (sin.readBoolean()) {
-                    User.readFrom(sin) // user
-                } else null,
-                sin.readInstant(), // lastUpdateTime
-                Chime.readFrom(sin), // chime
-                Slack.readFrom(sin), // slack
-                CustomWebhook.readFrom(sin) // customWebhook
+                    id = sin.readString(),
+                    version = sin.readLong(),
+                    schemaVersion = sin.readInt(),
+                    type = sin.readEnum(DestinationType::class.java),
+                    name = sin.readString(),
+                    user = if (sin.readBoolean()) {
+                        User.readFrom(sin)
+                    } else null,
+                    lastUpdateTime = sin.readInstant(),
+                    chime = Chime.readFrom(sin),
+                    slack = Slack.readFrom(sin),
+                    customWebhook = CustomWebhook.readFrom(sin)
             )
         }
     }

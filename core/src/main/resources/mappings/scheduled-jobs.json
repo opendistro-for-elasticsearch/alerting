@@ -33,7 +33,7 @@
               "type" : "text",
               "fields" : {
                 "keyword" : {
-                  "type" : "text"
+                  "type" : "keyword"
                 }
               }
             },
@@ -41,7 +41,7 @@
               "type" : "text",
               "fields" : {
                 "keyword" : {
-                  "type" : "text"
+                  "type" : "keyword"
                 }
               }
             },
@@ -49,7 +49,7 @@
               "type" : "text",
               "fields" : {
                 "keyword" : {
-                  "type" : "text"
+                  "type" : "keyword"
                 }
               }
             }
@@ -210,7 +210,7 @@
               "type" : "text",
               "fields" : {
                 "keyword" : {
-                  "type" : "text"
+                  "type" : "keyword"
                 }
               }
             },
@@ -218,7 +218,7 @@
               "type" : "text",
               "fields" : {
                 "keyword" : {
-                  "type" : "text"
+                  "type" : "keyword"
                 }
               }
             },
@@ -226,7 +226,7 @@
               "type" : "text",
               "fields" : {
                 "keyword" : {
-                  "type" : "text"
+                  "type" : "keyword"
                 }
               }
             }

@@ -79,6 +79,9 @@ dependencies {
     compile project(":alerting-notification")
 
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+    testImplementation "org.apache.commons:commons-lang3:3.11"
+    testImplementation "org.apache.commons:commons-text:1.9"
+
 }
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code

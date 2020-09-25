@@ -20,8 +20,10 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MONITOR_MAX_INPUTS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MONITOR_MAX_TRIGGERS
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
@@ -78,20 +80,20 @@ data class Monitor(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(), // id
-        sin.readLong(), // version
-        sin.readString(), // name
-        sin.readBoolean(), // enabled
-        Schedule.readFrom(sin), // schedule
-        sin.readInstant(), // lastUpdateTime
-        sin.readOptionalInstant(), // enabledTime
-        if (sin.readBoolean()) {
-            User.readFrom(sin) // user
+        id = sin.readString(),
+        version = sin.readLong(),
+        name = sin.readString(),
+        enabled = sin.readBoolean(),
+        schedule = Schedule.readFrom(sin),
+        lastUpdateTime = sin.readInstant(),
+        enabledTime = sin.readOptionalInstant(),
+        user = if (sin.readBoolean()) {
+            User.readFrom(sin)
         } else null,
-        sin.readInt(), // schemaVersion
-        sin.readList(::SearchInput), // inputs
-        sin.readList(::Trigger), // triggers
-        suppressWarning(sin.readMap()) // uiMetadata
+        schemaVersion = sin.readInt(),
+        inputs = sin.readList(::SearchInput),
+        triggers = sin.readList(::Trigger),
+        uiMetadata = suppressWarning(sin.readMap())
     )
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -108,7 +110,7 @@ data class Monitor(
         builder.field(TYPE_FIELD, type)
                 .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(NAME_FIELD, name)
-                .optionalUserField(user)
+                .optionalUserField(USER_FIELD, user)
                 .field(ENABLED_FIELD, enabled)
                 .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
                 .field(SCHEDULE_FIELD, schedule)
@@ -121,13 +123,6 @@ data class Monitor(
     }
 
     override fun fromDocument(id: String, version: Long): Monitor = copy(id = id, version = version)
-
-    private fun XContentBuilder.optionalUserField(user: User?): XContentBuilder {
-        if (user == null) {
-            return nullField(USER_FIELD)
-        }
-        return this.field(USER_FIELD, user)
-    }
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
@@ -143,12 +138,8 @@ data class Monitor(
         schedule.writeTo(out)
         out.writeInstant(lastUpdateTime)
         out.writeOptionalInstant(enabledTime)
-        if (user != null) {
-            out.writeBoolean(true)
-            user.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
+        out.writeBoolean(user != null)
+        user?.writeTo(out)
         out.writeInt(schemaVersion)
         out.writeCollection(inputs)
         out.writeCollection(triggers)
