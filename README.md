@@ -21,6 +21,7 @@ When trigger conditions are met, you can publish messages to the following desti
 * [Slack](https://slack.com/)
 * Custom webhook
 * [Amazon Chime](https://aws.amazon.com/chime/)
+* Email
 
 Messages can be static strings, or you can use the [Mustache](https://mustache.github.io/mustache.5.html) templates to include contextual information.
 

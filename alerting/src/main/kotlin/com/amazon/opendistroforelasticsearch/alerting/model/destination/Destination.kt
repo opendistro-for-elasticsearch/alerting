@@ -20,12 +20,14 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMe
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.apache.logging.log4j.LogManager
@@ -52,7 +54,8 @@ data class Destination(
     val lastUpdateTime: Instant,
     val chime: Chime?,
     val slack: Slack?,
-    val customWebhook: CustomWebhook?
+    val customWebhook: CustomWebhook?,
+    val email: Email?
 ) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -88,6 +91,8 @@ data class Destination(
         slack?.writeTo(out)
         out.writeBoolean(customWebhook != null)
         customWebhook?.writeTo(out)
+        out.writeBoolean(email != null)
+        email?.writeTo(out)
     }
 
     companion object {
@@ -102,6 +107,8 @@ data class Destination(
         const val CHIME = "chime"
         const val SLACK = "slack"
         const val CUSTOMWEBHOOK = "custom_webhook"
+        const val EMAIL = "email"
+
         // This constant is used for test actions created part of integ tests
         const val TEST_ACTION = "test"
 
@@ -117,6 +124,7 @@ data class Destination(
             var slack: Slack? = null
             var chime: Chime? = null
             var customWebhook: CustomWebhook? = null
+            var email: Email? = null
             var lastUpdateTime: Instant? = null
             var schemaVersion = NO_SCHEMA_VERSION
 
@@ -145,6 +153,9 @@ data class Destination(
                     CUSTOMWEBHOOK -> {
                         customWebhook = CustomWebhook.parse(xcp)
                     }
+                    EMAIL -> {
+                        email = Email.parse(xcp)
+                    }
                     TEST_ACTION -> {
                         // This condition is for integ tests to avoid parsing
                     }
@@ -165,32 +176,36 @@ data class Destination(
                     lastUpdateTime ?: Instant.now(),
                     chime,
                     slack,
-                    customWebhook)
+                    customWebhook,
+                    email)
         }
 
         @JvmStatic
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): Destination {
             return Destination(
-                    id = sin.readString(),
-                    version = sin.readLong(),
-                    schemaVersion = sin.readInt(),
-                    type = sin.readEnum(DestinationType::class.java),
-                    name = sin.readString(),
-                    user = if (sin.readBoolean()) {
-                        User.readFrom(sin)
-                    } else null,
-                    lastUpdateTime = sin.readInstant(),
-                    chime = Chime.readFrom(sin),
-                    slack = Slack.readFrom(sin),
-                    customWebhook = CustomWebhook.readFrom(sin)
+                id = sin.readString(),
+                version = sin.readLong(),
+                schemaVersion = sin.readInt(),
+                type = sin.readEnum(DestinationType::class.java),
+                name = sin.readString(),
+                user = if (sin.readBoolean()) {
+                    User(sin)
+                } else null,
+                lastUpdateTime = sin.readInstant(),
+                chime = Chime.readFrom(sin),
+                slack = Slack.readFrom(sin),
+                customWebhook = CustomWebhook.readFrom(sin),
+                email = Email.readFrom(sin)
             )
         }
     }
 
     @Throws(IOException::class)
-    fun publish(compiledSubject: String?, compiledMessage: String): String {
+    fun publish(compiledSubject: String?, compiledMessage: String, destinationCtx: DestinationContext): String {
         val destinationMessage: BaseMessage
+        val responseContent: String
+        val responseStatusCode: Int
         when (type) {
             DestinationType.CHIME -> {
                 val messageContent = chime?.constructMessageContent(compiledSubject, compiledMessage)
@@ -217,13 +232,30 @@ data class Destination(
                         .withHeaderParams(customWebhook?.headerParams)
                         .withMessage(compiledMessage).build()
             }
+            DestinationType.EMAIL -> {
+                val emailAccount = destinationCtx.emailAccount
+                destinationMessage = EmailMessage.Builder(name)
+                        .withHost(emailAccount?.host)
+                        .withPort(emailAccount?.port)
+                        .withMethod(emailAccount?.method?.value)
+                        .withUserName(emailAccount?.username)
+                        .withPassword(emailAccount?.password)
+                        .withFrom(emailAccount?.email)
+                        .withRecipients(destinationCtx.recipients)
+                        .withSubject(compiledSubject)
+                        .withMessage(compiledMessage).build()
+            }
             DestinationType.TEST_ACTION -> {
                 return "test action"
             }
         }
-        val response = Notification.publish(destinationMessage) as DestinationHttpResponse
-        logger.info("Message published for action name: $name, messageid: ${response.responseContent}, statuscode: ${response.statusCode}")
-        return response.responseContent
+
+        val response = Notification.publish(destinationMessage) as DestinationResponse
+        responseContent = response.responseContent
+        responseStatusCode = response.statusCode
+
+        logger.info("Message published for action name: $name, messageid: $responseContent, statuscode: $responseStatusCode")
+        return responseContent
     }
 
     fun constructResponseForDestinationType(type: DestinationType): Any {
@@ -232,6 +264,7 @@ data class Destination(
             DestinationType.CHIME -> content = chime?.convertToMap()?.get(type.value)
             DestinationType.SLACK -> content = slack?.convertToMap()?.get(type.value)
             DestinationType.CUSTOM_WEBHOOK -> content = customWebhook?.convertToMap()?.get(type.value)
+            DestinationType.EMAIL -> content = email?.convertToMap()?.get(type.value)
             DestinationType.TEST_ACTION -> content = "dummy"
         }
         if (content == null) {

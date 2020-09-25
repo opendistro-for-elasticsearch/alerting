@@ -11,7 +11,8 @@
 ** kotlin-test; version 1.2.60 -- https://github.com/JetBrains/kotlin/tree/1.2.60
 ** kotlin-test-junit; version 1.2.60 -- https://github.com/JetBrains/kotlin/tree/1.2.60
 ** Maven-org-jetbrains_annotations; version 13.0 -- http://www.jetbrains.org/display/IJOS/Home;jsessionid=1881AA3B9F1A3A8D98C0EDD69082DC85
-** PowerMock; version 1.7.4 -- http://www.powermock.org 
+** PowerMock; version 1.7.4 -- http://www.powermock.org
+** JavaMail; version 1.6.2 -- https://javaee.github.io/javamail/
 
 Apache License
 

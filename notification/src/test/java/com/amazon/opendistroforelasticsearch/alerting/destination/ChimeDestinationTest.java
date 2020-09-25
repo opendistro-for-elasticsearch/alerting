@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.factory.Destin
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -38,7 +38,7 @@ public class ChimeDestinationTest {
     public void testChimeMessage() throws Exception {
         CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
 
-        DestinationHttpResponse expectedChimeResponse = new DestinationHttpResponse.Builder().withResponseContent("{}")
+        DestinationResponse expectedChimeResponse = new DestinationResponse.Builder().withResponseContent("{}")
                 .withStatusCode(RestStatus.OK.getStatus()).build();
         CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
         EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse);
@@ -64,7 +64,7 @@ public class ChimeDestinationTest {
                 "@All All Present member callout: @Present\"}";
         BaseMessage bm = new ChimeMessage.Builder("abc").withMessage(message).
                 withUrl("https://abc/com").build();
-        DestinationHttpResponse actualChimeResponse = (DestinationHttpResponse) Notification.publish(bm);
+        DestinationResponse actualChimeResponse = (DestinationResponse) Notification.publish(bm);
 
         assertEquals(expectedChimeResponse.getResponseContent(), actualChimeResponse.getResponseContent());
         assertEquals(expectedChimeResponse.getStatusCode(), actualChimeResponse.getStatusCode());

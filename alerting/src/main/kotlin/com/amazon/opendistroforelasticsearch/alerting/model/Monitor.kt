@@ -88,7 +88,7 @@ data class Monitor(
         lastUpdateTime = sin.readInstant(),
         enabledTime = sin.readOptionalInstant(),
         user = if (sin.readBoolean()) {
-            User.readFrom(sin)
+            User(sin)
         } else null,
         schemaVersion = sin.readInt(),
         inputs = sin.readList(::SearchInput),

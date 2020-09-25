@@ -46,6 +46,7 @@ class IndexDestinationRequestTests : ESTestCase() {
                         Instant.now(),
                         Chime("test.com"),
                         null,
+                        null,
                         null
                 )
         )
@@ -81,6 +82,7 @@ class IndexDestinationRequestTests : ESTestCase() {
                         randomUser(),
                         Instant.now(),
                         Chime("test.com"),
+                        null,
                         null,
                         null
                 )

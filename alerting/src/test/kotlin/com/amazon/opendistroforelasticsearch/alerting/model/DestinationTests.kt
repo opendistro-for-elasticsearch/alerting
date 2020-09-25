@@ -18,9 +18,11 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.parser
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
@@ -55,6 +57,34 @@ class DestinationTests : ESTestCase() {
         }
     }
 
+    fun `test email destination without recipients`() {
+        try {
+            Email("", emptyList())
+            fail("Creating an email destination with empty recipients did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
+    fun `test email recipient with valid email`() {
+        Recipient(
+            Recipient.RecipientType.EMAIL,
+            null,
+            "test@email.com"
+        )
+    }
+
+    fun `test email recipient with invalid email fails`() {
+        try {
+            Recipient(
+                Recipient.RecipientType.EMAIL,
+                null,
+                "invalid@email"
+            )
+            fail("Creating an email recipient with an invalid email did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
     fun `test custom webhook destination with url and no host`() {
         val customWebhook = CustomWebhook("http://abc.com", null, null, -1, null, emptyMap(), emptyMap(), null, null)
         assertEquals("Url is manipulated", customWebhook.url, "http://abc.com")
@@ -84,7 +114,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test chime destination create using stream`() {
         val chimeDest = Destination("1234", 0L, 1, DestinationType.CHIME, "TestChimeDest",
-                randomUser(), Instant.now(), Chime("test.com"), null, null)
+                randomUser(), Instant.now(), Chime("test.com"), null, null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -101,11 +131,12 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.chime)
         assertNull(newDest.slack)
         assertNull(newDest.customWebhook)
+        assertNull(newDest.email)
     }
 
     fun `test slack destination create using stream`() {
         val chimeDest = Destination("2345", 1L, 2, DestinationType.SLACK, "TestSlackDest",
-                randomUser(), Instant.now(), null, Slack("mytest.com"), null)
+                randomUser(), Instant.now(), null, Slack("mytest.com"), null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -122,6 +153,7 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNotNull(newDest.slack)
         assertNull(newDest.customWebhook)
+        assertNull(newDest.email)
     }
 
     fun `test customwebhook destination create using stream`() {
@@ -145,7 +177,8 @@ class DestinationTests : ESTestCase() {
                     mutableMapOf(),
                     "admin",
                     "admin"
-                )
+                ),
+                null
         )
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -162,6 +195,7 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNull(newDest.slack)
         assertNotNull(newDest.customWebhook)
+        assertNull(newDest.email)
     }
 
     fun `test customwebhook destination create using stream with optionals`() {
@@ -185,7 +219,8 @@ class DestinationTests : ESTestCase() {
                         mutableMapOf(),
                         null,
                         null
-                )
+                ),
+                null
         )
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -202,6 +237,50 @@ class DestinationTests : ESTestCase() {
         assertNull(newDest.chime)
         assertNull(newDest.slack)
         assertNotNull(newDest.customWebhook)
+        assertNull(newDest.email)
+    }
+
+    fun `test email destination create using stream`() {
+        val recipients = listOf(
+                Recipient(
+                    Recipient.RecipientType.EMAIL,
+                    null,
+                    "test@email.com"
+                )
+        )
+        val mailDest = Destination(
+                "2345",
+                1L,
+                2,
+                DestinationType.EMAIL,
+                "TestEmailDest",
+                randomUser(),
+                Instant.now(),
+                null,
+                null,
+                null,
+                Email("3456", recipients)
+        )
+
+        val out = BytesStreamOutput()
+        mailDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("2345", newDest.id)
+        assertEquals(1, newDest.version)
+        assertEquals(2, newDest.schemaVersion)
+        assertEquals(DestinationType.EMAIL, newDest.type)
+        assertEquals("TestEmailDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNull(newDest.chime)
+        assertNull(newDest.slack)
+        assertNull(newDest.customWebhook)
+        assertNotNull(newDest.email)
+
+        assertEquals("3456", newDest.email!!.emailAccountID)
+        assertEquals(recipients, newDest.email!!.recipients)
     }
 
     fun `test chime destination without user`() {

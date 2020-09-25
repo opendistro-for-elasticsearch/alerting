@@ -20,10 +20,14 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.parser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
+import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
@@ -153,5 +157,21 @@ class XContentTests : ESTestCase() {
                 ":[],\"query\":{\"query\":{\"match_all\":{\"boost\":1.0}}}}}],\"triggers\":[],\"last_update_time\":1600052622174}"
         val parsedMonitor = Monitor.parse(parser(prevVersionMonitorStr))
         assertNull(parsedMonitor.user)
+    }
+
+    fun `test email account parsing`() {
+        val emailAccount = randomEmailAccount()
+
+        val emailAccountString = emailAccount.toJsonString()
+        val parsedEmailAccount = EmailAccount.parse(parser(emailAccountString))
+        assertEquals("Round tripping EmailAccount doesn't work", emailAccount, parsedEmailAccount)
+    }
+
+    fun `test email group parsing`() {
+        val emailGroup = randomEmailGroup()
+
+        val emailGroupString = emailGroup.toJsonString()
+        val parsedEmailGroup = EmailGroup.parse(parser(emailGroupString))
+        assertEquals("Round tripping EmailGroup doesn't work", emailGroup, parsedEmailGroup)
     }
 }
