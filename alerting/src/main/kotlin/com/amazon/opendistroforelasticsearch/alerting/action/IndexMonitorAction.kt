@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class IndexMonitorAction private constructor() : ActionType<IndexMonitorResponse>(NAME, ::IndexMonitorResponse) {
     companion object {
         val INSTANCE = IndexMonitorAction()
-        val NAME = "cluster:admin/alerting/monitor/write"
+        val NAME = "cluster:admin/opendistro/alerting/monitor/write"
     }
 }

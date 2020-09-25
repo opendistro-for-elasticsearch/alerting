@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class ExecuteMonitorAction private constructor() : ActionType<ExecuteMonitorResponse>(NAME, ::ExecuteMonitorResponse) {
     companion object {
         val INSTANCE = ExecuteMonitorAction()
-        val NAME = "cluster:admin/alerting/monitor/execute"
+        val NAME = "cluster:admin/opendistro/alerting/monitor/execute"
     }
 }
