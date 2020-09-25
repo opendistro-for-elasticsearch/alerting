@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
@@ -61,6 +62,7 @@ import java.time.temporal.ChronoUnit
 
 fun randomMonitor(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
+    user: User = randomUser(),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
@@ -71,7 +73,23 @@ fun randomMonitor(
 ): Monitor {
     return Monitor(name = name, enabled = enabled, inputs = inputs, schedule = schedule, triggers = triggers,
             enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
-            uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+            user = user, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+}
+
+// Monitor of older versions without security.
+fun randomMonitorWithoutUser(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
+    schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
+    enabled: Boolean = ESTestCase.randomBoolean(),
+    triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
+    enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
+    lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+    withMetadata: Boolean = false
+): Monitor {
+    return Monitor(name = name, enabled = enabled, inputs = inputs, schedule = schedule, triggers = triggers,
+            enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
+            user = null, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
 fun randomTrigger(
@@ -199,6 +217,15 @@ fun randomActionRunResult(): ActionRunResult {
 fun Monitor.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
+}
+
+fun randomUser(): User {
+    return User(ESRestTestCase.randomAlphaOfLength(10), listOf(ESRestTestCase.randomAlphaOfLength(10),
+            ESRestTestCase.randomAlphaOfLength(10)), listOf("all_access"), listOf("test_attr=test"))
+}
+
+fun randomUserEmpty(): User {
+    return User("", listOf(), listOf(), listOf())
 }
 
 fun EmailAccount.toJsonString(): String {

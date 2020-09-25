@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWe
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
+import com.amazon.opendistroforelasticsearch.alerting.parser
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.common.io.stream.BytesStreamOutput
@@ -112,7 +114,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test chime destination create using stream`() {
         val chimeDest = Destination("1234", 0L, 1, DestinationType.CHIME, "TestChimeDest",
-                Instant.now(), Chime("test.com"), null, null, null)
+                randomUser(), Instant.now(), Chime("test.com"), null, null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -134,7 +136,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test slack destination create using stream`() {
         val chimeDest = Destination("2345", 1L, 2, DestinationType.SLACK, "TestSlackDest",
-                Instant.now(), null, Slack("mytest.com"), null, null)
+                randomUser(), Instant.now(), null, Slack("mytest.com"), null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -161,6 +163,7 @@ class DestinationTests : ESTestCase() {
                 2,
                 DestinationType.SLACK,
                 "TestSlackDest",
+                randomUser(),
                 Instant.now(),
                 null,
                 null,
@@ -202,6 +205,7 @@ class DestinationTests : ESTestCase() {
                 2,
                 DestinationType.SLACK,
                 "TestSlackDest",
+                randomUser(),
                 Instant.now(),
                 null,
                 null,
@@ -250,6 +254,7 @@ class DestinationTests : ESTestCase() {
                 2,
                 DestinationType.EMAIL,
                 "TestEmailDest",
+                randomUser(),
                 Instant.now(),
                 null,
                 null,
@@ -276,5 +281,20 @@ class DestinationTests : ESTestCase() {
 
         assertEquals("3456", newDest.email!!.emailAccountID)
         assertEquals(recipients, newDest.email!!.recipients)
+    }
+
+    fun `test chime destination without user`() {
+        val userString = "{\"type\":\"chime\",\"name\":\"TestChimeDest\",\"schema_version\":1," +
+                "\"last_update_time\":1600063313658,\"chime\":{\"url\":\"test.com\"}}"
+        val parsedDest = Destination.parse(parser(userString))
+        assertNull(parsedDest.user)
+    }
+
+    fun `test chime destination with user`() {
+        val userString = "{\"type\":\"chime\",\"name\":\"TestChimeDest\",\"user\":{\"name\":\"joe\",\"backend_roles\"" +
+                ":[\"ops\",\"backup\"],\"roles\":[\"ops_role, backup_role\"],\"custom_attribute_names\":[\"test_attr=test\"]}," +
+                "\"schema_version\":1,\"last_update_time\":1600063313658,\"chime\":{\"url\":\"test.com\"}}"
+        val parsedDest = Destination.parse(parser(userString))
+        assertNotNull(parsedDest.user)
     }
 }

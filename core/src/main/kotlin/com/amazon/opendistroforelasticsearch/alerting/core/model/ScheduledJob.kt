@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.core.model
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.NO_ID
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.NO_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -38,7 +39,7 @@ import java.time.Instant
  * Like all documents in Elasticsearch [ScheduledJob]s also have an [id] and a [version].  Jobs that have not been
  * persisted in the cluster should use the special sentinel values [NO_ID] and [NO_VERSION] for these fields.
  */
-interface ScheduledJob : ToXContentObject {
+interface ScheduledJob : Writeable, ToXContentObject {
 
     fun toXContentWithType(builder: XContentBuilder): XContentBuilder = toXContent(builder, XCONTENT_WITH_TYPE)
 
