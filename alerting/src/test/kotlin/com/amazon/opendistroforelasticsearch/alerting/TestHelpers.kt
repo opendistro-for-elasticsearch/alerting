@@ -30,7 +30,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
-import org.apache.commons.text.RandomStringGenerator
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
@@ -221,11 +220,8 @@ fun Monitor.toJsonString(): String {
 }
 
 fun randomUser(): User {
-    val ranStrGen = RandomStringGenerator.Builder().build()
-    val randomUser = ranStrGen.generate(5)
-    val bckEndRole1 = ranStrGen.generate(10)
-    val bckEndRole2 = ranStrGen.generate(10)
-    return User(randomUser, listOf(bckEndRole1, bckEndRole2), listOf("all_access"), listOf("test_attr=test"))
+    return User(ESRestTestCase.randomAlphaOfLength(10), listOf(ESRestTestCase.randomAlphaOfLength(10),
+            ESRestTestCase.randomAlphaOfLength(10)), listOf("all_access"), listOf("test_attr=test"))
 }
 
 fun randomUserEmpty(): User {
