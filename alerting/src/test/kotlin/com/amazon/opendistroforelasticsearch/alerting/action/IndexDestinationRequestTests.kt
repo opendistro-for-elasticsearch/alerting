@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.action
 
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
@@ -41,6 +42,7 @@ class IndexDestinationRequestTests : ESTestCase() {
                         1,
                         DestinationType.CHIME,
                         "TestChimeDest",
+                        randomUser(),
                         Instant.now(),
                         Chime("test.com"),
                         null,
@@ -77,6 +79,7 @@ class IndexDestinationRequestTests : ESTestCase() {
                         1,
                         DestinationType.CHIME,
                         "TestChimeDest",
+                        randomUser(),
                         Instant.now(),
                         Chime("test.com"),
                         null,

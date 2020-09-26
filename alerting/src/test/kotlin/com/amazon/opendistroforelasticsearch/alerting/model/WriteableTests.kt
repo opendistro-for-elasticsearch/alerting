@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
@@ -30,6 +31,8 @@ import com.amazon.opendistroforelasticsearch.alerting.randomMonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
+import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -143,6 +146,24 @@ class WriteableTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newInput = SearchInput(sin)
         assertEquals("Round tripping MonitorRunResult doesn't work", input, newInput)
+    }
+
+    fun `test user as stream`() {
+        val user = randomUser()
+        val out = BytesStreamOutput()
+        user.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newUser = User(sin)
+        assertEquals("Round tripping User doesn't work", user, newUser)
+    }
+
+    fun `test empty user as stream`() {
+        val user = randomUserEmpty()
+        val out = BytesStreamOutput()
+        user.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newUser = User(sin)
+        assertEquals("Round tripping User doesn't work", user, newUser)
     }
 
     fun `test emailaccount as stream`() {

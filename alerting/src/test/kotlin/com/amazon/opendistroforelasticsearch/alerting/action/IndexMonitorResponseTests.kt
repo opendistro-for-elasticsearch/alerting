@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.action
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.CronSchedule
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestStatus
@@ -33,7 +34,7 @@ class IndexMonitorResponseTests : ESTestCase() {
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Kolkata"), testInstance)
         val req = IndexMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK,
                 Monitor("123", 0L, "test-monitor", true, cronSchedule, Instant.now(),
-                        Instant.now(), 0, mutableListOf(), mutableListOf(), mutableMapOf()))
+                        Instant.now(), randomUser(), 0, mutableListOf(), mutableListOf(), mutableMapOf()))
         assertNotNull(req)
 
         val out = BytesStreamOutput()

@@ -60,11 +60,7 @@ class GetMonitorRequest : ActionRequest {
         out.writeString(monitorId)
         out.writeLong(version)
         out.writeEnum(method)
-        if (srcContext != null) {
-            out.writeBoolean(true)
-            srcContext?.writeTo(out)
-        } else {
-            out.writeBoolean(false)
-        }
+        out.writeBoolean(srcContext != null)
+        srcContext?.writeTo(out)
     }
 }
