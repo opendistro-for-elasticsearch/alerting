@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Re
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import com.google.common.collect.ImmutableMap
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.junit.Assert
@@ -236,5 +237,76 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         val destination = createDestination()
         val deletedDestinationResponse = client().makeRequest("DELETE", "$DESTINATION_BASE_URI/${destination.id}")
         assertEquals("Delete request not successful", RestStatus.OK, deletedDestinationResponse.restStatus())
+    }
+
+    fun `test get destination`() {
+        val destination = createDestination()
+        val getDestinationResponse = getDestination(destination)
+        assertEquals(destination.id, getDestinationResponse["id"])
+        assertEquals(destination.type.value, getDestinationResponse["type"])
+        assertEquals(destination.seqNo, getDestinationResponse["seq_no"])
+        assertEquals(destination.lastUpdateTime.toEpochMilli(), getDestinationResponse["last_update_time"])
+        assertEquals(destination.primaryTerm, getDestinationResponse["primary_term"])
+    }
+
+    fun `test get destinations with slack destination type`() {
+        val slack = Slack("url")
+        val dest = Destination(
+                type = DestinationType.SLACK,
+                name = "testSlack",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = null,
+                slack = slack,
+                customWebhook = null)
+
+        val inputMap = ImmutableMap.builder<String, Any>()
+                .put("missing", "_last")
+                .put("destinationType", "slack")
+                .build()
+
+        val destination = createDestination(dest)
+        val destination2 = createDestination()
+        val getDestinationsResponse = getDestinations(inputMap)
+
+        assertEquals(1, getDestinationsResponse.size)
+        val getDestinationResponse = getDestinationsResponse[0]
+
+        assertEquals(destination.id, getDestinationResponse["id"])
+        assertNotEquals(destination2.id, getDestinationResponse["id"])
+        assertEquals(destination.type.value, getDestinationResponse["type"])
+        assertEquals(destination.seqNo, getDestinationResponse["seq_no"])
+        assertEquals(destination.lastUpdateTime.toEpochMilli(), getDestinationResponse["last_update_time"])
+        assertEquals(destination.primaryTerm, getDestinationResponse["primary_term"])
+    }
+
+    fun `test get destinations matching a given name`() {
+        val slack = Slack("url")
+        val dest = Destination(
+                type = DestinationType.SLACK,
+                name = "testSlack",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = null,
+                slack = slack,
+                customWebhook = null)
+
+        val inputMap = ImmutableMap.builder<String, Any>()
+                .put("searchString", "testSlack")
+                .build()
+
+        val destination = createDestination(dest)
+        val destination2 = createDestination()
+        val getDestinationsResponse = getDestinations(inputMap)
+
+        assertEquals(1, getDestinationsResponse.size)
+        val getDestinationResponse = getDestinationsResponse[0]
+
+        assertEquals(destination.id, getDestinationResponse["id"])
+        assertNotEquals(destination2.id, getDestinationResponse["id"])
+        assertEquals(destination.type.value, getDestinationResponse["type"])
+        assertEquals(destination.seqNo, getDestinationResponse["seq_no"])
+        assertEquals(destination.lastUpdateTime.toEpochMilli(), getDestinationResponse["last_update_time"])
+        assertEquals(destination.primaryTerm, getDestinationResponse["primary_term"])
     }
 }

@@ -38,7 +38,7 @@ class GetMonitorRequestTests : ESTestCase() {
         assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
     }
 
-    fun `test get monitor request withou src context`() {
+    fun `test get monitor request without src context`() {
 
         val req = GetMonitorRequest("1234", 1L, RestRequest.Method.GET, null)
         assertNotNull(req)

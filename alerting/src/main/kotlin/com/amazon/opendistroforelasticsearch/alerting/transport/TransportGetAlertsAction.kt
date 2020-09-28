@@ -4,9 +4,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsResponse
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -16,8 +14,6 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
@@ -29,8 +25,6 @@ import org.elasticsearch.search.sort.SortBuilders
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
-
-private val log = LogManager.getLogger(TransportGetAlertsAction::class.java)
 
 class TransportGetAlertsAction @Inject constructor(
     transportService: TransportService,
@@ -64,8 +58,8 @@ class TransportGetAlertsAction @Inject constructor(
             if (getDestinationsRequest.alertState != "ALL")
                 queryBuilder.filter(QueryBuilders.termQuery("state", getDestinationsRequest.alertState))
 
-            for (monitorId in getDestinationsRequest.monitorIds) {
-                queryBuilder.filter(QueryBuilders.termQuery("monitor_id", monitorId))
+            if (getDestinationsRequest.monitorId != null) {
+                queryBuilder.filter(QueryBuilders.termQuery("monitor_id", getDestinationsRequest.monitorId))
             }
 
             if (!tableProp.searchString.isNullOrBlank()) {
@@ -76,11 +70,6 @@ class TransportGetAlertsAction @Inject constructor(
                                 .field("monitor_name")
                                 .field("trigger_name"))
             }
-
-            log.info(queryBuilder.toString())
-            var builder = XContentFactory.jsonBuilder()
-            builder = queryBuilder.toXContent(builder, ToXContent.EMPTY_PARAMS)
-            log.info(builder.string())
 
             val searchRequest = SearchRequest()
                     .indices(AlertIndices.ALL_INDEX_PATTERN)
@@ -95,6 +84,7 @@ class TransportGetAlertsAction @Inject constructor(
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
+                    val totalAlertCount = response.hits.totalHits?.value?.toInt()
                     val alerts = response.hits.map { hit ->
                         val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                                 hit.sourceRef, XContentType.JSON)
@@ -102,11 +92,10 @@ class TransportGetAlertsAction @Inject constructor(
                         val alert = Alert.parse(xcp, hit.id, hit.version)
                         alert
                     }
-                    actionListener.onResponse(GetAlertsResponse(alerts))
+                    actionListener.onResponse(GetAlertsResponse(alerts, totalAlertCount))
                 }
 
                 override fun onFailure(t: Exception) {
-                    log.error("fail to get alerts", t)
                     actionListener.onFailure(t)
                 }
             })

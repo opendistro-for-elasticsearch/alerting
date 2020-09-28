@@ -4,10 +4,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsActi
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsResponse
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
-import com.google.gson.JsonParser
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -18,7 +15,6 @@ import org.elasticsearch.common.Strings
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
@@ -32,9 +28,6 @@ import org.elasticsearch.search.sort.SortBuilders
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
-import kotlin.math.min
-
-private val log = LogManager.getLogger(TransportGetDestinationsAction::class.java)
 
 class TransportGetDestinationsAction @Inject constructor(
     transportService: TransportService,
@@ -93,35 +86,24 @@ class TransportGetDestinationsAction @Inject constructor(
                     .indices(ScheduledJob.SCHEDULED_JOBS_INDEX)
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
-                    var builder = XContentFactory.jsonBuilder()
-                    builder = response.toXContent(builder, ToXContent.EMPTY_PARAMS)
-                    val jObject = JsonParser.parseString(builder.string()).asJsonObject
-                    val hits = jObject.getAsJsonObject("hits")
-                    val totalDestinationCount = hits.getAsJsonObject("total").get("value").asInt
-                    val count = min(tableProp.size, totalDestinationCount - tableProp.startIndex)
-                    val hitArr = hits.getAsJsonArray("hits")
-                    var destinations = mutableListOf<Destination>()
-                    for (i in 0 until count) {
-                        val dest = hitArr.get(i).asJsonObject
-                        val id = dest.get("_id").asString
-                        val version = dest.get("_version").asLong
-                        val seqNo = dest.get("_seq_no").asInt
-                        val primaryTerm = dest.get("_primary_term").asInt
-                        val curDest = dest.getAsJsonObject("_source").toString()
-                        var xcp = XContentFactory.xContent(XContentType.JSON)
-                                .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, curDest)
+                    val totalDestinationCount = response.hits.totalHits?.value?.toInt()
+                    val destinations = mutableListOf<Destination>()
+                    for (hit in response.hits) {
+                        val id = hit.id
+                        val version = hit.version
+                        val seqNo = hit.seqNo.toInt()
+                        val primaryTerm = hit.primaryTerm.toInt()
+                        val xcp = XContentFactory.xContent(XContentType.JSON)
+                                .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, hit.sourceAsString)
                         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
                         XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
                         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-                        val d = Destination.parse(xcp, id, version, seqNo, primaryTerm)
-                        destinations.add(d)
+                        destinations.add(Destination.parse(xcp, id, version, seqNo, primaryTerm))
                     }
-
                     actionListener.onResponse(GetDestinationsResponse(RestStatus.OK, totalDestinationCount, destinations))
                 }
 
                 override fun onFailure(t: Exception) {
-                    log.error("fail to get destinations", t)
                     actionListener.onFailure(t)
                 }
             })

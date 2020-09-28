@@ -34,6 +34,8 @@ class RestGetDestinationsAction : BaseRestHandler() {
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${request.path()}")
+
         val destinationId: String? = request.param("destinationID")
 
         var srcContext = context(request)

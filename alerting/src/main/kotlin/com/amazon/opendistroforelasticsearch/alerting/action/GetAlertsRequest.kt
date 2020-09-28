@@ -6,24 +6,23 @@ import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
-import java.util.Collections
 
 class GetAlertsRequest : ActionRequest {
     val table: Table
     val severityLevel: String
     val alertState: String
-    val monitorIds: List<String>
+    val monitorId: String?
 
     constructor(
         table: Table,
         severityLevel: String,
         alertState: String,
-        monitorIds: List<String>
+        monitorId: String?
     ) : super() {
         this.table = table
         this.severityLevel = severityLevel
         this.alertState = alertState
-        this.monitorIds = monitorIds
+        this.monitorId = monitorId
     }
 
     @Throws(IOException::class)
@@ -31,7 +30,7 @@ class GetAlertsRequest : ActionRequest {
         Table.readFrom(sin), // table
         sin.readString(), // severityLevel
         sin.readString(), // alertState
-        Collections.unmodifiableList(sin.readStringList()) // monitorIds
+        sin.readOptionalString() // monitorIds
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -41,5 +40,8 @@ class GetAlertsRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         table.writeTo(out)
+        out.writeString(severityLevel)
+        out.writeString(alertState)
+        out.writeOptionalString(monitorId)
     }
 }

@@ -6,7 +6,6 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.Strings
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestHandler.Route
@@ -32,7 +31,9 @@ class RestGetAlertsAction : BaseRestHandler() {
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val sortString = request.param("sortString", "name")
+        log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/alerts")
+
+        val sortString = request.param("sortString", "monitor_name.keyword")
         val sortOrder = request.param("sortOrder", "asc")
         val missing: String? = request.param("missing")
         val size = request.paramAsInt("size", 20)
@@ -40,7 +41,7 @@ class RestGetAlertsAction : BaseRestHandler() {
         val searchString = request.param("searchString", "")
         val severityLevel = request.param("severityLevel", "ALL")
         val alertState = request.param("alertState", "ALL")
-        val monitorIds = request.paramAsStringArray("monitorIds", Strings.EMPTY_ARRAY).toList()
+        val monitorId: String? = request.param("monitorId")
 
         val table = Table(
                 sortOrder,
@@ -50,7 +51,7 @@ class RestGetAlertsAction : BaseRestHandler() {
                 startIndex,
                 searchString
         )
-        val getAlertsRequest = GetAlertsRequest(table, severityLevel, alertState, monitorIds)
+        val getAlertsRequest = GetAlertsRequest(table, severityLevel, alertState, monitorId)
         return RestChannelConsumer {
             channel -> client.execute(GetAlertsAction.INSTANCE, getAlertsRequest, RestToXContentListener(channel))
         }
