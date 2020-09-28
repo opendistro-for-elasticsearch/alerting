@@ -1,3 +1,18 @@
+/*
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.alerting.action
 
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
@@ -26,18 +41,6 @@ class GetDestinationsResponseTests : ESTestCase() {
     }
 
     fun `test get destination response with a destination`() {
-//        val id: String = NO_ID,
-//        val version: Long = NO_VERSION,
-//        val schemaVersion: Int = NO_SCHEMA_VERSION,
-//        val seqNo: Int = NO_SEQ_NO,
-//        val primaryTerm: Int = NO_PRIMARY_TERM,
-//        val type: DestinationType,
-//        val name: String,
-//        val user: User?,
-//        val lastUpdateTime: Instant,
-//        val chime: Chime?,
-//        val slack: Slack?,
-//        val customWebhook: CustomWebhook?
         val slack = Slack("url")
         val destination = Destination(
                 "id",
@@ -51,10 +54,9 @@ class GetDestinationsResponseTests : ESTestCase() {
                 Instant.MIN,
                 null,
                 slack,
+                null,
                 null)
-//        val req = GetMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK,
-//                Monitor("123", 0L, "test-monitor", true, cronSchedule, Instant.now(),
-//                        Instant.now(), randomUser(), 0, mutableListOf(), mutableListOf(), mutableMapOf()))
+
         val req = GetDestinationsResponse(RestStatus.OK, 1, listOf(destination))
         assertNotNull(req)
 

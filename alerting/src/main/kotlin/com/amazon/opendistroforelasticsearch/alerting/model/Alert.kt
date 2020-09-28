@@ -193,9 +193,6 @@ data class Alert(
                             actionExecutionResults.add(ActionExecutionResult.parse(xcp))
                         }
                     }
-//                    else -> {
-//                        xcp.skipChildren()
-//                    }
                 }
             }
 
