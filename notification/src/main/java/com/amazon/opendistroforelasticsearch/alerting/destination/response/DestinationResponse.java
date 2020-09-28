@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.destination.response;
 import org.elasticsearch.common.Strings;
 
 /**
- * This class is a place holder for destination response metadata
+` * This class is a place holder for destination response metadata
  */
 public class DestinationResponse extends BaseResponse {
 

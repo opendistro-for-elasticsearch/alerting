@@ -6,6 +6,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.AcknowledgeAlertRes
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BulkRequest
@@ -42,7 +43,9 @@ class TransportAcknowledgeAlertAction @Inject constructor(
 ) {
 
     override fun doExecute(task: Task, request: AcknowledgeAlertRequest, actionListener: ActionListener<AcknowledgeAlertResponse>) {
-        AcknowledgeHandler(client, actionListener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            AcknowledgeHandler(client, actionListener, request).start()
+        }
     }
 
     inner class AcknowledgeHandler(
@@ -69,7 +72,7 @@ class TransportAcknowledgeAlertAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(AlertingException.wrap(t))
                 }
             })
         }
@@ -103,7 +106,7 @@ class TransportAcknowledgeAlertAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(AlertingException.wrap(t))
                 }
             })
         }

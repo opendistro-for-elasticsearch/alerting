@@ -55,6 +55,8 @@ class RestAcknowledgeAlertAction : BaseRestHandler() {
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}/_acknowledge/alerts")
+
         val monitorId = request.param("monitorID")
         require(!monitorId.isNullOrEmpty()) { "Missing monitor id." }
         val alertIds = getAlertIds(request.contentParser())

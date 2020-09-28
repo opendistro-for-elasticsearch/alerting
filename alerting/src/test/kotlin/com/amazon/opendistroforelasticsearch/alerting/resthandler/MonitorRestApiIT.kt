@@ -143,6 +143,20 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
+    fun `test creating a monitor with illegal index name`() {
+        try {
+            val si = SearchInput(listOf("_#*IllegalIndexCharacters"), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
+            val monitor = randomMonitor()
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.copy(inputs = listOf(si)).toHttpEntity())
+        } catch (e: ResponseException) {
+            // When an index with invalid name is mentioned, instead of returning invalid_index_name_exception security plugin throws security_exception.
+            // Refer: https://github.com/opendistro-for-elasticsearch/security/issues/718
+            // Without security plugin we get BAD_REQUEST correctly. With security_plugin we get INTERNAL_SERVER_ERROR, till above issue is fixed.
+            assertTrue("Unexpected status",
+                    listOf<RestStatus>(RestStatus.BAD_REQUEST, RestStatus.FORBIDDEN).contains(e.response.restStatus()))
+        }
+    }
+
     @Throws(Exception::class)
     fun `test updating search for a monitor`() {
         val monitor = createRandomMonitor()

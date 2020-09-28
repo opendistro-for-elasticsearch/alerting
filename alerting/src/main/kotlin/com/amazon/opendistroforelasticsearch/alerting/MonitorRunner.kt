@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
@@ -58,6 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
@@ -94,7 +96,7 @@ import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 
 class MonitorRunner(
-    settings: Settings,
+    private val settings: Settings,
     private val client: Client,
     private val threadPool: ThreadPool,
     private val scriptService: ScriptService,
@@ -185,6 +187,22 @@ class MonitorRunner(
     }
 
     suspend fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
+        /*
+         * We need to handle 3 cases:
+         * 1. Monitors created by older versions and never updated. These monitors wont have User details in the
+         * monitor object. `monitor.user` will be null. Insert `all_access, AmazonES_all_access` role.
+         * 2. Monitors are created when security plugin is disabled, these will have empty User object.
+         * (`monitor.user.name`, `monitor.user.roles` are empty )
+         * 3. Monitors are created when security plugin is enabled, these will have an User object.
+         */
+        var roles = if (monitor.user == null) {
+            // fixme: discuss and remove hardcoded to settings?
+            settings.getAsList("", listOf("all_access,AmazonES_all_access"))
+        } else {
+            monitor.user.roles
+        }
+        logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
+
         if (periodStart == periodEnd) {
             logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
@@ -200,9 +218,9 @@ class MonitorRunner(
             logger.error("Error loading alerts for monitor: $id", e)
             return monitorResult.copy(error = e)
         }
-
-        monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
-
+        runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
+            monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
+        }
         val updatedAlerts = mutableListOf<Alert>()
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
