@@ -14,10 +14,10 @@ class GetAlertsRequest : ActionRequest {
     val monitorId: String?
 
     constructor(
-        table: Table,
-        severityLevel: String,
-        alertState: String,
-        monitorId: String?
+            table: Table,
+            severityLevel: String,
+            alertState: String,
+            monitorId: String?
     ) : super() {
         this.table = table
         this.severityLevel = severityLevel
@@ -27,10 +27,10 @@ class GetAlertsRequest : ActionRequest {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        Table.readFrom(sin), // table
-        sin.readString(), // severityLevel
-        sin.readString(), // alertState
-        sin.readOptionalString() // monitorIds
+        table = Table.readFrom(sin),
+        severityLevel = sin.readString(),
+        alertState = sin.readString(),
+        monitorId = sin.readOptionalString()
     )
 
     override fun validate(): ActionRequestValidationException? {

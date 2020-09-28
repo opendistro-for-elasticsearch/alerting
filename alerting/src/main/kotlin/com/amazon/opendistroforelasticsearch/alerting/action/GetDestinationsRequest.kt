@@ -31,13 +31,13 @@ class GetDestinationsRequest : ActionRequest {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        sin.readOptionalString(), // monitorId
-        sin.readLong(), // version
-        if (sin.readBoolean()) {
-            FetchSourceContext(sin) // srcContext
+        destinationId = sin.readOptionalString(),
+        version = sin.readLong(),
+        srcContext = if (sin.readBoolean()) {
+            FetchSourceContext(sin)
         } else null,
-        Table.readFrom(sin), // table
-        sin.readString() // destinationType
+        table = Table.readFrom(sin),
+        destinationType = sin.readString()
     )
 
     override fun validate(): ActionRequestValidationException? {

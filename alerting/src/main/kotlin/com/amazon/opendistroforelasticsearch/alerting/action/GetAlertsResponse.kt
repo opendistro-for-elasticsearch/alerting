@@ -26,8 +26,8 @@ class GetAlertsResponse : ActionResponse, ToXContentObject {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            Collections.unmodifiableList(sin.readList(::Alert)), // alerts
-            sin.readOptionalInt() // totalAlerts
+        alerts = Collections.unmodifiableList(sin.readList(::Alert)),
+        totalAlerts = sin.readOptionalInt()
     )
 
     @Throws(IOException::class)
