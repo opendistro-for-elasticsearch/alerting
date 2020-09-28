@@ -618,13 +618,14 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
         val destination = createDestination(
             Destination(
-                type = DestinationType.EMAIL,
-                name = "testDesination",
-                lastUpdateTime = Instant.now(),
-                chime = null,
-                slack = null,
-                customWebhook = null,
-                email = email
+                    type = DestinationType.EMAIL,
+                    name = "testDesination",
+                    lastUpdateTime = Instant.now(),
+                    chime = null,
+                    slack = null,
+                    customWebhook = null,
+                    email = email,
+                    user = null
         ))
         val action = randomAction(destinationId = destination.id)
         val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))

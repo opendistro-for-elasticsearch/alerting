@@ -29,10 +29,10 @@ class GetAlertsRequest : ActionRequest {
     val monitorId: String?
 
     constructor(
-            table: Table,
-            severityLevel: String,
-            alertState: String,
-            monitorId: String?
+        table: Table,
+        severityLevel: String,
+        alertState: String,
+        monitorId: String?
     ) : super() {
         this.table = table
         this.severityLevel = severityLevel

@@ -208,6 +208,8 @@ data class Destination(
                 id = sin.readString(),
                 version = sin.readLong(),
                 schemaVersion = sin.readInt(),
+                seqNo = sin.readInt(),
+                primaryTerm = sin.readInt(),
                 type = sin.readEnum(DestinationType::class.java),
                 name = sin.readString(),
                 user = if (sin.readBoolean()) {

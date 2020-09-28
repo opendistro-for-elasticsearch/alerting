@@ -26,7 +26,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Re
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
-import com.google.common.collect.ImmutableMap
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.junit.Assert
@@ -258,12 +257,12 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = slack,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
 
-        val inputMap = ImmutableMap.builder<String, Any>()
-                .put("missing", "_last")
-                .put("destinationType", "slack")
-                .build()
+        val inputMap = HashMap<String, Any>()
+        inputMap["missing"] = "_last"
+        inputMap["destinationType"] = "slack"
 
         val destination = createDestination(dest)
         val destination2 = createDestination()
@@ -289,11 +288,11 @@ class DestinationRestApiIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = slack,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
 
-        val inputMap = ImmutableMap.builder<String, Any>()
-                .put("searchString", "testSlack")
-                .build()
+        val inputMap = HashMap<String, Any>()
+        inputMap["searchString"] = "testSlack"
 
         val destination = createDestination(dest)
         val destination2 = createDestination()
