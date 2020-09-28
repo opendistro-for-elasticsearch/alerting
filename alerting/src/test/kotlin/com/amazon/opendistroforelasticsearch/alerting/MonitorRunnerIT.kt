@@ -27,6 +27,10 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders
@@ -597,6 +601,40 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val actionResults2 = verifyActionExecutionResultInAlert(activeAlert2[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
         assertNotEquals(actionResults1[actionThrottleEnabled.id]!!.lastExecutionTime,
                 actionResults2[actionThrottleEnabled.id]!!.lastExecutionTime)
+    }
+
+    fun `test execute monitor with email destination creates alert`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+
+        val emailAccount = createRandomEmailAccount()
+        val emailGroup = createRandomEmailGroup()
+        val email = Email(
+            emailAccountID = emailAccount.id,
+            recipients = listOf(
+                Recipient(type = Recipient.RecipientType.EMAIL, emailGroupID = null, email = "test@email.com"),
+                Recipient(type = Recipient.RecipientType.EMAIL_GROUP, emailGroupID = emailGroup.id, email = null)
+            )
+        )
+
+        val destination = createDestination(
+            Destination(
+                type = DestinationType.EMAIL,
+                name = "testDesination",
+                lastUpdateTime = Instant.now(),
+                chime = null,
+                slack = null,
+                customWebhook = null,
+                email = email
+        ))
+        val action = randomAction(destinationId = destination.id)
+        val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
+
+        executeMonitor(monitor.id)
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, ACTIVE)
     }
 
     private fun verifyActionExecutionResultInAlert(alert: Alert, expectedResult: Map<String, Int>):

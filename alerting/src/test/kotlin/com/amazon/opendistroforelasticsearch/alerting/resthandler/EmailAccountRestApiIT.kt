@@ -20,11 +20,18 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
+import org.apache.http.entity.ContentType
+import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 
 @TestLogging("level:DEBUG", reason = "Debug for tests.")
+@Suppress("UNCHECKED_CAST")
 class EmailAccountRestApiIT : AlertingRestTestCase() {
 
     fun `test creating an email account`() {
@@ -141,5 +148,58 @@ class EmailAccountRestApiIT : AlertingRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())
         }
+    }
+
+    fun `test querying an email account that exists`() {
+        val emailAccount = createRandomEmailAccount()
+
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", emailAccount.id)).toString()
+        val searchResponse = client().makeRequest(
+            "GET",
+            "$EMAIL_ACCOUNT_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search email account failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberOfDocsFound = hits["total"]?.get("value")
+        assertEquals("Email account not found during search", 1, numberOfDocsFound)
+    }
+
+    fun `test querying an email account that exists with POST`() {
+        val emailAccount = createRandomEmailAccount()
+
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", emailAccount.id)).toString()
+        val searchResponse = client().makeRequest(
+            "POST",
+            "$EMAIL_ACCOUNT_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search email account failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberOfDocsFound = hits["total"]?.get("value")
+        assertEquals("Email account not found during search", 1, numberOfDocsFound)
+    }
+
+    fun `test querying an email account that doesn't exist`() {
+        // Create a random email account to create the ScheduledJob index. Otherwise the test will fail with a 404 index not found error.
+        createRandomEmailAccount()
+        val search = SearchSourceBuilder()
+            .query(QueryBuilders.termQuery(
+                ESTestCase.randomAlphaOfLength(5),
+                ESTestCase.randomAlphaOfLength(5)
+            )).toString()
+
+        val searchResponse = client().makeRequest(
+            "GET",
+            "$EMAIL_ACCOUNT_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search email account failed", RestStatus.OK, searchResponse.restStatus())
+        val xcp = createParser(XContentType.JSON.xContent(), searchResponse.entity.content)
+        val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
+        val numberOfDocsFound = hits["total"]?.get("value")
+        assertEquals("Email account found during search when no document was present", 0, numberOfDocsFound)
     }
 }
