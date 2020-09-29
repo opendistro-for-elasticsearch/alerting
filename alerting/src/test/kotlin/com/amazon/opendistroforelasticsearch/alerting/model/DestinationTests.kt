@@ -135,11 +135,11 @@ class DestinationTests : ESTestCase() {
     }
 
     fun `test slack destination create using stream`() {
-        val chimeDest = Destination("2345", 1L, 2, 1, 1, DestinationType.SLACK, "TestSlackDest",
+        val slackDest = Destination("2345", 1L, 2, 1, 1, DestinationType.SLACK, "TestSlackDest",
                 randomUser(), Instant.now(), null, Slack("mytest.com"), null, null)
 
         val out = BytesStreamOutput()
-        chimeDest.writeTo(out)
+        slackDest.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newDest = Destination.readFrom(sin)
 
@@ -157,7 +157,7 @@ class DestinationTests : ESTestCase() {
     }
 
     fun `test customwebhook destination create using stream`() {
-        val chimeDest = Destination(
+        val customWebhookDest = Destination(
                 "2345",
                 1L,
                 2,
@@ -183,7 +183,7 @@ class DestinationTests : ESTestCase() {
                 null
         )
         val out = BytesStreamOutput()
-        chimeDest.writeTo(out)
+        customWebhookDest.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newDest = Destination.readFrom(sin)
 
@@ -201,7 +201,7 @@ class DestinationTests : ESTestCase() {
     }
 
     fun `test customwebhook destination create using stream with optionals`() {
-        val chimeDest = Destination(
+        val customWebhookDest = Destination(
                 "2345",
                 1L,
                 2,
@@ -227,7 +227,7 @@ class DestinationTests : ESTestCase() {
                 null
         )
         val out = BytesStreamOutput()
-        chimeDest.writeTo(out)
+        customWebhookDest.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newDest = Destination.readFrom(sin)
 
