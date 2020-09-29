@@ -96,7 +96,7 @@ class GetAlertsResponseTests : ESTestCase() {
         )
         val req = GetAlertsResponse(listOf(alert), 1)
         var actualXContentString = req.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
-        val expectedXContentString = "{\"alerts\":[{\"alert_id\":\"id\",\"alert_version\":0,\"monitor_id\":\"monitorId\"," +
+        val expectedXContentString = "{\"alerts\":[{\"id\":\"id\",\"version\":0,\"monitor_id\":\"monitorId\"," +
                 "\"schema_version\":0,\"monitor_version\":0,\"monitor_name\":\"monitorName\",\"trigger_id\":\"triggerId\"," +
                 "\"trigger_name\":\"triggerName\",\"state\":\"ACKNOWLEDGED\",\"error_message\":null,\"alert_history\":[]," +
                 "\"severity\":\"severity\",\"action_execution_results\":[],\"start_time\":" + now.toEpochMilli() +

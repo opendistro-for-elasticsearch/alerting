@@ -16,10 +16,10 @@
     "monitor_version": {
       "type": "long"
     },
-    "alert_id": {
+    "id": {
       "type": "keyword"
     },
-    "alert_version": {
+    "version": {
       "type": "long"
     },
     "severity": {

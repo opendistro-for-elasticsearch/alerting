@@ -121,9 +121,9 @@ data class Alert(
 
     companion object {
 
-        const val ALERT_ID_FIELD = "alert_id"
+        const val ALERT_ID_FIELD = "id"
         const val SCHEMA_VERSION_FIELD = "schema_version"
-        const val ALERT_VERSION_FIELD = "alert_version"
+        const val ALERT_VERSION_FIELD = "version"
         const val MONITOR_ID_FIELD = "monitor_id"
         const val MONITOR_VERSION_FIELD = "monitor_version"
         const val MONITOR_NAME_FIELD = "monitor_name"
