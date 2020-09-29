@@ -446,24 +446,6 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         verifyAlert(alerts.single(), monitor, ACTIVE)
     }
 
-    /*
-     * Commented. This test is not relevant anymore. We can't create a monitor with illegal chars.
-     * This is replaced with MonitorRestApiIT.`test creating a monitor with illegal index name`
-     */
-    /*fun `test execute monitor with bad search`() {
-        val query = QueryBuilders.matchAllQuery()
-        val input = SearchInput(indices = listOf("_#*IllegalIndexCharacters"), query = SearchSourceBuilder().query(query))
-        val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
-
-        val response = executeMonitor(monitor.id)
-
-        val output = entityAsMap(response)
-        assertEquals(monitor.name, output["monitor_name"])
-        @Suppress("UNCHECKED_CAST")
-        val inputResults = output.stringMap("input_results")
-        assertTrue("Missing error message from a bad query", (inputResults?.get("error") as String).isNotEmpty())
-    }*/
-
     fun `test execute monitor non-dryrun`() {
         val monitor = createMonitor(
                 randomMonitor(triggers = listOf(randomTrigger(
