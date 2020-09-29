@@ -213,7 +213,7 @@ data class Destination(
                 type = sin.readEnum(DestinationType::class.java),
                 name = sin.readString(),
                 user = if (sin.readBoolean()) {
-                    User.readFrom(sin)
+                    User(sin)
                 } else null,
                 lastUpdateTime = sin.readInstant(),
                 chime = Chime.readFrom(sin),

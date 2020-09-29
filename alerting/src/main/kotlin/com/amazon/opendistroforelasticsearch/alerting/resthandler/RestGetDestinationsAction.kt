@@ -44,7 +44,7 @@ class RestGetDestinationsAction : BaseRestHandler() {
         return listOf(
                 // Get a specific destination
                 RestHandler.Route(RestRequest.Method.GET, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}"),
-                RestHandler.Route(RestRequest.Method.GET, "${AlertingPlugin.DESTINATION_BASE_URI}/all")
+                RestHandler.Route(RestRequest.Method.GET, "${AlertingPlugin.DESTINATION_BASE_URI}")
         )
     }
 

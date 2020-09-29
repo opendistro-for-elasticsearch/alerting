@@ -245,7 +245,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     @Suppress("UNCHECKED_CAST")
     protected fun getDestinations(dataMap: Map<String, Any> = emptyMap()): List<Map<String, Any>> {
 
-        var baseEndpoint = "$DESTINATION_BASE_URI/all?"
+        var baseEndpoint = "$DESTINATION_BASE_URI?"
         for (entry in dataMap.entries) {
             baseEndpoint += "${entry.key}=${entry.value}&"
         }
