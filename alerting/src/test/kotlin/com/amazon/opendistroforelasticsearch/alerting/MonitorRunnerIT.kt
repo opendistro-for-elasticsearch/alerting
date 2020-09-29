@@ -620,6 +620,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             Destination(
                 type = DestinationType.EMAIL,
                 name = "testDesination",
+                user = randomUser(),
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
