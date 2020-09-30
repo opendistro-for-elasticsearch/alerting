@@ -30,8 +30,8 @@ class IndexDestinationResponseTests : ESTestCase() {
     fun `test index destination response`() {
 
         val req = IndexDestinationResponse("1234", 0L, 1L, 2L, RestStatus.CREATED,
-                Destination("1234", 0L, 1, DestinationType.CHIME, "TestChimeDest",
-                    randomUser(), Instant.now(), Chime("test.com"), null, null, null))
+                Destination("1234", 0L, 1, 1, 1, DestinationType.CHIME, "TestChimeDest",
+                        randomUser(), Instant.now(), Chime("test.com"), null, null, null))
         assertNotNull(req)
 
         val out = BytesStreamOutput()

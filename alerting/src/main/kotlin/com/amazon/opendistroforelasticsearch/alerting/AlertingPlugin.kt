@@ -23,6 +23,8 @@ import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailGroupAction
@@ -49,6 +51,8 @@ import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteMoni
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestExecuteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetAlertsAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetDestinationsAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailAccountAction
@@ -69,6 +73,7 @@ import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteM
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportExecuteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailGroupAction
@@ -76,6 +81,7 @@ import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexMo
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetDestinationsAction
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
@@ -163,7 +169,10 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 RestIndexEmailGroupAction(),
                 RestDeleteEmailGroupAction(),
                 RestSearchEmailGroupAction(),
-                RestGetEmailGroupAction())
+                RestGetEmailGroupAction(),
+                RestGetDestinationsAction(),
+                RestGetAlertsAction()
+        )
     }
 
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
@@ -184,7 +193,9 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
             ActionPlugin.ActionHandler(IndexEmailGroupAction.INSTANCE, TransportIndexEmailGroupAction::class.java),
             ActionPlugin.ActionHandler(GetEmailGroupAction.INSTANCE, TransportGetEmailGroupAction::class.java),
             ActionPlugin.ActionHandler(SearchEmailGroupAction.INSTANCE, TransportSearchEmailGroupAction::class.java),
-            ActionPlugin.ActionHandler(DeleteEmailGroupAction.INSTANCE, TransportDeleteEmailGroupAction::class.java)
+            ActionPlugin.ActionHandler(DeleteEmailGroupAction.INSTANCE, TransportDeleteEmailGroupAction::class.java),
+            ActionPlugin.ActionHandler(GetDestinationsAction.INSTANCE, TransportGetDestinationsAction::class.java),
+            ActionPlugin.ActionHandler(GetAlertsAction.INSTANCE, TransportGetAlertsAction::class.java)
         )
     }
 
