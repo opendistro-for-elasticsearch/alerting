@@ -21,7 +21,9 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailGroupResp
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
@@ -60,10 +62,12 @@ class TransportIndexEmailGroupAction @Inject constructor(
     IndexEmailGroupAction.NAME, transportService, actionFilters, ::IndexEmailGroupRequest
 ) {
 
-    @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
+    @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
 
     init {
-        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
     }
 
     override fun doExecute(task: Task, request: IndexEmailGroupRequest, actionListener: ActionListener<IndexEmailGroupResponse>) {
@@ -107,6 +111,17 @@ class TransportIndexEmailGroupAction @Inject constructor(
         }
 
         private fun prepareEmailGroupIndexing() {
+
+            if (!allowList.contains(DestinationType.EMAIL.value)) {
+                actionListener.onFailure(
+                    ElasticsearchStatusException(
+                        "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
+                        RestStatus.FORBIDDEN
+                    )
+                )
+                return
+            }
+
             if (request.method == RestRequest.Method.PUT) {
                 updateEmailGroup()
             } else {
