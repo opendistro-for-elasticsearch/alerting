@@ -51,8 +51,10 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -115,6 +117,7 @@ class MonitorRunner(
         BackoffPolicy.constantBackoff(ALERT_BACKOFF_MILLIS.get(settings), ALERT_BACKOFF_COUNT.get(settings))
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
 
     @Volatile private var destinationSettings = loadDestinationSettings(settings)
     @Volatile private var destinationContextFactory = DestinationContextFactory(client, xContentRegistry, destinationSettings)
@@ -125,6 +128,9 @@ class MonitorRunner(
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) {
+            allowList = it
         }
     }
 
@@ -461,6 +467,10 @@ class MonitorRunner(
             if (!dryrun) {
                 withContext(Dispatchers.IO) {
                     val destination = AlertingConfigAccessor.getDestinationInfo(client, xContentRegistry, action.destinationId)
+                    if (!destination.isAllowed(allowList)) {
+                        throw IllegalStateException("Monitor contains a Destination type that is not allowed: ${destination.type}")
+                    }
+
                     val destinationCtx = destinationContextFactory.getDestinationContext(destination)
                     actionOutput[MESSAGE_ID] = destination.publish(
                         actionOutput[SUBJECT],
