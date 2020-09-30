@@ -15,56 +15,62 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.action
 
+import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
-import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
 
-class GetMonitorRequestTests : ESTestCase() {
+class GetDestinationsRequestTests : ESTestCase() {
 
-    fun `test get monitor request`() {
+    fun `test get destination request`() {
 
-        val req = GetMonitorRequest("1234", 1L, RestRequest.Method.GET, FetchSourceContext.FETCH_SOURCE)
+        val table = Table("asc", "sortString", null, 1, 0, "")
+        val req = GetDestinationsRequest("1234", 1L, FetchSourceContext.FETCH_SOURCE, table, "slack")
         assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = GetMonitorRequest(sin)
-        assertEquals("1234", newReq.monitorId)
+        val newReq = GetDestinationsRequest(sin)
+        assertEquals("1234", newReq.destinationId)
         assertEquals(1L, newReq.version)
-        assertEquals(RestRequest.Method.GET, newReq.method)
         assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
+        assertEquals(table, newReq.table)
+        assertEquals("slack", newReq.destinationType)
     }
 
-    fun `test get monitor request without src context`() {
+    fun `test get destination request without src context`() {
 
-        val req = GetMonitorRequest("1234", 1L, RestRequest.Method.GET, null)
+        val table = Table("asc", "sortString", null, 1, 0, "")
+        val req = GetDestinationsRequest("1234", 1L, null, table, "slack")
         assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = GetMonitorRequest(sin)
-        assertEquals("1234", newReq.monitorId)
+        val newReq = GetDestinationsRequest(sin)
+        assertEquals("1234", newReq.destinationId)
         assertEquals(1L, newReq.version)
-        assertEquals(RestRequest.Method.GET, newReq.method)
         assertEquals(null, newReq.srcContext)
+        assertEquals(table, newReq.table)
+        assertEquals("slack", newReq.destinationType)
     }
 
-    fun `test head monitor request`() {
+    fun `test get destination request without destinationId`() {
 
-        val req = GetMonitorRequest("1234", 2L, RestRequest.Method.HEAD, FetchSourceContext.FETCH_SOURCE)
+        val table = Table("asc", "sortString", null, 1, 0, "")
+        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack")
         assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = GetMonitorRequest(sin)
-        assertEquals("1234", newReq.monitorId)
-        assertEquals(2L, newReq.version)
-        assertEquals(RestRequest.Method.HEAD, newReq.method)
+        val newReq = GetDestinationsRequest(sin)
+        assertEquals(null, newReq.destinationId)
+        assertEquals(1L, newReq.version)
         assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
+        assertEquals(table, newReq.table)
+        assertEquals("slack", newReq.destinationType)
     }
 }
