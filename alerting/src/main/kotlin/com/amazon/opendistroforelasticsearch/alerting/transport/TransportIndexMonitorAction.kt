@@ -331,7 +331,10 @@ class TransportIndexMonitorAction @Inject constructor(
                     val destination = Destination.parseWithType(xcp)
                     if (!allowList.contains(destination.type.value)) {
                         actionListener.onFailure(
-                            IllegalArgumentException("Monitor contains a destination type that is not allowed: ${destination.type.value}")
+                            ElasticsearchStatusException(
+                                "Monitor contains a destination type that is not allowed: ${destination.type.value}",
+                                RestStatus.FORBIDDEN
+                            )
                         )
                         return
                     }
