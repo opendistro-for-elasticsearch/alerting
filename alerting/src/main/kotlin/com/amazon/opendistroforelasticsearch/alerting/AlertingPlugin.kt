@@ -256,7 +256,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 AlertingSettings.REQUEST_TIMEOUT,
                 AlertingSettings.MAX_ACTION_THROTTLE_VALUE,
                 DestinationSettings.EMAIL_USERNAME,
-                DestinationSettings.EMAIL_PASSWORD
+                DestinationSettings.EMAIL_PASSWORD,
+                DestinationSettings.ALLOW_LIST
             )
     }
 
