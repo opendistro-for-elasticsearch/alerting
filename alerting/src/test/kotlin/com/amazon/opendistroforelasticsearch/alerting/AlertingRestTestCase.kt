@@ -98,7 +98,11 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         assertEquals("Unable to create a new destination", RestStatus.CREATED, response.restStatus())
         val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
                 response.entity.content).map()
-        return destination.copy(id = destinationJson["_id"] as String, version = (destinationJson["_version"] as Int).toLong())
+        return destination.copy(
+                id = destinationJson["_id"] as String,
+                version = (destinationJson["_version"] as Int).toLong(),
+                primaryTerm = destinationJson["_primary_term"] as Int
+        )
     }
 
     protected fun updateDestination(destination: Destination, refresh: Boolean = true): Destination {
@@ -227,6 +231,34 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return emailGroup.copy(id = emailGroupJson["_id"] as String)
     }
 
+    @Suppress("UNCHECKED_CAST")
+    protected fun getDestination(destination: Destination): Map<String, Any> {
+        val response = client().makeRequest(
+                "GET",
+                "$DESTINATION_BASE_URI/${destination.id}")
+        assertEquals("Unable to update a destination", RestStatus.OK, response.restStatus())
+        val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return (destinationJson["destinations"] as List<Any?>)[0] as Map<String, Any>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getDestinations(dataMap: Map<String, Any> = emptyMap()): List<Map<String, Any>> {
+
+        var baseEndpoint = "$DESTINATION_BASE_URI?"
+        for (entry in dataMap.entries) {
+            baseEndpoint += "${entry.key}=${entry.value}&"
+        }
+
+        val response = client().makeRequest(
+                "GET",
+                baseEndpoint)
+        assertEquals("Unable to update a destination", RestStatus.OK, response.restStatus())
+        val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return destinationJson["destinations"] as List<Map<String, Any>>
+    }
+
     private fun getTestDestination(): Destination {
         return Destination(
                 type = DestinationType.TEST_ACTION,
@@ -349,6 +381,20 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         val response = client().makeRequest("POST", "${monitor.relativeUrl()}/_acknowledge/alerts?refresh=true",
                 emptyMap(), request)
         assertEquals("Acknowledge call failed.", RestStatus.OK, response.restStatus())
+        return response
+    }
+
+    protected fun getAlerts(
+        dataMap: Map<String, Any> = emptyMap(),
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): Response {
+        var baseEndpoint = "$ALERTING_BASE_URI/alerts?"
+        for (entry in dataMap.entries) {
+            baseEndpoint += "${entry.key}=${entry.value}&"
+        }
+
+        val response = client().makeRequest("GET", baseEndpoint, null, header)
+        assertEquals("Get call failed.", RestStatus.OK, response.restStatus())
         return response
     }
 

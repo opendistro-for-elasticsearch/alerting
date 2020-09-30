@@ -48,6 +48,8 @@ data class Destination(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
+    val seqNo: Int = NO_SEQ_NO,
+    val primaryTerm: Int = NO_PRIMARY_TERM,
     val type: DestinationType,
     val name: String,
     val user: User?,
@@ -61,10 +63,13 @@ data class Destination(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean("with_type", false)) builder.startObject(DESTINATION)
-        builder.field(TYPE_FIELD, type.value)
+        builder.field(ID_FIELD, id)
+                .field(TYPE_FIELD, type.value)
                 .field(NAME_FIELD, name)
                 .optionalUserField(USER_FIELD, user)
                 .field(SCHEMA_VERSION, schemaVersion)
+                .field(SEQ_NO_FIELD, seqNo)
+                .field(PRIMARY_TERM_FIELD, primaryTerm)
                 .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
                 .field(type.value, constructResponseForDestinationType(type))
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
@@ -80,6 +85,8 @@ data class Destination(
         out.writeString(id)
         out.writeLong(version)
         out.writeInt(schemaVersion)
+        out.writeInt(seqNo)
+        out.writeInt(primaryTerm)
         out.writeEnum(type)
         out.writeString(name)
         out.writeBoolean(user != null)
@@ -97,12 +104,17 @@ data class Destination(
 
     companion object {
         const val DESTINATION = "destination"
+        const val ID_FIELD = "id"
         const val TYPE_FIELD = "type"
         const val NAME_FIELD = "name"
         const val USER_FIELD = "user"
         const val NO_ID = ""
         const val NO_VERSION = 1L
+        const val NO_SEQ_NO = 0
+        const val NO_PRIMARY_TERM = 0
         const val SCHEMA_VERSION = "schema_version"
+        const val SEQ_NO_FIELD = "seq_no"
+        const val PRIMARY_TERM_FIELD = "primary_term"
         const val LAST_UPDATE_TIME_FIELD = "last_update_time"
         const val CHIME = "chime"
         const val SLACK = "slack"
@@ -117,7 +129,14 @@ data class Destination(
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Destination {
+        fun parse(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            version: Long = NO_VERSION,
+            seqNo: Int = NO_SEQ_NO,
+            primaryTerm: Int = NO_PRIMARY_TERM
+        ): Destination {
+
             lateinit var name: String
             var user: User? = null
             lateinit var type: String
@@ -170,6 +189,8 @@ data class Destination(
             return Destination(id,
                     version,
                     schemaVersion,
+                    seqNo,
+                    primaryTerm,
                     DestinationType.valueOf(type.toUpperCase(Locale.ROOT)),
                     requireNotNull(name) { "Destination name is null" },
                     user,
@@ -187,6 +208,8 @@ data class Destination(
                 id = sin.readString(),
                 version = sin.readLong(),
                 schemaVersion = sin.readInt(),
+                seqNo = sin.readInt(),
+                primaryTerm = sin.readInt(),
                 type = sin.readEnum(DestinationType::class.java),
                 name = sin.readString(),
                 user = if (sin.readBoolean()) {
