@@ -21,6 +21,6 @@ import org.elasticsearch.action.search.SearchResponse
 class SearchEmailAccountAction private constructor() : ActionType<SearchResponse>(NAME, ::SearchResponse) {
     companion object {
         val INSTANCE = SearchEmailAccountAction()
-        val NAME = "cluster:admin/alerting/destination/email_account/search"
+        val NAME = "cluster:admin/opendistro/alerting/destination/email_account/search"
     }
 }
