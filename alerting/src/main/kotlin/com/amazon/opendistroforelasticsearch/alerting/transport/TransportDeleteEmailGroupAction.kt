@@ -39,15 +39,16 @@ class TransportDeleteEmailGroupAction @Inject constructor(
     override fun doExecute(task: Task, request: DeleteEmailGroupRequest, actionListener: ActionListener<DeleteResponse>) {
         val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.emailGroupID)
             .setRefreshPolicy(request.refreshPolicy)
+        client.threadPool().threadContext.stashContext().use {
+            client.delete(deleteRequest, object : ActionListener<DeleteResponse> {
+                override fun onResponse(response: DeleteResponse) {
+                    actionListener.onResponse(response)
+                }
 
-        client.delete(deleteRequest, object : ActionListener<DeleteResponse> {
-            override fun onResponse(response: DeleteResponse) {
-                actionListener.onResponse(response)
-            }
-
-            override fun onFailure(t: Exception) {
-                actionListener.onFailure(t)
-            }
-        })
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
     }
 }

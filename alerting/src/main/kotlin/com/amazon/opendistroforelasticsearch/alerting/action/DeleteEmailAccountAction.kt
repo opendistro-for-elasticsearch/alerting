@@ -21,6 +21,6 @@ import org.elasticsearch.action.delete.DeleteResponse
 class DeleteEmailAccountAction private constructor() : ActionType<DeleteResponse>(NAME, ::DeleteResponse) {
     companion object {
         val INSTANCE = DeleteEmailAccountAction()
-        const val NAME = "cluster:admin/alerting/destination/email_account/delete"
+        const val NAME = "cluster:admin/opendistro/alerting/destination/email_account/delete"
     }
 }
