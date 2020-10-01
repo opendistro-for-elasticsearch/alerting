@@ -20,6 +20,7 @@ import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.index.query.TermsQueryBuilder
 import java.io.IOException
 
 class GetAlertsRequest : ActionRequest {
@@ -27,17 +28,20 @@ class GetAlertsRequest : ActionRequest {
     val severityLevel: String
     val alertState: String
     val monitorId: String?
+    val filter: TermsQueryBuilder?
 
     constructor(
         table: Table,
         severityLevel: String,
         alertState: String,
-        monitorId: String?
+        monitorId: String?,
+        filter: TermsQueryBuilder?
     ) : super() {
         this.table = table
         this.severityLevel = severityLevel
         this.alertState = alertState
         this.monitorId = monitorId
+        this.filter = filter
     }
 
     @Throws(IOException::class)
@@ -45,7 +49,10 @@ class GetAlertsRequest : ActionRequest {
         table = Table.readFrom(sin),
         severityLevel = sin.readString(),
         alertState = sin.readString(),
-        monitorId = sin.readOptionalString()
+        monitorId = sin.readOptionalString(),
+        filter = if (sin.readBoolean()) {
+            TermsQueryBuilder(sin)
+        } else null
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -58,5 +65,7 @@ class GetAlertsRequest : ActionRequest {
         out.writeString(severityLevel)
         out.writeString(alertState)
         out.writeOptionalString(monitorId)
+        out.writeBoolean(filter != null)
+        filter?.writeTo(out)
     }
 }

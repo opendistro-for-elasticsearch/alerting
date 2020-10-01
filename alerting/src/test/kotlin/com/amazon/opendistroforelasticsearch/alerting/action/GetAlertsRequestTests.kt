@@ -26,7 +26,7 @@ class GetAlertsRequestTests : ESTestCase() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
 
-        val req = GetAlertsRequest(table, "1", "active", null)
+        val req = GetAlertsRequest(table, "1", "active", null, null)
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -43,7 +43,7 @@ class GetAlertsRequestTests : ESTestCase() {
     fun `test validate returns null`() {
         val table = Table("asc", "sortString", null, 1, 0, "")
 
-        val req = GetAlertsRequest(table, "1", "active", null)
+        val req = GetAlertsRequest(table, "1", "active", null, null)
         assertNotNull(req)
         assertNull(req.validate())
     }

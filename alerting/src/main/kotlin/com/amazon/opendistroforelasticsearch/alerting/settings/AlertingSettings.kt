@@ -118,7 +118,11 @@ class AlertingSettings {
         val MAX_ACTION_THROTTLE_VALUE = Setting.positiveTimeSetting(
                 "opendistro.alerting.action_throttle_max_value",
                 TimeValue.timeValueHours(24),
-                Setting.Property.NodeScope, Setting.Property.Dynamic
-        )
+                Setting.Property.NodeScope, Setting.Property.Dynamic)
+
+        val FILTERBY_BACKEND_ROLES = Setting.boolSetting(
+                "opendistro.alerting.filterby_backendroles",
+                false,
+                Setting.Property.NodeScope, Setting.Property.Dynamic)
     }
 }
