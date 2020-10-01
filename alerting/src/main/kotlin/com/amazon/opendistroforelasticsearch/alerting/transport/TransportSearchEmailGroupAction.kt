@@ -35,14 +35,16 @@ class TransportSearchEmailGroupAction @Inject constructor(
 ) {
 
     override fun doExecute(task: Task, searchRequest: SearchRequest, actionListener: ActionListener<SearchResponse>) {
-        client.search(searchRequest, object : ActionListener<SearchResponse> {
-            override fun onResponse(response: SearchResponse) {
-                actionListener.onResponse(response)
-            }
+        client.threadPool().threadContext.stashContext().use {
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(response: SearchResponse) {
+                    actionListener.onResponse(response)
+                }
 
-            override fun onFailure(e: Exception) {
-                actionListener.onFailure(e)
-            }
-        })
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(e)
+                }
+            })
+        }
     }
 }

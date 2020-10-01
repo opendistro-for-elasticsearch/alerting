@@ -57,31 +57,32 @@ class TransportGetEmailAccountAction @Inject constructor(
         val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, getEmailAccountRequest.emailAccountID)
                 .version(getEmailAccountRequest.version)
                 .fetchSourceContext(getEmailAccountRequest.srcContext)
-
-        client.get(getRequest, object : ActionListener<GetResponse> {
-            override fun onResponse(response: GetResponse) {
-                if (!response.isExists) {
-                    actionListener.onFailure(ElasticsearchStatusException("Email Account not found.", RestStatus.NOT_FOUND))
-                    return
-                }
-
-                var emailAccount: EmailAccount? = null
-                if (!response.isSourceEmpty) {
-                    XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                            response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                        emailAccount = EmailAccount.parseWithType(xcp, response.id, response.version)
+        client.threadPool().threadContext.stashContext().use {
+            client.get(getRequest, object : ActionListener<GetResponse> {
+                override fun onResponse(response: GetResponse) {
+                    if (!response.isExists) {
+                        actionListener.onFailure(ElasticsearchStatusException("Email Account not found.", RestStatus.NOT_FOUND))
+                        return
                     }
+
+                    var emailAccount: EmailAccount? = null
+                    if (!response.isSourceEmpty) {
+                        XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                                response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
+                            emailAccount = EmailAccount.parseWithType(xcp, response.id, response.version)
+                        }
+                    }
+
+                    actionListener.onResponse(
+                            GetEmailAccountResponse(response.id, response.version, response.seqNo, response.primaryTerm,
+                                    RestStatus.OK, emailAccount)
+                    )
                 }
 
-                actionListener.onResponse(
-                    GetEmailAccountResponse(response.id, response.version, response.seqNo, response.primaryTerm,
-                        RestStatus.OK, emailAccount)
-                )
-            }
-
-            override fun onFailure(e: Exception) {
-                actionListener.onFailure(e)
-            }
-        })
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(e)
+                }
+            })
+        }
     }
 }
