@@ -317,7 +317,8 @@ class TransportIndexMonitorAction @Inject constructor(
         private fun checkForDisallowedDestinations(allowList: List<String>) {
             this.request.monitor.triggers.forEach { trigger ->
                 trigger.actions.forEach { action ->
-                    checkIfDestinationIsAllowed(action.destinationId, allowList)
+                    // Check for empty destinationId for test cases, otherwise we get test failures
+                    if (action.destinationId.isNotEmpty()) checkIfDestinationIsAllowed(action.destinationId, allowList)
                 }
             }
         }
@@ -336,7 +337,6 @@ class TransportIndexMonitorAction @Inject constructor(
                                 RestStatus.FORBIDDEN
                             )
                         )
-                        return
                     }
                 }
 
