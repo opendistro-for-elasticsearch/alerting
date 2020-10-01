@@ -75,7 +75,9 @@ class TransportIndexEmailAccountAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexEmailAccountRequest, actionListener: ActionListener<IndexEmailAccountResponse>) {
-        IndexEmailAccountHandler(client, actionListener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            IndexEmailAccountHandler(client, actionListener, request).start()
+        }
     }
 
     inner class IndexEmailAccountHandler(

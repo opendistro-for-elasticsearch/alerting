@@ -57,31 +57,32 @@ class TransportGetEmailGroupAction @Inject constructor(
         val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, getEmailGroupRequest.emailGroupID)
                 .version(getEmailGroupRequest.version)
                 .fetchSourceContext(getEmailGroupRequest.srcContext)
-
-        client.get(getRequest, object : ActionListener<GetResponse> {
-            override fun onResponse(response: GetResponse) {
-                if (!response.isExists) {
-                    actionListener.onFailure(ElasticsearchStatusException("Email Group not found.", RestStatus.NOT_FOUND))
-                    return
-                }
-
-                var emailGroup: EmailGroup? = null
-                if (!response.isSourceEmpty) {
-                    XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                            response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                        emailGroup = EmailGroup.parseWithType(xcp, response.id, response.version)
+        client.threadPool().threadContext.stashContext().use {
+            client.get(getRequest, object : ActionListener<GetResponse> {
+                override fun onResponse(response: GetResponse) {
+                    if (!response.isExists) {
+                        actionListener.onFailure(ElasticsearchStatusException("Email Group not found.", RestStatus.NOT_FOUND))
+                        return
                     }
+
+                    var emailGroup: EmailGroup? = null
+                    if (!response.isSourceEmpty) {
+                        XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                                response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
+                            emailGroup = EmailGroup.parseWithType(xcp, response.id, response.version)
+                        }
+                    }
+
+                    actionListener.onResponse(
+                            GetEmailGroupResponse(response.id, response.version, response.seqNo, response.primaryTerm,
+                                    RestStatus.OK, emailGroup)
+                    )
                 }
 
-                actionListener.onResponse(
-                    GetEmailGroupResponse(response.id, response.version, response.seqNo, response.primaryTerm,
-                        RestStatus.OK, emailGroup)
-                )
-            }
-
-            override fun onFailure(e: Exception) {
-                actionListener.onFailure(e)
-            }
-        })
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(e)
+                }
+            })
+        }
     }
 }

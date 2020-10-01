@@ -60,6 +60,13 @@ However, to build the `alerting` plugin subproject, we also use the Elastic buil
 When launching a cluster using one of the above commands, logs are placed in `alerting/build/testclusters/integTest-0/logs/`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 
 
+#### Run integration tests with Security enabled 
+
+1. Setup a local odfe cluster with security plugin.
+`./gradlew build`
+`./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin`
+`./gradlew :alerting:integTestRunner -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin --tests "com.amazon.opendistroforelasticsearch.alerting.MonitorRunnerIT.test execute monitor returns search result"`
+
 ### Debugging
 
 Sometimes it's useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.

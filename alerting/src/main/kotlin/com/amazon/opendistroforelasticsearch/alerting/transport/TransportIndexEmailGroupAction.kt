@@ -67,7 +67,9 @@ class TransportIndexEmailGroupAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexEmailGroupRequest, actionListener: ActionListener<IndexEmailGroupResponse>) {
-        IndexEmailGroupHandler(client, actionListener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            IndexEmailGroupHandler(client, actionListener, request).start()
+        }
     }
 
     inner class IndexEmailGroupHandler(
