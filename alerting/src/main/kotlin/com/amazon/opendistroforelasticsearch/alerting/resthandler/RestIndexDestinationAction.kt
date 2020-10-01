@@ -19,13 +19,17 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationResponse
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
@@ -49,9 +53,18 @@ private val log = LogManager.getLogger(RestIndexDestinationAction::class.java)
  * Rest handlers to create and update Destination
  */
 class RestIndexDestinationAction(
-    settings: Settings
+    settings: Settings,
+    restClient: RestClient
 ) : BaseRestHandler() {
+
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
+    private val restClient: RestClient
+    private val settings: Settings
+
+    init {
+        this.restClient = restClient
+        this.settings = settings
+    }
 
     override fun getName(): String {
         return "index_destination_action"
@@ -66,15 +79,21 @@ class RestIndexDestinationAction(
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): BaseRestHandler.RestChannelConsumer {
+        log.debug("${request.method()} ${AlertingPlugin.DESTINATION_BASE_URI}")
+
         val id = request.param("destinationID", Destination.NO_ID)
         if (request.method() == RestRequest.Method.PUT && Destination.NO_ID == id) {
             throw IllegalArgumentException("Missing destination ID")
         }
 
+        // Get roles of the user executing this rest action
+        val user = AuthUser(settings, restClient, request.headers[ConfigConstants.AUTHORIZATION]).get()
+
         // Validate request by parsing JSON to Destination
         val xcp = request.contentParser()
         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         val destination = Destination.parse(xcp, id)
+                .copy(user = User(user.userName, user.backendRoles, user.roles, user.customAttNames))
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val refreshPolicy = if (request.hasParam(REFRESH)) {

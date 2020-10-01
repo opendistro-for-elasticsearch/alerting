@@ -18,6 +18,7 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.util.context
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
@@ -28,6 +29,8 @@ import org.elasticsearch.rest.RestRequest.Method.HEAD
 import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestToXContentListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
+
+private val log = LogManager.getLogger(RestGetMonitorAction::class.java)
 
 /**
  * This class consists of the REST handler to retrieve a monitor .
@@ -47,6 +50,8 @@ class RestGetMonitorAction : BaseRestHandler() {
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/{monitorID}")
+
         val monitorId = request.param("monitorID")
         if (monitorId == null || monitorId.isEmpty()) {
             throw IllegalArgumentException("missing id")

@@ -19,12 +19,17 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorResponse
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -48,7 +53,18 @@ private val log = LogManager.getLogger(RestIndexMonitorAction::class.java)
 /**
  * Rest handlers to create and update monitors.
  */
-class RestIndexMonitorAction : BaseRestHandler() {
+class RestIndexMonitorAction(
+    settings: Settings,
+    restClient: RestClient
+) : BaseRestHandler() {
+
+    private val restClient: RestClient
+    private val settings: Settings
+
+    init {
+        this.restClient = restClient
+        this.settings = settings
+    }
 
     override fun getName(): String {
         return "index_monitor_action"
@@ -63,15 +79,22 @@ class RestIndexMonitorAction : BaseRestHandler() {
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}")
+
         val id = request.param("monitorID", Monitor.NO_ID)
         if (request.method() == PUT && Monitor.NO_ID == id) {
             throw IllegalArgumentException("Missing monitor ID")
         }
 
+        // Get roles of the user executing this rest action
+        val user = AuthUser(settings, restClient, request.headers[ConfigConstants.AUTHORIZATION]).get()
+
         // Validate request by parsing JSON to Monitor
         val xcp = request.contentParser()
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         val monitor = Monitor.parse(xcp, id).copy(lastUpdateTime = Instant.now())
+                .copy(user = User(user.userName, user.backendRoles, user.roles, user.customAttNames))
+
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val refreshPolicy = if (request.hasParam(REFRESH)) {
