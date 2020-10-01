@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.transport
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.delete.DeleteResponse
@@ -39,15 +40,16 @@ class TransportDeleteMonitorAction @Inject constructor(
     override fun doExecute(task: Task, request: DeleteMonitorRequest, actionListener: ActionListener<DeleteResponse>) {
         val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.monitorId)
                 .setRefreshPolicy(request.refreshPolicy)
+        client.threadPool().threadContext.stashContext().use {
+            client.delete(deleteRequest, object : ActionListener<DeleteResponse> {
+                override fun onResponse(response: DeleteResponse) {
+                    actionListener.onResponse(response)
+                }
 
-        client.delete(deleteRequest, object : ActionListener<DeleteResponse> {
-            override fun onResponse(response: DeleteResponse) {
-                actionListener.onResponse(response)
-            }
-
-            override fun onFailure(t: Exception) {
-                actionListener.onFailure(t)
-            }
-        })
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(AlertingException.wrap(t))
+                }
+            })
+        }
     }
 }
