@@ -49,6 +49,8 @@ class RestDeleteDestinationAction : BaseRestHandler() {
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}")
+
         val destinationId = request.param("destinationID")
         log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/$destinationId")
 

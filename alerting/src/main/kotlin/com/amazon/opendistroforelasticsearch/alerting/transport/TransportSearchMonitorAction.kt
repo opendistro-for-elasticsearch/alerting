@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.transport
 
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -35,14 +36,17 @@ class TransportSearchMonitorAction @Inject constructor(
 ) {
 
     override fun doExecute(task: Task, searchRequest: SearchRequest, actionListener: ActionListener<SearchResponse>) {
-        client.search(searchRequest, object : ActionListener<SearchResponse> {
-            override fun onResponse(response: SearchResponse) {
-                actionListener.onResponse(response)
-            }
 
-            override fun onFailure(t: Exception) {
-                actionListener.onFailure(t)
-            }
-        })
+        client.threadPool().threadContext.stashContext().use {
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(response: SearchResponse) {
+                    actionListener.onResponse(response)
+                }
+
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(AlertingException.wrap(t))
+                }
+            })
+        }
     }
 }

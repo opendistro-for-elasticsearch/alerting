@@ -81,10 +81,12 @@ import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexMo
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchMonitorAction
+import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetDestinationsAction
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
 import org.elasticsearch.cluster.service.ClusterService
@@ -143,6 +145,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
     lateinit var threadPool: ThreadPool
     lateinit var alertIndices: AlertIndices
     lateinit var clusterService: ClusterService
+    lateinit var restClient: RestClient
 
     override fun getRestHandlers(
         settings: Settings,
@@ -155,12 +158,12 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
     ): List<RestHandler> {
         return listOf(RestGetMonitorAction(),
                 RestDeleteMonitorAction(),
-                RestIndexMonitorAction(),
+                RestIndexMonitorAction(settings, restClient),
                 RestSearchMonitorAction(),
                 RestExecuteMonitorAction(),
                 RestAcknowledgeAlertAction(),
                 RestScheduledJobStatsHandler("_alerting"),
-                RestIndexDestinationAction(settings),
+                RestIndexDestinationAction(settings, restClient),
                 RestDeleteDestinationAction(),
                 RestIndexEmailAccountAction(),
                 RestDeleteEmailAccountAction(),
@@ -225,6 +228,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler, ALERTING_JOB_TYPES)
         this.threadPool = threadPool
         this.clusterService = clusterService
+        this.restClient = SecureRestClientBuilder(settings, environment.configFile()).build()
         return listOf(sweeper, scheduler, runner, scheduledJobIndices)
     }
 
