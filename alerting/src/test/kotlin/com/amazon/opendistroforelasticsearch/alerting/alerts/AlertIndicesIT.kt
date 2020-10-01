@@ -44,7 +44,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
 
         putAlertMappings(AlertIndices.alertMapping().trimStart('{').trimEnd('}')
-                .replace("\"schema_version\": 1", "\"schema_version\": 0"))
+                .replace("\"schema_version\": 2", "\"schema_version\": 0"))
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
         verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
@@ -54,8 +54,8 @@ class AlertIndicesIT : AlertingRestTestCase() {
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
         verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 3)
-        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 1)
-        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 1)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 2)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 2)
     }
 
     fun `test alert index gets recreated automatically if deleted`() {

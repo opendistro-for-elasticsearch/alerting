@@ -40,6 +40,8 @@ class IndexDestinationRequestTests : ESTestCase() {
                         "1234",
                         0L,
                         1,
+                        1,
+                        1,
                         DestinationType.CHIME,
                         "TestChimeDest",
                         randomUser(),
@@ -76,6 +78,8 @@ class IndexDestinationRequestTests : ESTestCase() {
                 Destination(
                         "1234",
                         0L,
+                        1,
+                        1,
                         1,
                         DestinationType.CHIME,
                         "TestChimeDest",

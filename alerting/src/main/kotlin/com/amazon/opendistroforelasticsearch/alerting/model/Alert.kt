@@ -214,6 +214,8 @@ data class Alert(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
+                .field(ALERT_ID_FIELD, id)
+                .field(ALERT_VERSION_FIELD, version)
                 .field(MONITOR_ID_FIELD, monitorId)
                 .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(MONITOR_VERSION_FIELD, monitorVersion)

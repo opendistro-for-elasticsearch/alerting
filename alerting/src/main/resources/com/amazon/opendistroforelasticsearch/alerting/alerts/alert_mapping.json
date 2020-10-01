@@ -4,7 +4,7 @@
     "required": true
   },
   "_meta" : {
-    "schema_version": 1
+    "schema_version": 2
   },
   "properties": {
     "schema_version": {
@@ -14,6 +14,12 @@
       "type": "keyword"
     },
     "monitor_version": {
+      "type": "long"
+    },
+    "id": {
+      "type": "keyword"
+    },
+    "version": {
       "type": "long"
     },
     "severity": {
