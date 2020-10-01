@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class GetEmailGroupAction private constructor() : ActionType<GetEmailGroupResponse>(NAME, ::GetEmailGroupResponse) {
     companion object {
         val INSTANCE = GetEmailGroupAction()
-        val NAME = "cluster:admin/alerting/destination/email_group/get"
+        val NAME = "cluster:admin/opendistro/alerting/destination/email_group/get"
     }
 }
