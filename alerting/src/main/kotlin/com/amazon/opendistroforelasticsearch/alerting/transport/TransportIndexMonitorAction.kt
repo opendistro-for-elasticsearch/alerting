@@ -325,25 +325,27 @@ class TransportIndexMonitorAction @Inject constructor(
 
         private fun checkIfDestinationIsAllowed(destinationId: String, allowList: List<String>) {
             val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId)
-            client.get(getRequest, object : ActionListener<GetResponse> {
-                override fun onResponse(response: GetResponse) {
-                    val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                        response.sourceAsBytesRef, XContentType.JSON)
-                    val destination = Destination.parseWithType(xcp)
-                    if (!allowList.contains(destination.type.value)) {
-                        actionListener.onFailure(
-                            ElasticsearchStatusException(
-                                "Monitor contains a destination type that is not allowed: ${destination.type.value}",
-                                RestStatus.FORBIDDEN
+            client.threadPool().threadContext.stashContext().use {
+                client.get(getRequest, object : ActionListener<GetResponse> {
+                    override fun onResponse(response: GetResponse) {
+                        val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                            response.sourceAsBytesRef, XContentType.JSON)
+                        val destination = Destination.parseWithType(xcp)
+                        if (!allowList.contains(destination.type.value)) {
+                            actionListener.onFailure(
+                                AlertingException.wrap(ElasticsearchStatusException(
+                                    "Monitor contains a destination type that is not allowed: ${destination.type.value}",
+                                    RestStatus.FORBIDDEN
+                                ))
                             )
-                        )
+                        }
                     }
-                }
 
-                override fun onFailure(e: Exception) {
-                    actionListener.onFailure(e)
-                }
-            })
+                    override fun onFailure(e: Exception) {
+                        actionListener.onFailure(e)
+                    }
+                })
+            }
         }
     }
 
