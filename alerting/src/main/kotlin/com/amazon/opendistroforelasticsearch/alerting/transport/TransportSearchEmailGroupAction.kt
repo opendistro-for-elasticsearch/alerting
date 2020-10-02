@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting.transport
 
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -52,10 +53,10 @@ class TransportSearchEmailGroupAction @Inject constructor(
 
         if (!allowList.contains(DestinationType.EMAIL.value)) {
             actionListener.onFailure(
-                ElasticsearchStatusException(
+                AlertingException.wrap(ElasticsearchStatusException(
                     "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
                     RestStatus.FORBIDDEN
-                )
+                ))
             )
             return
         }

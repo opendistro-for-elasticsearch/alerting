@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountResp
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
@@ -68,10 +69,10 @@ class TransportGetEmailAccountAction @Inject constructor(
 
         if (!allowList.contains(DestinationType.EMAIL.value)) {
             actionListener.onFailure(
-                ElasticsearchStatusException(
+                AlertingException.wrap(ElasticsearchStatusException(
                     "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
                     RestStatus.FORBIDDEN
-                )
+                ))
             )
             return
         }
@@ -83,7 +84,9 @@ class TransportGetEmailAccountAction @Inject constructor(
             client.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {
                     if (!response.isExists) {
-                        actionListener.onFailure(ElasticsearchStatusException("Email Account not found.", RestStatus.NOT_FOUND))
+                        actionListener.onFailure(AlertingException.wrap(
+                            ElasticsearchStatusException("Email Account not found.", RestStatus.NOT_FOUND)
+                        ))
                         return
                     }
 

@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Co
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
@@ -114,10 +115,10 @@ class TransportIndexEmailGroupAction @Inject constructor(
 
             if (!allowList.contains(DestinationType.EMAIL.value)) {
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
                         RestStatus.FORBIDDEN
-                    )
+                    ))
                 )
                 return
             }
@@ -137,10 +138,10 @@ class TransportIndexEmailGroupAction @Inject constructor(
             } else {
                 log.error("Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
-                    )
+                    ))
                 )
             }
         }
@@ -153,10 +154,10 @@ class TransportIndexEmailGroupAction @Inject constructor(
             } else {
                 log.error("Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
-                    )
+                    ))
                 )
             }
         }
@@ -177,7 +178,9 @@ class TransportIndexEmailGroupAction @Inject constructor(
                 override fun onResponse(response: IndexResponse) {
                     val failureReasons = checkShardsFailure(response)
                     if (failureReasons != null) {
-                        actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                        actionListener.onFailure(
+                            AlertingException.wrap(ElasticsearchStatusException(failureReasons.toString(), response.status())
+                        ))
                         return
                     }
                     actionListener.onResponse(
@@ -207,9 +210,9 @@ class TransportIndexEmailGroupAction @Inject constructor(
 
         private fun onGetResponse(response: GetResponse) {
             if (!response.isExists) {
-                actionListener.onFailure(
+                actionListener.onFailure(AlertingException.wrap(
                     ElasticsearchStatusException("EmailGroup with ${request.emailGroupID} was not found", RestStatus.NOT_FOUND)
-                )
+                ))
                 return
             }
 

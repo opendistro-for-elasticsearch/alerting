@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailAccountA
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailAccountRequest
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -54,10 +55,10 @@ class TransportDeleteEmailAccountAction @Inject constructor(
 
         if (!allowList.contains(DestinationType.EMAIL.value)) {
             actionListener.onFailure(
-                ElasticsearchStatusException(
+                AlertingException.wrap(ElasticsearchStatusException(
                     "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
                     RestStatus.FORBIDDEN
-                )
+                ))
             )
             return
         }
