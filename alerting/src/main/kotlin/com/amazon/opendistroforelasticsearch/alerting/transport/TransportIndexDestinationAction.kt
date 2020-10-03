@@ -96,10 +96,10 @@ class TransportIndexDestinationAction @Inject constructor(
             val destinationType = request.destination.type.value
             if (!allowList.contains(destinationType)) {
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "Destination type is not allowed: $destinationType",
                         RestStatus.FORBIDDEN
-                    )
+                    ))
                 )
                 return
             }
