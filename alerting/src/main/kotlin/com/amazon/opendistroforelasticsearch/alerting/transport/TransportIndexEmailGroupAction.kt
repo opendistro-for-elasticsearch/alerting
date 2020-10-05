@@ -21,7 +21,10 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailGroupResp
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
@@ -60,10 +63,12 @@ class TransportIndexEmailGroupAction @Inject constructor(
     IndexEmailGroupAction.NAME, transportService, actionFilters, ::IndexEmailGroupRequest
 ) {
 
-    @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
+    @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
 
     init {
-        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
     }
 
     override fun doExecute(task: Task, request: IndexEmailGroupRequest, actionListener: ActionListener<IndexEmailGroupResponse>) {
@@ -107,6 +112,17 @@ class TransportIndexEmailGroupAction @Inject constructor(
         }
 
         private fun prepareEmailGroupIndexing() {
+
+            if (!allowList.contains(DestinationType.EMAIL.value)) {
+                actionListener.onFailure(
+                    AlertingException.wrap(ElasticsearchStatusException(
+                        "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
+                        RestStatus.FORBIDDEN
+                    ))
+                )
+                return
+            }
+
             if (request.method == RestRequest.Method.PUT) {
                 updateEmailGroup()
             } else {
@@ -122,10 +138,10 @@ class TransportIndexEmailGroupAction @Inject constructor(
             } else {
                 log.error("Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
-                    )
+                    ))
                 )
             }
         }
@@ -138,10 +154,10 @@ class TransportIndexEmailGroupAction @Inject constructor(
             } else {
                 log.error("Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
-                    )
+                    ))
                 )
             }
         }
@@ -162,7 +178,9 @@ class TransportIndexEmailGroupAction @Inject constructor(
                 override fun onResponse(response: IndexResponse) {
                     val failureReasons = checkShardsFailure(response)
                     if (failureReasons != null) {
-                        actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                        actionListener.onFailure(
+                            AlertingException.wrap(ElasticsearchStatusException(failureReasons.toString(), response.status())
+                        ))
                         return
                     }
                     actionListener.onResponse(
@@ -192,9 +210,9 @@ class TransportIndexEmailGroupAction @Inject constructor(
 
         private fun onGetResponse(response: GetResponse) {
             if (!response.isExists) {
-                actionListener.onFailure(
+                actionListener.onFailure(AlertingException.wrap(
                     ElasticsearchStatusException("EmailGroup with ${request.emailGroupID} was not found", RestStatus.NOT_FOUND)
-                )
+                ))
                 return
             }
 

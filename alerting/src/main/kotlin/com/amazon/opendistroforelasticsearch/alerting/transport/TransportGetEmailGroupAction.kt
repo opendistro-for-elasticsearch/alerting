@@ -20,6 +20,9 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupReques
 import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupResponse
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -28,7 +31,9 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -43,16 +48,34 @@ class TransportGetEmailGroupAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
     actionFilters: ActionFilters,
+    val clusterService: ClusterService,
+    settings: Settings,
     val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<GetEmailGroupRequest, GetEmailGroupResponse>(
     GetEmailGroupAction.NAME, transportService, actionFilters, ::GetEmailGroupRequest
 ) {
+
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
+    }
 
     override fun doExecute(
         task: Task,
         getEmailGroupRequest: GetEmailGroupRequest,
         actionListener: ActionListener<GetEmailGroupResponse>
     ) {
+
+        if (!allowList.contains(DestinationType.EMAIL.value)) {
+            actionListener.onFailure(
+                AlertingException.wrap(ElasticsearchStatusException(
+                    "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
+                    RestStatus.FORBIDDEN
+                ))
+            )
+            return
+        }
 
         val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, getEmailGroupRequest.emailGroupID)
                 .version(getEmailGroupRequest.version)
@@ -61,7 +84,9 @@ class TransportGetEmailGroupAction @Inject constructor(
             client.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {
                     if (!response.isExists) {
-                        actionListener.onFailure(ElasticsearchStatusException("Email Group not found.", RestStatus.NOT_FOUND))
+                        actionListener.onFailure(AlertingException.wrap(
+                            ElasticsearchStatusException("Email Group not found.", RestStatus.NOT_FOUND)
+                        ))
                         return
                     }
 

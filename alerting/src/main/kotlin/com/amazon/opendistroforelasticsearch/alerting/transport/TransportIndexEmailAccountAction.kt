@@ -24,6 +24,9 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Co
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
@@ -68,10 +71,12 @@ class TransportIndexEmailAccountAction @Inject constructor(
 
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
     }
 
     override fun doExecute(task: Task, request: IndexEmailAccountRequest, actionListener: ActionListener<IndexEmailAccountResponse>) {
@@ -115,6 +120,16 @@ class TransportIndexEmailAccountAction @Inject constructor(
         }
 
         private fun prepareEmailAccountIndexing() {
+
+            if (!allowList.contains(DestinationType.EMAIL.value)) {
+                actionListener.onFailure(
+                    AlertingException.wrap(ElasticsearchStatusException(
+                        "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
+                        RestStatus.FORBIDDEN
+                    ))
+                )
+                return
+            }
 
             val query = QueryBuilders.boolQuery()
                 .must(QueryBuilders.termQuery(
@@ -181,10 +196,10 @@ class TransportIndexEmailAccountAction @Inject constructor(
             } else {
                 log.error("Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
-                    )
+                    ))
                 )
             }
         }
@@ -197,10 +212,10 @@ class TransportIndexEmailAccountAction @Inject constructor(
             } else {
                 log.error("Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 actionListener.onFailure(
-                    ElasticsearchStatusException(
+                    AlertingException.wrap(ElasticsearchStatusException(
                         "Update $SCHEDULED_JOBS_INDEX mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
-                    )
+                    ))
                 )
             }
         }
@@ -221,7 +236,10 @@ class TransportIndexEmailAccountAction @Inject constructor(
                 override fun onResponse(response: IndexResponse) {
                     val failureReasons = checkShardsFailure(response)
                     if (failureReasons != null) {
-                        actionListener.onFailure(ElasticsearchStatusException(failureReasons.toString(), response.status()))
+                        actionListener.onFailure(
+                            AlertingException.wrap(ElasticsearchStatusException(
+                                failureReasons.toString(), response.status())
+                            ))
                         return
                     }
                     actionListener.onResponse(
@@ -252,7 +270,10 @@ class TransportIndexEmailAccountAction @Inject constructor(
         private fun onGetResponse(response: GetResponse) {
             if (!response.isExists) {
                 actionListener.onFailure(
-                    ElasticsearchStatusException("EmailAccount with ${request.emailAccountID} was not found", RestStatus.NOT_FOUND)
+                    AlertingException.wrap(ElasticsearchStatusException(
+                        "EmailAccount with ${request.emailAccountID} was not found",
+                        RestStatus.NOT_FOUND
+                    ))
                 )
                 return
             }

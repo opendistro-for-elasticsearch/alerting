@@ -29,8 +29,13 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.message.BasicHeader
@@ -50,6 +55,7 @@ import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import org.elasticsearch.common.unit.TimeValue
+import java.time.Instant
 
 @TestLogging("level:DEBUG", reason = "Debug for tests.")
 @Suppress("UNCHECKED_CAST")
@@ -154,6 +160,34 @@ class MonitorRestApiIT : AlertingRestTestCase() {
             // Without security plugin we get BAD_REQUEST correctly. With security_plugin we get INTERNAL_SERVER_ERROR, till above issue is fixed.
             assertTrue("Unexpected status",
                     listOf<RestStatus>(RestStatus.BAD_REQUEST, RestStatus.FORBIDDEN).contains(e.response.restStatus()))
+        }
+    }
+
+    fun `test creating a monitor with a disallowed destination type fails`() {
+        try {
+            // Create a Chime Destination
+            val chime = Chime("http://abc.com")
+            val destination = Destination(
+                type = DestinationType.CHIME,
+                name = "test",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = chime,
+                slack = null,
+                customWebhook = null,
+                email = null)
+            val chimeDestination = createDestination(destination = destination)
+
+            // Remove Chime from the allow_list
+            val allowedDestinations = DestinationType.values().toList()
+                .filter { destinationType -> destinationType != DestinationType.CHIME }
+                .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+            client().updateSettings(DestinationSettings.ALLOW_LIST.key, allowedDestinations)
+
+            createMonitor(randomMonitor(triggers = listOf(randomTrigger(destinationId = chimeDestination.id))))
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
         }
     }
 

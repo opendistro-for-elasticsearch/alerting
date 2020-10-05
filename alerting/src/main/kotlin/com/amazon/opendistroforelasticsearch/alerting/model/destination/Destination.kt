@@ -36,7 +36,7 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.time.Instant
 import java.util.Locale
@@ -147,7 +147,7 @@ data class Destination(
             var lastUpdateTime: Instant? = null
             var schemaVersion = NO_SCHEMA_VERSION
 
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -199,6 +199,17 @@ data class Destination(
                     slack,
                     customWebhook,
                     email)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Destination {
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val destination = parse(xcp, id, version)
+            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            return destination
         }
 
         @JvmStatic
