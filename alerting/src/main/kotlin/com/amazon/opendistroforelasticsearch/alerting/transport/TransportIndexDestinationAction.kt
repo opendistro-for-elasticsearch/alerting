@@ -6,6 +6,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationRes
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
@@ -44,9 +45,11 @@ class TransportIndexDestinationAction @Inject constructor(
 ) {
 
     @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
+    @Volatile private var allowList = DestinationSettings.ALLOW_LIST.get(settings)
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(DestinationSettings.ALLOW_LIST) { allowList = it }
     }
 
     override fun doExecute(task: Task, request: IndexDestinationRequest, actionListener: ActionListener<IndexDestinationResponse>) {
@@ -88,6 +91,19 @@ class TransportIndexDestinationAction @Inject constructor(
         }
 
         private fun prepareDestinationIndexing() {
+
+            // Prevent indexing if the Destination type is disallowed
+            val destinationType = request.destination.type.value
+            if (!allowList.contains(destinationType)) {
+                actionListener.onFailure(
+                    AlertingException.wrap(ElasticsearchStatusException(
+                        "Destination type is not allowed: $destinationType",
+                        RestStatus.FORBIDDEN
+                    ))
+                )
+                return
+            }
+
             if (request.method == RestRequest.Method.PUT) updateDestination()
             else {
                 val destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)

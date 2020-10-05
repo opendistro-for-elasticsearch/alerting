@@ -25,7 +25,9 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 import org.junit.Assert
@@ -230,6 +232,31 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         assertNotEquals("response is missing Id", Destination.NO_ID, createdId)
         assertTrue("incorrect version", createdVersion > 0)
         assertEquals("Incorrect Location header", "$DESTINATION_BASE_URI/$createdId", createResponse.getHeader("Location"))
+    }
+
+    fun `test creating a disallowed destination fails`() {
+        try {
+            // Remove Slack from the allow_list
+            val allowedDestinations = DestinationType.values().toList()
+                .filter { destinationType -> destinationType != DestinationType.SLACK }
+                .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+            client().updateSettings(DestinationSettings.ALLOW_LIST.key, allowedDestinations)
+
+            val slack = Slack("http://abc.com")
+            val destination = Destination(
+                type = DestinationType.SLACK,
+                name = "test",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = null,
+                slack = slack,
+                customWebhook = null,
+                email = null)
+            createDestination(destination = destination)
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
     }
 
     fun `test delete destination`() {

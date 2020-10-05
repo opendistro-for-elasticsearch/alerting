@@ -21,12 +21,15 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorRespons
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
+import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERTING_MAX_MONITORS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
@@ -79,12 +82,14 @@ class TransportIndexMonitorAction @Inject constructor(
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(MAX_ACTION_THROTTLE_VALUE) { maxActionThrottle = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
     }
 
     override fun doExecute(task: Task, request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>) {
@@ -114,7 +119,7 @@ class TransportIndexMonitorAction @Inject constructor(
                     }
                 })
             } else if (!IndexUtils.scheduledJobIndexUpdated) {
-                IndexUtils.updateIndexMapping(ScheduledJob.SCHEDULED_JOBS_INDEX, ScheduledJob.SCHEDULED_JOB_TYPE,
+                IndexUtils.updateIndexMapping(SCHEDULED_JOBS_INDEX, SCHEDULED_JOB_TYPE,
                         ScheduledJobIndices.scheduledJobMappings(), clusterService.state(), client.admin().indices(),
                         object : ActionListener<AcknowledgedResponse> {
                             override fun onResponse(response: AcknowledgedResponse) {
@@ -135,6 +140,8 @@ class TransportIndexMonitorAction @Inject constructor(
          * and compare this to the [maxMonitorCount]. Requests that breach this threshold will be rejected.
          */
         private fun prepareMonitorIndexing() {
+
+            checkForDisallowedDestinations(allowList)
 
             try {
                 validateActionThrottle(request.monitor, maxActionThrottle, TimeValue.timeValueMinutes(1))
@@ -191,13 +198,13 @@ class TransportIndexMonitorAction @Inject constructor(
 
         private fun onCreateMappingsResponse(response: CreateIndexResponse) {
             if (response.isAcknowledged) {
-                log.info("Created ${ScheduledJob.SCHEDULED_JOBS_INDEX} with mappings.")
+                log.info("Created $SCHEDULED_JOBS_INDEX with mappings.")
                 prepareMonitorIndexing()
                 IndexUtils.scheduledJobIndexUpdated()
             } else {
-                log.error("Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged.")
+                log.error("Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged.")
                 actionListener.onFailure(AlertingException.wrap(ElasticsearchStatusException(
-                        "Create ${ScheduledJob.SCHEDULED_JOBS_INDEX} mappings call not acknowledged", RestStatus.INTERNAL_SERVER_ERROR))
+                        "Create $SCHEDULED_JOBS_INDEX mappings call not acknowledged", RestStatus.INTERNAL_SERVER_ERROR))
                 )
             }
         }
@@ -242,7 +249,7 @@ class TransportIndexMonitorAction @Inject constructor(
         }
 
         private fun updateMonitor() {
-            val getRequest = GetRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.monitorId)
+            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, request.monitorId)
             client.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {
                     onGetResponse(response)
@@ -297,7 +304,7 @@ class TransportIndexMonitorAction @Inject constructor(
         }
 
         private fun checkShardsFailure(response: IndexResponse): String? {
-            var failureReasons = StringBuilder()
+            val failureReasons = StringBuilder()
             if (response.shardInfo.failed > 0) {
                 response.shardInfo.failures.forEach {
                     entry -> failureReasons.append(entry.reason())
@@ -305,6 +312,40 @@ class TransportIndexMonitorAction @Inject constructor(
                 return failureReasons.toString()
             }
             return null
+        }
+
+        private fun checkForDisallowedDestinations(allowList: List<String>) {
+            this.request.monitor.triggers.forEach { trigger ->
+                trigger.actions.forEach { action ->
+                    // Check for empty destinationId for test cases, otherwise we get test failures
+                    if (action.destinationId.isNotEmpty()) checkIfDestinationIsAllowed(action.destinationId, allowList)
+                }
+            }
+        }
+
+        private fun checkIfDestinationIsAllowed(destinationId: String, allowList: List<String>) {
+            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId)
+            client.threadPool().threadContext.stashContext().use {
+                client.get(getRequest, object : ActionListener<GetResponse> {
+                    override fun onResponse(response: GetResponse) {
+                        val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                            response.sourceAsBytesRef, XContentType.JSON)
+                        val destination = Destination.parseWithType(xcp)
+                        if (!allowList.contains(destination.type.value)) {
+                            actionListener.onFailure(
+                                AlertingException.wrap(ElasticsearchStatusException(
+                                    "Monitor contains a destination type that is not allowed: ${destination.type.value}",
+                                    RestStatus.FORBIDDEN
+                                ))
+                            )
+                        }
+                    }
+
+                    override fun onFailure(e: Exception) {
+                        actionListener.onFailure(e)
+                    }
+                })
+            }
         }
     }
 

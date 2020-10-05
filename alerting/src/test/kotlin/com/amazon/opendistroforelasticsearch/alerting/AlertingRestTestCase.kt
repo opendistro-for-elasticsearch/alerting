@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
@@ -575,6 +576,13 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                         .startObject().field(ScheduledJobSettings.SWEEPER_ENABLED.key, false).endObject()
                         .endObject().string(), ContentType.APPLICATION_JSON))
         return updateResponse
+    }
+
+    fun removeEmailFromAllowList() {
+        val allowedDestinations = DestinationType.values().toList()
+            .filter { destinationType -> destinationType != DestinationType.EMAIL }
+            .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+        client().updateSettings(DestinationSettings.ALLOW_LIST.key, allowedDestinations)
     }
 
     companion object {

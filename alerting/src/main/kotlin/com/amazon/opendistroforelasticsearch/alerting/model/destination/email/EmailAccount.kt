@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.destination.email
 
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
-import com.amazon.opendistroforelasticsearch.alerting.util.ModelUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.isValidEmail
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -53,7 +53,7 @@ data class EmailAccount(
             "Invalid email account name. Valid characters are upper and lowercase a-z, 0-9, and _ (underscore)."
         }
 
-        require(ModelUtils.isValidEmail(email)) { "Invalid email" }
+        require(isValidEmail(email)) { "Invalid email" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
