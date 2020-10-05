@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.action
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.test.ESTestCase
 
 class GetAlertsRequestTests : ESTestCase() {
@@ -38,6 +39,25 @@ class GetAlertsRequestTests : ESTestCase() {
         assertEquals("active", newReq.alertState)
         assertNull(newReq.monitorId)
         assertEquals(table, newReq.table)
+    }
+
+    fun `test get alerts request with filter`() {
+
+        val table = Table("asc", "sortString", null, 1, 0, "")
+        val filter = QueryBuilders.termsQuery("monitor_user.backend_roles", listOf("admin", "hr"))
+        val req = GetAlertsRequest(table, "1", "active", null, filter)
+        assertNotNull(req)
+
+        val out = BytesStreamOutput()
+        req.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newReq = GetAlertsRequest(sin)
+
+        assertEquals("1", newReq.severityLevel)
+        assertEquals("active", newReq.alertState)
+        assertNull(newReq.monitorId)
+        assertEquals(table, newReq.table)
+        assertNotNull(newReq.filter)
     }
 
     fun `test validate returns null`() {

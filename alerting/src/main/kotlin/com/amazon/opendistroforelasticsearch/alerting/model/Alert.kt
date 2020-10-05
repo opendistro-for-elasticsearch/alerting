@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -230,7 +231,7 @@ data class Alert(
                 .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(MONITOR_VERSION_FIELD, monitorVersion)
                 .field(MONITOR_NAME_FIELD, monitorName)
-                .field(MONITOR_USER_FIELD, monitorUser)
+                .optionalUserField(MONITOR_USER_FIELD, monitorUser)
                 .field(TRIGGER_ID_FIELD, triggerId)
                 .field(TRIGGER_NAME_FIELD, triggerName)
                 .field(STATE_FIELD, state)
