@@ -121,7 +121,7 @@ class AlertingSettings {
                 Setting.Property.NodeScope, Setting.Property.Dynamic)
 
         val FILTER_BY_BACKEND_ROLES = Setting.boolSetting(
-                "opendistro.alerting.filter_by_backendroles",
+                "opendistro.alerting.filter_by_backend_roles",
                 false,
                 Setting.Property.NodeScope, Setting.Property.Dynamic)
     }
