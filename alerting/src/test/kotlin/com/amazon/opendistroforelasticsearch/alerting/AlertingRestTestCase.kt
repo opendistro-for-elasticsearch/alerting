@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destinat
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
@@ -609,6 +610,13 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                             .endObject().string(), ContentType.APPLICATION_JSON))
             assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
         }
+    }
+
+    fun removeEmailFromAllowList() {
+        val allowedDestinations = DestinationType.values().toList()
+            .filter { destinationType -> destinationType != DestinationType.EMAIL }
+            .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+        client().updateSettings(DestinationSettings.ALLOW_LIST.key, allowedDestinations)
     }
 
     companion object {

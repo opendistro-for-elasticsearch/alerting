@@ -16,25 +16,51 @@
 package com.amazon.opendistroforelasticsearch.alerting.transport
 
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
 class TransportSearchEmailAccountAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
-    actionFilters: ActionFilters
+    actionFilters: ActionFilters,
+    val clusterService: ClusterService,
+    settings: Settings
 ) : HandledTransportAction<SearchRequest, SearchResponse>(
     SearchEmailAccountAction.NAME, transportService, actionFilters, ::SearchRequest
 ) {
 
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
+    }
+
     override fun doExecute(task: Task, searchRequest: SearchRequest, actionListener: ActionListener<SearchResponse>) {
+
+        if (!allowList.contains(DestinationType.EMAIL.value)) {
+            actionListener.onFailure(
+                AlertingException.wrap(ElasticsearchStatusException(
+                    "This API is blocked since Destination type [${DestinationType.EMAIL}] is not allowed",
+                    RestStatus.FORBIDDEN
+                ))
+            )
+            return
+        }
+
         client.threadPool().threadContext.stashContext().use {
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {

@@ -151,7 +151,7 @@ fun randomTemplateScript(
 fun randomAction(
     name: String = ESRestTestCase.randomUnicodeOfLength(10),
     template: Script = randomTemplateScript("Hello World"),
-    destinationId: String = "123",
+    destinationId: String = "",
     throttleEnabled: Boolean = false,
     throttle: Throttle = randomThrottle()
 ) = Action(name, destinationId, template, template, throttleEnabled, throttle)

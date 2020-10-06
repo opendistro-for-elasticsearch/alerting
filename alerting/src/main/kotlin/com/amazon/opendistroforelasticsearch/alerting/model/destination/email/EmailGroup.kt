@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.destination.email
 
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
-import com.amazon.opendistroforelasticsearch.alerting.util.ModelUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.isValidEmail
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -147,7 +147,7 @@ data class EmailEntry(val email: String) : Writeable, ToXContent {
 
     init {
         require(!Strings.isEmpty(email)) { "Email entry must have a non-empty email" }
-        require(ModelUtils.isValidEmail(email)) { "Invalid email" }
+        require(isValidEmail(email)) { "Invalid email" }
     }
 
     @Throws(IOException::class)
