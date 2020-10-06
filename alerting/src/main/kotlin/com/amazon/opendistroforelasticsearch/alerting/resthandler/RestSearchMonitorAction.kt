@@ -61,10 +61,10 @@ class RestSearchMonitorAction(
     private val restClient: RestClient
 ) : BaseRestHandler() {
 
-    @Volatile private var filterBy = AlertingSettings.FILTERBY_BACKEND_ROLES.get(settings)
+    @Volatile private var filterBy = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
 
     init {
-        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTERBY_BACKEND_ROLES) { filterBy = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterBy = it }
     }
 
     override fun getName(): String {

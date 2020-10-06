@@ -120,7 +120,7 @@ class AlertingSettings {
                 TimeValue.timeValueHours(24),
                 Setting.Property.NodeScope, Setting.Property.Dynamic)
 
-        val FILTERBY_BACKEND_ROLES = Setting.boolSetting(
+        val FILTER_BY_BACKEND_ROLES = Setting.boolSetting(
                 "opendistro.alerting.filterby_backendroles",
                 false,
                 Setting.Property.NodeScope, Setting.Property.Dynamic)

@@ -271,19 +271,9 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         assertEquals("Alert saved for test monitor", 0, alerts.size)
     }
 
-    fun `test execute monitor search with star`() {
-        val testIndex = createTestIndex()
-        val twoMinsAgo = ZonedDateTime.now().minus(2, MINUTES).truncatedTo(MILLIS)
-        val testTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(twoMinsAgo)
-        val testDoc = """{ "test_strict_date_time" : "$testTime" }"""
-        indexDoc(testIndex, "1", testDoc)
-
-        val query = QueryBuilders.rangeQuery("test_strict_date_time")
-                .gt("{{period_end}}||-10d")
-                .lte("{{period_end}}")
-                .format("epoch_millis")
-
-        val input = SearchInput(indices = listOf("*"), query = SearchSourceBuilder().query(query))
+    fun `test execute monitor search with period`() {
+        val query = QueryBuilders.rangeQuery("monitor.last_update_time").gte("{{period_start}}").lte("{{period_end}}")
+        val input = SearchInput(indices = listOf(".*"), query = SearchSourceBuilder().query(query))
         val triggerScript = """
             // make sure there is at least one monitor
             return ctx.results[0].hits.hits.size() > 0

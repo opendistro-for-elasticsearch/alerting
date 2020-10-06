@@ -605,7 +605,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
             val updateResponse = client().makeRequest("PUT", "_cluster/settings",
                     emptyMap(),
                     StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
-                            .startObject().field(AlertingSettings.FILTERBY_BACKEND_ROLES.key, true).endObject()
+                            .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, true).endObject()
                             .endObject().string(), ContentType.APPLICATION_JSON))
             assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
         }
