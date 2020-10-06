@@ -159,7 +159,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
         return listOf(RestGetMonitorAction(),
                 RestDeleteMonitorAction(),
                 RestIndexMonitorAction(settings, restClient),
-                RestSearchMonitorAction(),
+                RestSearchMonitorAction(settings, clusterService, restClient),
                 RestExecuteMonitorAction(),
                 RestAcknowledgeAlertAction(),
                 RestScheduledJobStatsHandler("_alerting"),
@@ -173,8 +173,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 RestDeleteEmailGroupAction(),
                 RestSearchEmailGroupAction(),
                 RestGetEmailGroupAction(),
-                RestGetDestinationsAction(),
-                RestGetAlertsAction()
+                RestGetDestinationsAction(settings, clusterService, restClient),
+                RestGetAlertsAction(settings, clusterService, restClient)
         )
     }
 
@@ -255,6 +255,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 AlertingSettings.ALERTING_MAX_MONITORS,
                 AlertingSettings.REQUEST_TIMEOUT,
                 AlertingSettings.MAX_ACTION_THROTTLE_VALUE,
+                AlertingSettings.FILTER_BY_BACKEND_ROLES,
                 DestinationSettings.EMAIL_USERNAME,
                 DestinationSettings.EMAIL_PASSWORD,
                 DestinationSettings.ALLOW_LIST

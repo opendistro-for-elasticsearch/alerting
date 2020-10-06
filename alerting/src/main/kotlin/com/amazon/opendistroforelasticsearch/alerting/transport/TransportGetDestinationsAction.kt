@@ -28,6 +28,7 @@ import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -48,6 +49,7 @@ class TransportGetDestinationsAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
     actionFilters: ActionFilters,
+    val settings: Settings,
     val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<GetDestinationsRequest, GetDestinationsResponse> (
         GetDestinationsAction.NAME, transportService, actionFilters, ::GetDestinationsRequest
@@ -92,6 +94,10 @@ class TransportGetDestinationsAction @Inject constructor(
                                 .defaultOperator(Operator.AND)
                                 .field("destination.type")
                                 .field("destination.name"))
+            }
+
+            if (getDestinationsRequest.filter != null) {
+                queryBuilder.filter(getDestinationsRequest.filter)
             }
 
             searchSourceBuilder.query(queryBuilder)

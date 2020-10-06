@@ -203,7 +203,7 @@ class MonitorRunner(
          */
         var roles = if (monitor.user == null) {
             // fixme: discuss and remove hardcoded to settings?
-            settings.getAsList("", listOf("all_access,AmazonES_all_access"))
+            settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
         } else {
             monitor.user.roles
         }
