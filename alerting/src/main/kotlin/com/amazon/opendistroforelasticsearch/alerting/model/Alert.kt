@@ -16,8 +16,10 @@
 package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -37,6 +39,7 @@ data class Alert(
     val monitorId: String,
     val monitorName: String,
     val monitorVersion: Long,
+    val monitorUser: User?,
     val triggerId: String,
     val triggerName: String,
     val state: State,
@@ -66,7 +69,7 @@ data class Alert(
         errorHistory: List<AlertError> = mutableListOf(),
         actionExecutionResults: List<ActionExecutionResult> = mutableListOf(),
         schemaVersion: Int = NO_SCHEMA_VERSION
-    ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version,
+    ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version, monitorUser = monitor.user,
             triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
             lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
             severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion)
@@ -77,23 +80,26 @@ data class Alert(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-            sin.readString(), // id
-            sin.readLong(), // version
-            sin.readInt(), // schemaVersion
-            sin.readString(), // monitorId
-            sin.readString(), // monitorName
-            sin.readLong(), // monitorVersion
-            sin.readString(), // triggerId
-            sin.readString(), // triggerName
-            sin.readEnum(State::class.java), // state
-            sin.readInstant(), // startTime
-            sin.readOptionalInstant(), // endTime
-            sin.readOptionalInstant(), // lastNotificationTime
-            sin.readOptionalInstant(), // acknowledgedTime
-            sin.readOptionalString(), // errorMessage
-            sin.readList(::AlertError), // errorHistory
-            sin.readString(), // severity
-            sin.readList(::ActionExecutionResult) // actionExecutionResults
+            id = sin.readString(),
+            version = sin.readLong(),
+            schemaVersion = sin.readInt(),
+            monitorId = sin.readString(),
+            monitorName = sin.readString(),
+            monitorVersion = sin.readLong(),
+            monitorUser = if (sin.readBoolean()) {
+                User(sin)
+            } else null,
+            triggerId = sin.readString(),
+            triggerName = sin.readString(),
+            state = sin.readEnum(State::class.java),
+            startTime = sin.readInstant(),
+            endTime = sin.readOptionalInstant(),
+            lastNotificationTime = sin.readOptionalInstant(),
+            acknowledgedTime = sin.readOptionalInstant(),
+            errorMessage = sin.readOptionalString(),
+            errorHistory = sin.readList(::AlertError),
+            severity = sin.readString(),
+            actionExecutionResults = sin.readList(::ActionExecutionResult)
     )
 
     fun isAcknowledged(): Boolean = (state == State.ACKNOWLEDGED)
@@ -106,6 +112,8 @@ data class Alert(
         out.writeString(monitorId)
         out.writeString(monitorName)
         out.writeLong(monitorVersion)
+        out.writeBoolean(monitorUser != null)
+        monitorUser?.writeTo(out)
         out.writeString(triggerId)
         out.writeString(triggerName)
         out.writeEnum(state)
@@ -127,6 +135,7 @@ data class Alert(
         const val MONITOR_ID_FIELD = "monitor_id"
         const val MONITOR_VERSION_FIELD = "monitor_version"
         const val MONITOR_NAME_FIELD = "monitor_name"
+        const val MONITOR_USER_FIELD = "monitor_user"
         const val TRIGGER_ID_FIELD = "trigger_id"
         const val TRIGGER_NAME_FIELD = "trigger_name"
         const val STATE_FIELD = "state"
@@ -150,6 +159,7 @@ data class Alert(
             var schemaVersion = NO_SCHEMA_VERSION
             lateinit var monitorName: String
             var monitorVersion: Long = Versions.NOT_FOUND
+            var monitorUser: User? = null
             lateinit var triggerId: String
             lateinit var triggerName: String
             lateinit var state: State
@@ -172,6 +182,7 @@ data class Alert(
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     MONITOR_NAME_FIELD -> monitorName = xcp.text()
                     MONITOR_VERSION_FIELD -> monitorVersion = xcp.longValue()
+                    MONITOR_USER_FIELD -> monitorUser = User.parse(xcp)
                     TRIGGER_ID_FIELD -> triggerId = xcp.text()
                     STATE_FIELD -> state = State.valueOf(xcp.text())
                     TRIGGER_NAME_FIELD -> triggerName = xcp.text()
@@ -197,7 +208,7 @@ data class Alert(
             }
 
             return Alert(id = id, version = version, schemaVersion = schemaVersion, monitorId = requireNotNull(monitorId),
-                    monitorName = requireNotNull(monitorName), monitorVersion = monitorVersion,
+                    monitorName = requireNotNull(monitorName), monitorVersion = monitorVersion, monitorUser = monitorUser,
                     triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
                     state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
                     lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
@@ -220,6 +231,7 @@ data class Alert(
                 .field(SCHEMA_VERSION_FIELD, schemaVersion)
                 .field(MONITOR_VERSION_FIELD, monitorVersion)
                 .field(MONITOR_NAME_FIELD, monitorName)
+                .optionalUserField(MONITOR_USER_FIELD, monitorUser)
                 .field(TRIGGER_ID_FIELD, triggerId)
                 .field(TRIGGER_NAME_FIELD, triggerName)
                 .field(STATE_FIELD, state)

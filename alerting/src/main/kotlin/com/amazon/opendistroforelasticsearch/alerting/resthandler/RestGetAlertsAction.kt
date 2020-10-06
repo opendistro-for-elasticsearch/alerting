@@ -19,8 +19,16 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUser
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.TermsQueryBuilder
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestHandler.Route
@@ -31,9 +39,18 @@ import org.elasticsearch.rest.action.RestToXContentListener
 /**
  * This class consists of the REST handler to retrieve alerts .
  */
-class RestGetAlertsAction : BaseRestHandler() {
+class RestGetAlertsAction(
+    val settings: Settings,
+    clusterService: ClusterService,
+    private val restClient: RestClient
+) : BaseRestHandler() {
 
     private val log = LogManager.getLogger(RestGetAlertsAction::class.java)
+    @Volatile private var filterBy = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterBy = it }
+    }
 
     override fun getName(): String {
         return "get_alerts_action"
@@ -66,7 +83,14 @@ class RestGetAlertsAction : BaseRestHandler() {
                 startIndex,
                 searchString
         )
-        val getAlertsRequest = GetAlertsRequest(table, severityLevel, alertState, monitorId)
+        var filter: TermsQueryBuilder? = null
+        if (filterBy) {
+            val user = AuthUser(settings, restClient, request.headers[ConfigConstants.AUTHORIZATION]).get()
+            if (user != null) {
+                filter = QueryBuilders.termsQuery("monitor_user.backend_roles", user.backendRoles)
+            }
+        }
+        val getAlertsRequest = GetAlertsRequest(table, severityLevel, alertState, monitorId, filter)
         return RestChannelConsumer {
             channel -> client.execute(GetAlertsAction.INSTANCE, getAlertsRequest, RestToXContentListener(channel))
         }

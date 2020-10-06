@@ -15,6 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_ENABLED
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH
+import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
 import org.apache.http.Header
 import org.apache.http.HttpHost
 import org.apache.http.auth.AuthScope
@@ -29,6 +35,7 @@ import org.apache.http.ssl.SSLContextBuilder
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestClientBuilder
+import org.elasticsearch.common.io.PathUtils
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.ThreadContext
@@ -42,7 +49,7 @@ import java.security.cert.X509Certificate
 
 abstract class ODFERestTestCase : ESRestTestCase() {
 
-    private fun isHttps(): Boolean {
+    fun isHttps(): Boolean {
         return System.getProperty("https", "false")!!.toBoolean()
     }
 
@@ -72,20 +79,48 @@ abstract class ODFERestTestCase : ESRestTestCase() {
                 val indexName: String = jsonObject["index"] as String
                 // .opendistro_security isn't allowed to delete from cluster
                 if (".opendistro_security" != indexName) {
-                    client().performRequest(Request("DELETE", "/$indexName"))
+                    adminClient().performRequest(Request("DELETE", "/$indexName"))
                 }
             } }
     }
+
+    /**
+     * Returns the REST client settings used for super-admin actions like cleaning up after the test has completed.
+     */
+    override fun restAdminSettings(): Settings {
+        return Settings
+                .builder()
+                .put("http.port", 9200)
+                .put(OPENDISTRO_SECURITY_SSL_HTTP_ENABLED, true)
+                .put(OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
+                .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH, "test-kirk.jks")
+                .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD, "changeit")
+                .put(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD, "changeit")
+                .build()
+    }
+
     @Throws(IOException::class)
     override fun buildClient(settings: Settings, hosts: Array<HttpHost>): RestClient {
-        val builder = RestClient.builder(*hosts)
         if (isHttps()) {
-            configureHttpsClient(builder, settings)
+            val keystore = settings.get(OPENDISTRO_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH)
+            return when (keystore != null) {
+                true -> {
+                    val uri = javaClass.classLoader.getResource("sample.pem").toURI()
+                    val configPath = PathUtils.get(uri).parent.toAbsolutePath()
+                    SecureRestClientBuilder(settings, configPath).build()
+                }
+                false -> {
+                    val userName = System.getProperty("user")
+                    val password = System.getProperty("password")
+                    SecureRestClientBuilder(hosts, true, userName, password).build()
+                }
+            }
         } else {
+            val builder = RestClient.builder(*hosts)
             configureClient(builder, settings)
+            builder.setStrictDeprecationMode(true)
+            return builder.build()
         }
-        builder.setStrictDeprecationMode(true)
-        return builder.build()
     }
 
     @Throws(IOException::class)

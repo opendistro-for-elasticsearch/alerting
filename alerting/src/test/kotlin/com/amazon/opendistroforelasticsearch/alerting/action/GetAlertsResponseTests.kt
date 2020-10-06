@@ -16,8 +16,10 @@
 package com.amazon.opendistroforelasticsearch.alerting.action
 
 import com.amazon.opendistroforelasticsearch.alerting.builder
+import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
+import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.xcontent.ToXContent
@@ -48,6 +50,7 @@ class GetAlertsResponseTests : ESTestCase() {
                 "monitorId",
                 "monitorName",
                 0L,
+                randomUser(),
                 "triggerId",
                 "triggerName",
                 Alert.State.ACKNOWLEDGED,
@@ -82,6 +85,7 @@ class GetAlertsResponseTests : ESTestCase() {
                 "monitorId",
                 "monitorName",
                 0L,
+                User("admin", listOf(), listOf(), listOf()),
                 "triggerId",
                 "triggerName",
                 Alert.State.ACKNOWLEDGED,
@@ -97,7 +101,9 @@ class GetAlertsResponseTests : ESTestCase() {
         val req = GetAlertsResponse(listOf(alert), 1)
         var actualXContentString = req.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val expectedXContentString = "{\"alerts\":[{\"id\":\"id\",\"version\":0,\"monitor_id\":\"monitorId\"," +
-                "\"schema_version\":0,\"monitor_version\":0,\"monitor_name\":\"monitorName\",\"trigger_id\":\"triggerId\"," +
+                "\"schema_version\":0,\"monitor_version\":0,\"monitor_name\":\"monitorName\"," +
+                "\"monitor_user\":{\"name\":\"admin\",\"backend_roles\":[],\"roles\":[]," +
+                "\"custom_attribute_names\":[]},\"trigger_id\":\"triggerId\"," +
                 "\"trigger_name\":\"triggerName\",\"state\":\"ACKNOWLEDGED\",\"error_message\":null,\"alert_history\":[]," +
                 "\"severity\":\"severity\",\"action_execution_results\":[],\"start_time\":" + now.toEpochMilli() +
                 ",\"last_notification_time\":null,\"end_time\":null,\"acknowledged_time\":null}],\"totalAlerts\":1}"

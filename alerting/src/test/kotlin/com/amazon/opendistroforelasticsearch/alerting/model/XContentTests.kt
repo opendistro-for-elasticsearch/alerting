@@ -116,6 +116,17 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping alert doesn't work", alert, parsedAlert)
     }
 
+    fun `test alert parsing without user`() {
+        val alertStr = "{\"id\":\"\",\"version\":-1,\"monitor_id\":\"\",\"schema_version\":0,\"monitor_version\":1," +
+                "\"monitor_name\":\"ARahqfRaJG\",\"trigger_id\":\"fhe1-XQBySl0wQKDBkOG\",\"trigger_name\":\"ffELMuhlro\"," +
+                "\"state\":\"ACTIVE\",\"error_message\":null,\"alert_history\":[],\"severity\":\"1\",\"action_execution_results\"" +
+                ":[{\"action_id\":\"ghe1-XQBySl0wQKDBkOG\",\"last_execution_time\":1601917224583,\"throttled_count\":-1478015168}," +
+                "{\"action_id\":\"gxe1-XQBySl0wQKDBkOH\",\"last_execution_time\":1601917224583,\"throttled_count\":-768533744}]," +
+                "\"start_time\":1601917224599,\"last_notification_time\":null,\"end_time\":null,\"acknowledged_time\":null}"
+        val parsedAlert = Alert.parse(parser(alertStr))
+        assertNull(parsedAlert.monitorUser)
+    }
+
     fun `test action execution result parsing`() {
         val actionExecutionResult = randomActionExecutionResult()
 

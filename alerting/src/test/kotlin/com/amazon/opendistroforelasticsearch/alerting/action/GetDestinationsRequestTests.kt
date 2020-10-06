@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.action
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
 
@@ -26,7 +27,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetDestinationsRequest("1234", 1L, FetchSourceContext.FETCH_SOURCE, table, "slack")
+        val req = GetDestinationsRequest("1234", 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", null)
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -43,7 +44,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request without src context`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetDestinationsRequest("1234", 1L, null, table, "slack")
+        val req = GetDestinationsRequest("1234", 1L, null, table, "slack", null)
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -60,7 +61,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request without destinationId`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack")
+        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", null)
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -72,5 +73,24 @@ class GetDestinationsRequestTests : ESTestCase() {
         assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
         assertEquals(table, newReq.table)
         assertEquals("slack", newReq.destinationType)
+    }
+
+    fun `test get destination request with filter`() {
+
+        val table = Table("asc", "sortString", null, 1, 0, "")
+        val filter = QueryBuilders.termsQuery("destination.user.backend_roles", listOf("admin", "hr"))
+        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", filter)
+        assertNotNull(req)
+
+        val out = BytesStreamOutput()
+        req.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newReq = GetDestinationsRequest(sin)
+        assertEquals(null, newReq.destinationId)
+        assertEquals(1L, newReq.version)
+        assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
+        assertEquals(table, newReq.table)
+        assertEquals("slack", newReq.destinationType)
+        assertNotNull(newReq.filter)
     }
 }

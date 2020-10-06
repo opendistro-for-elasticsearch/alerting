@@ -20,6 +20,7 @@ import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.index.query.TermsQueryBuilder
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import java.io.IOException
 
@@ -29,19 +30,22 @@ class GetDestinationsRequest : ActionRequest {
     val srcContext: FetchSourceContext?
     val table: Table
     val destinationType: String
+    val filter: TermsQueryBuilder?
 
     constructor(
         destinationId: String?,
         version: Long,
         srcContext: FetchSourceContext?,
         table: Table,
-        destinationType: String
+        destinationType: String,
+        filter: TermsQueryBuilder?
     ) : super() {
         this.destinationId = destinationId
         this.version = version
         this.srcContext = srcContext
         this.table = table
         this.destinationType = destinationType
+        this.filter = filter
     }
 
     @Throws(IOException::class)
@@ -52,7 +56,10 @@ class GetDestinationsRequest : ActionRequest {
             FetchSourceContext(sin)
         } else null,
         table = Table.readFrom(sin),
-        destinationType = sin.readString()
+        destinationType = sin.readString(),
+        filter = if (sin.readBoolean()) {
+            TermsQueryBuilder(sin)
+        } else null
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -67,5 +74,7 @@ class GetDestinationsRequest : ActionRequest {
         srcContext?.writeTo(out)
         table.writeTo(out)
         out.writeString(destinationType)
+        out.writeBoolean(filter != null)
+        filter?.writeTo(out)
     }
 }

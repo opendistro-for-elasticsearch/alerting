@@ -27,6 +27,7 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -45,6 +46,7 @@ class TransportGetAlertsAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
     actionFilters: ActionFilters,
+    val settings: Settings,
     val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<GetAlertsRequest, GetAlertsResponse>(
         GetAlertsAction.NAME, transportService, actionFilters, ::GetAlertsRequest
@@ -52,12 +54,12 @@ class TransportGetAlertsAction @Inject constructor(
 
     override fun doExecute(
         task: Task,
-        getDestinationsRequest: GetAlertsRequest,
+        getAlertsRequest: GetAlertsRequest,
         actionListener: ActionListener<GetAlertsResponse>
     ) {
         client.threadPool().threadContext.stashContext().use {
 
-            val tableProp = getDestinationsRequest.table
+            val tableProp = getAlertsRequest.table
             val sortBuilder = SortBuilders
                     .fieldSort(tableProp.sortString)
                     .order(SortOrder.fromString(tableProp.sortOrder))
@@ -67,14 +69,18 @@ class TransportGetAlertsAction @Inject constructor(
 
             val queryBuilder = QueryBuilders.boolQuery()
 
-            if (getDestinationsRequest.severityLevel != "ALL")
-                queryBuilder.filter(QueryBuilders.termQuery("severity", getDestinationsRequest.severityLevel))
+            if (getAlertsRequest.severityLevel != "ALL")
+                queryBuilder.filter(QueryBuilders.termQuery("severity", getAlertsRequest.severityLevel))
 
-            if (getDestinationsRequest.alertState != "ALL")
-                queryBuilder.filter(QueryBuilders.termQuery("state", getDestinationsRequest.alertState))
+            if (getAlertsRequest.alertState != "ALL")
+                queryBuilder.filter(QueryBuilders.termQuery("state", getAlertsRequest.alertState))
 
-            if (getDestinationsRequest.monitorId != null) {
-                queryBuilder.filter(QueryBuilders.termQuery("monitor_id", getDestinationsRequest.monitorId))
+            if (getAlertsRequest.monitorId != null) {
+                queryBuilder.filter(QueryBuilders.termQuery("monitor_id", getAlertsRequest.monitorId))
+            }
+
+            if (getAlertsRequest.filter != null) {
+                queryBuilder.filter(getAlertsRequest.filter)
             }
 
             if (!tableProp.searchString.isNullOrBlank()) {
