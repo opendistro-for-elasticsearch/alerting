@@ -73,6 +73,16 @@ class EmailAccountRestApiIT : AlertingRestTestCase() {
         }
     }
 
+    fun `test creating an email account when email destination is disallowed fails`() {
+        try {
+            removeEmailFromAllowList()
+            createRandomEmailAccount()
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
+    }
+
     fun `test updating an email account`() {
         val emailAccount = createEmailAccount()
         val updatedEmailAccount = updateEmailAccount(
@@ -103,6 +113,24 @@ class EmailAccountRestApiIT : AlertingRestTestCase() {
         }
     }
 
+    fun `test updating an email account when email destination is disallowed fails`() {
+        val emailAccount = createEmailAccount()
+
+        try {
+            removeEmailFromAllowList()
+            updateEmailAccount(
+                emailAccount.copy(
+                    name = "updatedName",
+                    port = 465,
+                    method = EmailAccount.MethodType.SSL
+                )
+            )
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
+    }
+
     fun `test getting an email account`() {
         val emailAccount = createRandomEmailAccount()
         val storedEmailAccount = getEmailAccount(emailAccount.id)
@@ -115,6 +143,18 @@ class EmailAccountRestApiIT : AlertingRestTestCase() {
             fail("Expected response exception")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.NOT_FOUND, e.response.restStatus())
+        }
+    }
+
+    fun `test getting an email account when email destination is disallowed fails`() {
+        val emailAccount = createRandomEmailAccount()
+
+        try {
+            removeEmailFromAllowList()
+            getEmailAccount(emailAccount.id)
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
         }
     }
 
@@ -147,6 +187,18 @@ class EmailAccountRestApiIT : AlertingRestTestCase() {
             fail("Expected 404 response exception")
         } catch (e: ResponseException) {
             assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())
+        }
+    }
+
+    fun `test deleting an email account when email destination is disallowed fails`() {
+        val emailAccount = createRandomEmailAccount()
+
+        try {
+            removeEmailFromAllowList()
+            client().makeRequest("DELETE", "$EMAIL_ACCOUNT_BASE_URI/${emailAccount.id}")
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
         }
     }
 
@@ -201,5 +253,22 @@ class EmailAccountRestApiIT : AlertingRestTestCase() {
         val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
         val numberOfDocsFound = hits["total"]?.get("value")
         assertEquals("Email account found during search when no document was present", 0, numberOfDocsFound)
+    }
+
+    fun `test querying an email account when email destination is disallowed fails`() {
+        val emailAccount = createRandomEmailAccount()
+
+        try {
+            removeEmailFromAllowList()
+            val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", emailAccount.id)).toString()
+            client().makeRequest(
+                "GET",
+                "$EMAIL_ACCOUNT_BASE_URI/_search",
+                emptyMap(),
+                NStringEntity(search, ContentType.APPLICATION_JSON))
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
     }
 }

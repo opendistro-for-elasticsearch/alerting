@@ -55,6 +55,16 @@ class EmailGroupRestApiIT : AlertingRestTestCase() {
         }
     }
 
+    fun `test creating an email group when email destination is disallowed fails`() {
+        try {
+            removeEmailFromAllowList()
+            createRandomEmailGroup()
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
+    }
+
     fun `test updating an email group`() {
         val emailGroup = createEmailGroup()
         val updatedEmailGroup = updateEmailGroup(
@@ -65,6 +75,23 @@ class EmailGroupRestApiIT : AlertingRestTestCase() {
         )
         assertEquals("Incorrect email group name after update", updatedEmailGroup.name, "updatedName")
         assertEquals("Incorrect email group email entry after update", updatedEmailGroup.emails[0].email, "test@email.com")
+    }
+
+    fun `test updating an email group when email destination is disallowed fails`() {
+        val emailGroup = createRandomEmailGroup()
+
+        try {
+            removeEmailFromAllowList()
+            updateEmailGroup(
+                emailGroup.copy(
+                    name = "updatedName",
+                    emails = listOf(EmailEntry("test@email.com"))
+                )
+            )
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
     }
 
     fun `test getting an email group`() {
@@ -79,6 +106,18 @@ class EmailGroupRestApiIT : AlertingRestTestCase() {
             fail("Expected response exception")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.NOT_FOUND, e.response.restStatus())
+        }
+    }
+
+    fun `test getting an email group when email destination is disallowed fails`() {
+        val emailGroup = createRandomEmailGroup()
+
+        try {
+            removeEmailFromAllowList()
+            getEmailGroup(emailGroup.id)
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
         }
     }
 
@@ -111,6 +150,18 @@ class EmailGroupRestApiIT : AlertingRestTestCase() {
             fail("Expected 404 response exception")
         } catch (e: ResponseException) {
             assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())
+        }
+    }
+
+    fun `test deleting an email group when email destination is disallowed fails`() {
+        val emailGroup = createRandomEmailGroup()
+
+        try {
+            removeEmailFromAllowList()
+            client().makeRequest("DELETE", "$EMAIL_GROUP_BASE_URI/${emailGroup.id}")
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
         }
     }
 
@@ -165,5 +216,22 @@ class EmailGroupRestApiIT : AlertingRestTestCase() {
         val hits = xcp.map()["hits"]!! as Map<String, Map<String, Any>>
         val numberOfDocsFound = hits["total"]?.get("value")
         assertEquals("Email group found during search when no document was present", 0, numberOfDocsFound)
+    }
+
+    fun `test querying an email group when email destination is disallowed fails`() {
+        val emailGroup = createRandomEmailGroup()
+
+        try {
+            removeEmailFromAllowList()
+            val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", emailGroup.id)).toString()
+            client().makeRequest(
+                "GET",
+                "$EMAIL_GROUP_BASE_URI/_search",
+                emptyMap(),
+                NStringEntity(search, ContentType.APPLICATION_JSON))
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
     }
 }
