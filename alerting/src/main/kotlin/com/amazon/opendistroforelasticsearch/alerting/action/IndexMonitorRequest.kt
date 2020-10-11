@@ -25,11 +25,12 @@ import org.elasticsearch.rest.RestRequest
 import java.io.IOException
 
 class IndexMonitorRequest : ActionRequest {
-    var monitorId: String
-    var seqNo: Long
-    var primaryTerm: Long
-    var refreshPolicy: WriteRequest.RefreshPolicy
-    var method: RestRequest.Method
+    val monitorId: String
+    val seqNo: Long
+    val primaryTerm: Long
+    val refreshPolicy: WriteRequest.RefreshPolicy
+    val method: RestRequest.Method
+    val authHeader: String?
     var monitor: Monitor
 
     constructor(
@@ -38,6 +39,7 @@ class IndexMonitorRequest : ActionRequest {
         primaryTerm: Long,
         refreshPolicy: WriteRequest.RefreshPolicy,
         method: RestRequest.Method,
+        authHeader: String?,
         monitor: Monitor
     ): super() {
         this.monitorId = monitorId
@@ -45,17 +47,19 @@ class IndexMonitorRequest : ActionRequest {
         this.primaryTerm = primaryTerm
         this.refreshPolicy = refreshPolicy
         this.method = method
+        this.authHeader = authHeader
         this.monitor = monitor
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-        sin.readString(), // monitorId
-        sin.readLong(), // seqNo
-        sin.readLong(), // primaryTerm
-        WriteRequest.RefreshPolicy.readFrom(sin), // refreshPolicy
-        sin.readEnum(RestRequest.Method::class.java), // method
-        Monitor.readFrom(sin) as Monitor // monitor
+        monitorId = sin.readString(),
+        seqNo = sin.readLong(),
+        primaryTerm = sin.readLong(),
+        refreshPolicy = WriteRequest.RefreshPolicy.readFrom(sin),
+        method = sin.readEnum(RestRequest.Method::class.java),
+        authHeader = sin.readOptionalString(),
+        monitor = Monitor.readFrom(sin) as Monitor
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -69,6 +73,7 @@ class IndexMonitorRequest : ActionRequest {
         out.writeLong(primaryTerm)
         refreshPolicy.writeTo(out)
         out.writeEnum(method)
+        out.writeOptionalString(authHeader)
         monitor.writeTo(out)
     }
 }

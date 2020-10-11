@@ -24,6 +24,7 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 
 class IndexDestinationRequestTests : ESTestCase() {
@@ -36,6 +37,7 @@ class IndexDestinationRequestTests : ESTestCase() {
                 1L,
                 WriteRequest.RefreshPolicy.IMMEDIATE,
                 RestRequest.Method.POST,
+                ESRestTestCase.randomAlphaOfLength(20),
                 Destination(
                         "1234",
                         0L,
@@ -75,6 +77,7 @@ class IndexDestinationRequestTests : ESTestCase() {
                 1L,
                 WriteRequest.RefreshPolicy.IMMEDIATE,
                 RestRequest.Method.PUT,
+                ESRestTestCase.randomAlphaOfLength(20),
                 Destination(
                         "1234",
                         0L,

@@ -15,8 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.elasticapi
 
-import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
@@ -26,6 +27,9 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.search.ShardSearchFailure
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.util.concurrent.ThreadContext
+import org.elasticsearch.common.util.concurrent.ThreadContext.StoredContext
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -37,14 +41,10 @@ import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
 import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
 import java.time.Instant
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
-import kotlinx.coroutines.ThreadContextElement
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.util.concurrent.ThreadContext
-import org.elasticsearch.common.util.concurrent.ThreadContext.StoredContext
-import kotlin.coroutines.CoroutineContext
 
 /** Convert an object to maps and lists representation */
 fun ToXContent.convertToMap(): Map<String, Any> {

@@ -20,12 +20,21 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsResponse
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
+import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseListener
+import org.elasticsearch.client.RestClient
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -34,6 +43,7 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -41,10 +51,15 @@ import org.elasticsearch.search.sort.SortBuilders
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import java.io.IOException
+
+private val log = LogManager.getLogger(TransportGetAlertsAction::class.java)
 
 class TransportGetAlertsAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
+    val restClient: RestClient,
+    clusterService: ClusterService,
     actionFilters: ActionFilters,
     val settings: Settings,
     val xContentRegistry: NamedXContentRegistry
@@ -52,13 +67,17 @@ class TransportGetAlertsAction @Inject constructor(
         GetAlertsAction.NAME, transportService, actionFilters, ::GetAlertsRequest
 ) {
 
+    @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
+    }
+
     override fun doExecute(
         task: Task,
         getAlertsRequest: GetAlertsRequest,
         actionListener: ActionListener<GetAlertsResponse>
     ) {
-        client.threadPool().threadContext.stashContext().use {
-
             val tableProp = getAlertsRequest.table
             val sortBuilder = SortBuilders
                     .fieldSort(tableProp.sortString)
@@ -79,10 +98,6 @@ class TransportGetAlertsAction @Inject constructor(
                 queryBuilder.filter(QueryBuilders.termQuery("monitor_id", getAlertsRequest.monitorId))
             }
 
-            if (getAlertsRequest.filter != null) {
-                queryBuilder.filter(getAlertsRequest.filter)
-            }
-
             if (!tableProp.searchString.isNullOrBlank()) {
                 queryBuilder
                         .must(QueryBuilders
@@ -91,17 +106,57 @@ class TransportGetAlertsAction @Inject constructor(
                                 .field("monitor_name")
                                 .field("trigger_name"))
             }
+            val searchSourceBuilder = SearchSourceBuilder()
+                    .version(true)
+                    .seqNoAndPrimaryTerm(true)
+                    .query(queryBuilder)
+                    .sort(sortBuilder)
+                    .size(tableProp.size)
+                    .from(tableProp.startIndex)
 
+            client.threadPool().threadContext.stashContext().use {
+                resolve(getAlertsRequest, searchSourceBuilder, actionListener)
+            }
+        }
+
+        fun resolve(
+            getAlertsRequest: GetAlertsRequest,
+            searchSourceBuilder: SearchSourceBuilder,
+            actionListener: ActionListener<GetAlertsResponse>
+        ) {
+            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+            if (getAlertsRequest.authHeader.isNullOrEmpty() || !filterByEnabled) {
+                search(searchSourceBuilder, actionListener)
+            } else {
+                val authRequest = AuthUserRequestBuilder(
+                        getAlertsRequest.authHeader
+                ).build()
+                restClient.performRequestAsync(authRequest, object : ResponseListener {
+                    override fun onSuccess(response: Response) {
+                        try {
+                            val user = User(response)
+                            val filterBckendRoles = QueryBuilders.termsQuery("monitor_user.backend_roles", user.backendRoles)
+                            val queryBuilder = searchSourceBuilder.query() as BoolQueryBuilder
+                            searchSourceBuilder.query(queryBuilder.filter(filterBckendRoles))
+                            search(searchSourceBuilder, actionListener)
+
+                            log.info("Filtering result by: ${user.backendRoles}")
+                        } catch (ex: IOException) {
+                            actionListener.onFailure(AlertingException.wrap(ex))
+                        }
+                    }
+
+                    override fun onFailure(ex: Exception) {
+                        actionListener.onFailure(AlertingException.wrap(ex))
+                    }
+                })
+            }
+        }
+
+        fun search(searchSourceBuilder: SearchSourceBuilder, actionListener: ActionListener<GetAlertsResponse>) {
             val searchRequest = SearchRequest()
                     .indices(AlertIndices.ALL_INDEX_PATTERN)
-                    .source(SearchSourceBuilder()
-                            .version(true)
-                            .seqNoAndPrimaryTerm(true)
-                            .query(queryBuilder)
-                            .sort(sortBuilder)
-                            .size(tableProp.size)
-                            .from(tableProp.startIndex)
-                    )
+                    .source(searchSourceBuilder)
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
@@ -121,5 +176,4 @@ class TransportGetAlertsAction @Inject constructor(
                 }
             })
         }
-    }
 }

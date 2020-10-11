@@ -51,13 +51,8 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
         val adminResponse = getDestinations(client(), inputMap)
         assertEquals(1, adminResponse.size)
 
-        // 3. get destinations as kirk user
-        val expected = when (isHttps()) {
-            true -> 0
-            false -> 1
-        }
-
+        // 3. get destinations as kirk user, super-admin can read all.
         val kirkResponse = getDestinations(adminClient(), inputMap)
-        assertEquals(expected, kirkResponse.size)
+        assertEquals(1, kirkResponse.size)
     }
 }

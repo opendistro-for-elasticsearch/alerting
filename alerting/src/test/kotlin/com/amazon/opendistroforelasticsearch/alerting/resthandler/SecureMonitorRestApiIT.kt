@@ -39,7 +39,7 @@ class SecureMonitorRestApiIT : AlertingRestTestCase() {
         val adminDocsFound = adminHits["total"]?.get("value")
         assertEquals("Monitor not found during search", 1, adminDocsFound)
 
-        // search as "kirk" - must get 0 docs
+        // search as "kirk" - super-admin can read all.
         val kirkSearchResponse = adminClient().makeRequest("POST", "$ALERTING_BASE_URI/_search",
                 emptyMap(),
                 NStringEntity(search, ContentType.APPLICATION_JSON))
@@ -48,11 +48,7 @@ class SecureMonitorRestApiIT : AlertingRestTestCase() {
                 kirkSearchResponse.entity.content).map()["hits"]!! as Map<String, Map<String, Any>>
         val kirkDocsFound = kirkHits["total"]?.get("value")
 
-        val expected = when (isHttps()) {
-            true -> 0
-            false -> 1
-        }
-        assertEquals("Monitor not found during search", expected, kirkDocsFound)
+        assertEquals("Monitor not found during search", 1, kirkDocsFound)
     }
 
     fun `test get all alerts in all states with filter by roles`() {
@@ -68,16 +64,12 @@ class SecureMonitorRestApiIT : AlertingRestTestCase() {
         val inputMap = HashMap<String, Any>()
         inputMap["missing"] = "_last"
 
-        // search as "admin" - must get 0 docs
+        // search as "admin" - must get 4 docs
         val adminResponseMap = getAlerts(client(), inputMap).asMap()
         assertEquals(4, adminResponseMap["totalAlerts"])
 
-        // search as "kirk" - must get 0 docs
-        val expected = when (isHttps()) {
-            true -> 0
-            false -> 4
-        }
+        // search as "kirk" - super-admin can read all.
         val kirkResponseMap = getAlerts(adminClient(), inputMap).asMap()
-        assertEquals(expected, kirkResponseMap["totalAlerts"])
+        assertEquals(4, kirkResponseMap["totalAlerts"])
     }
 }
