@@ -315,37 +315,39 @@ class TransportIndexMonitorAction @Inject constructor(
         }
 
         private fun checkForDisallowedDestinations(allowList: List<String>) {
-            this.request.monitor.triggers.forEach { trigger ->
+            this.request.monitor.triggers.forEach trig@{ trigger ->
                 trigger.actions.forEach { action ->
                     // Check for empty destinationId for test cases, otherwise we get test failures
-                    if (action.destinationId.isNotEmpty()) checkIfDestinationIsAllowed(action.destinationId, allowList)
+                    if (action.destinationId.isNotEmpty())
+                        if (!checkIfDestinationIsAllowed(action.destinationId, allowList)) return@trig
                 }
             }
         }
 
-        private fun checkIfDestinationIsAllowed(destinationId: String, allowList: List<String>) {
+        private fun checkIfDestinationIsAllowed(destinationId: String, allowList: List<String>): Boolean {
             val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId)
-            client.threadPool().threadContext.stashContext().use {
-                client.get(getRequest, object : ActionListener<GetResponse> {
-                    override fun onResponse(response: GetResponse) {
-                        val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                            response.sourceAsBytesRef, XContentType.JSON)
-                        val destination = Destination.parseWithType(xcp)
-                        if (!allowList.contains(destination.type.value)) {
-                            actionListener.onFailure(
-                                AlertingException.wrap(ElasticsearchStatusException(
-                                    "Monitor contains a destination type that is not allowed: ${destination.type.value}",
-                                    RestStatus.FORBIDDEN
-                                ))
-                            )
-                        }
+            var allowed = true
+            client.get(getRequest, object : ActionListener<GetResponse> {
+                override fun onResponse(response: GetResponse) {
+                    val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                        response.sourceAsBytesRef, XContentType.JSON)
+                    val destination = Destination.parseWithType(xcp)
+                    if (!allowList.contains(destination.type.value)) {
+                        actionListener.onFailure(
+                            AlertingException.wrap(ElasticsearchStatusException(
+                                "Monitor contains a destination type that is not allowed: ${destination.type.value}",
+                                RestStatus.FORBIDDEN
+                            ))
+                        )
+                        allowed = false
                     }
+                }
 
-                    override fun onFailure(e: Exception) {
-                        actionListener.onFailure(e)
-                    }
-                })
-            }
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(e)
+                }
+            })
+            return allowed
         }
     }
 
