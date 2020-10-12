@@ -36,10 +36,13 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.BoolQueryBuilder
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.RestStatus.BAD_GATEWAY
 import org.elasticsearch.rest.RestStatus.GATEWAY_TIMEOUT
 import org.elasticsearch.rest.RestStatus.SERVICE_UNAVAILABLE
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
@@ -139,6 +142,12 @@ fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilde
         return nullField(name)
     }
     return this.field(name, user)
+}
+
+fun addFilter(user: User, searchSourceBuilder: SearchSourceBuilder, fieldName: String) {
+    val filterBckendRoles = QueryBuilders.termsQuery(fieldName, user.backendRoles)
+    val queryBuilder = searchSourceBuilder.query() as BoolQueryBuilder
+    searchSourceBuilder.query(queryBuilder.filter(filterBckendRoles))
 }
 
 /**

@@ -17,10 +17,11 @@ package com.amazon.opendistroforelasticsearch.alerting.transport
 
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorRequest
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.addFilter
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
@@ -34,8 +35,6 @@ import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.index.query.BoolQueryBuilder
-import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
@@ -65,10 +64,14 @@ class TransportSearchMonitorAction @Inject constructor(
     }
 
     fun resolve(searchMonitorRequest: SearchMonitorRequest, actionListener: ActionListener<SearchResponse>) {
-        // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
-        if (searchMonitorRequest.authHeader.isNullOrEmpty() || !filterByEnabled) {
+        if (searchMonitorRequest.authHeader.isNullOrEmpty()) {
+            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+            search(searchMonitorRequest.searchRequest, actionListener)
+        } else if (!filterByEnabled) {
+            // security is enabled and filterby is disabled.
             search(searchMonitorRequest.searchRequest, actionListener)
         } else {
+            // security is enabled and filterby is enabled.
             val authRequest = AuthUserRequestBuilder(
                     searchMonitorRequest.authHeader
             ).build()
@@ -76,11 +79,7 @@ class TransportSearchMonitorAction @Inject constructor(
                 override fun onSuccess(response: Response) {
                     try {
                         val user = User(response)
-                        val filterBckendRoles = QueryBuilders.termsQuery("monitor.user.backend_roles", user.backendRoles)
-                        val queryBuilder = searchMonitorRequest.searchRequest.source().query() as BoolQueryBuilder
-                        searchMonitorRequest.searchRequest.source(
-                                searchMonitorRequest.searchRequest.source().query(queryBuilder.filter(filterBckendRoles))
-                        )
+                        addFilter(user, searchMonitorRequest.searchRequest.source(), "monitor.user.backend_roles")
                         log.info("Filtering result by: ${user.backendRoles}")
                         search(searchMonitorRequest.searchRequest, actionListener)
                     } catch (ex: IOException) {
@@ -89,7 +88,14 @@ class TransportSearchMonitorAction @Inject constructor(
                 }
 
                 override fun onFailure(ex: Exception) {
-                    actionListener.onFailure(AlertingException.wrap(ex))
+                    when (ex.message?.contains("Connection refused")) {
+                        // Connection is refused when security plugin is not present. This case can happen only with integration tests.
+                        true -> {
+                            addFilter(User(), searchMonitorRequest.searchRequest.source(), "monitor.user.backend_roles")
+                            search(searchMonitorRequest.searchRequest, actionListener)
+                        }
+                        false -> actionListener.onFailure(AlertingException.wrap(ex))
+                    }
                 }
             })
         }

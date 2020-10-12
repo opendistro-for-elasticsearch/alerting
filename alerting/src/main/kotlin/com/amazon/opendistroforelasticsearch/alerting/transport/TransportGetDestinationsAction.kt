@@ -19,11 +19,12 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsActi
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsResponse
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.addFilter
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
@@ -44,7 +45,6 @@ import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -127,10 +127,14 @@ class TransportGetDestinationsAction @Inject constructor(
         searchSourceBuilder: SearchSourceBuilder,
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
-        // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
-        if (getDestinationsRequest.authHeader.isNullOrEmpty() || !filterByEnabled) {
+        if (getDestinationsRequest.authHeader.isNullOrEmpty()) {
+            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+            search(searchSourceBuilder, actionListener)
+        } else if (!filterByEnabled) {
+            // security is enabled and filterby is disabled.
             search(searchSourceBuilder, actionListener)
         } else {
+            // security is enabled and filterby is enabled.
             val authRequest = AuthUserRequestBuilder(
                     getDestinationsRequest.authHeader
             ).build()
@@ -138,11 +142,8 @@ class TransportGetDestinationsAction @Inject constructor(
                 override fun onSuccess(response: Response) {
                     try {
                         val user = User(response)
-                        val filterBckendRoles = QueryBuilders.termsQuery("destination.user.backend_roles", user.backendRoles)
-                        val queryBuilder = searchSourceBuilder.query() as BoolQueryBuilder
-                        searchSourceBuilder.query(queryBuilder.filter(filterBckendRoles))
+                        addFilter(user, searchSourceBuilder, "destination.user.backend_roles")
                         log.info("Filtering result by: ${user.backendRoles}")
-
                         search(searchSourceBuilder, actionListener)
                     } catch (ex: IOException) {
                         actionListener.onFailure(AlertingException.wrap(ex))
@@ -150,7 +151,14 @@ class TransportGetDestinationsAction @Inject constructor(
                 }
 
                 override fun onFailure(ex: Exception) {
-                    actionListener.onFailure(AlertingException.wrap(ex))
+                    when (ex.message?.contains("Connection refused")) {
+                        // Connection is refused when security plugin is not present. This case can happen only with integration tests.
+                        true -> {
+                            addFilter(User(), searchSourceBuilder, "destination.user.backend_roles")
+                            search(searchSourceBuilder, actionListener)
+                        }
+                        false -> actionListener.onFailure(AlertingException.wrap(ex))
+                    }
                 }
             })
         }

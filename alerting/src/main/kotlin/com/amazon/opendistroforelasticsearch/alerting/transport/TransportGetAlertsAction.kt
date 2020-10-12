@@ -19,11 +19,12 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsResponse
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.addFilter
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
@@ -43,7 +44,6 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -118,16 +118,56 @@ class TransportGetAlertsAction @Inject constructor(
                 resolve(getAlertsRequest, searchSourceBuilder, actionListener)
             }
         }
+/*
+if (getDestinationsRequest.authHeader.isNullOrEmpty()) {
+            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+            search(searchSourceBuilder, actionListener)
+        } else if (!filterByEnabled) {
+            // security is enabled and filterby is disabled.
+            search(searchSourceBuilder, actionListener)
+        } else {
+            // security is enabled and filterby is enabled.
+            val authRequest = AuthUserRequestBuilder(
+                    getDestinationsRequest.authHeader
+            ).build()
+            restClient.performRequestAsync(authRequest, object : ResponseListener {
+                override fun onSuccess(response: Response) {
+                    try {
+                        val user = User(response)
+                        addFilter(user, searchSourceBuilder)
+                        search(searchSourceBuilder, actionListener)
+                    } catch (ex: IOException) {
+                        actionListener.onFailure(AlertingException.wrap(ex))
+                    }
+                }
 
+                override fun onFailure(ex: Exception) {
+                    when (ex.message?.contains("Connection refused")) {
+                        // Connection is refused when security plugin is not present. This case can happen only with integration tests.
+                        true -> {
+                            addFilter(User(), searchSourceBuilder)
+                            search(searchSourceBuilder, actionListener)
+                        }
+                        false -> actionListener.onFailure(AlertingException.wrap(ex))
+                    }
+                }
+            })
+        }
+ */
         fun resolve(
             getAlertsRequest: GetAlertsRequest,
             searchSourceBuilder: SearchSourceBuilder,
             actionListener: ActionListener<GetAlertsResponse>
         ) {
             // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
-            if (getAlertsRequest.authHeader.isNullOrEmpty() || !filterByEnabled) {
+            if (getAlertsRequest.authHeader.isNullOrEmpty()) {
+                // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+                search(searchSourceBuilder, actionListener)
+            } else if (!filterByEnabled) {
+                // security is enabled and filterby is disabled.
                 search(searchSourceBuilder, actionListener)
             } else {
+                // security is enabled and filterby is enabled.
                 val authRequest = AuthUserRequestBuilder(
                         getAlertsRequest.authHeader
                 ).build()
@@ -135,19 +175,23 @@ class TransportGetAlertsAction @Inject constructor(
                     override fun onSuccess(response: Response) {
                         try {
                             val user = User(response)
-                            val filterBckendRoles = QueryBuilders.termsQuery("monitor_user.backend_roles", user.backendRoles)
-                            val queryBuilder = searchSourceBuilder.query() as BoolQueryBuilder
-                            searchSourceBuilder.query(queryBuilder.filter(filterBckendRoles))
-                            search(searchSourceBuilder, actionListener)
-
+                            addFilter(user, searchSourceBuilder, "monitor_user.backend_roles")
                             log.info("Filtering result by: ${user.backendRoles}")
+                            search(searchSourceBuilder, actionListener)
                         } catch (ex: IOException) {
                             actionListener.onFailure(AlertingException.wrap(ex))
                         }
                     }
 
                     override fun onFailure(ex: Exception) {
-                        actionListener.onFailure(AlertingException.wrap(ex))
+                        when (ex.message?.contains("Connection refused")) {
+                            // Connection is refused when security plugin is not present. This case can happen only with integration tests.
+                            true -> {
+                                addFilter(User(), searchSourceBuilder, "monitor_user.backend_roles")
+                                search(searchSourceBuilder, actionListener)
+                            }
+                            false -> actionListener.onFailure(AlertingException.wrap(ex))
+                        }
                     }
                 })
             }
