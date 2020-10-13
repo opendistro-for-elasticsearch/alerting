@@ -69,13 +69,24 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     fun `test execute monitor returns search result`() {
-        val uniqueName = "unique name"
-        val query = QueryBuilders.termQuery("monitor.name.keyword", uniqueName)
+        val testIndex = createTestIndex()
+        val twoMinsAgo = ZonedDateTime.now().minus(2, MINUTES).truncatedTo(MILLIS)
+        val testTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(twoMinsAgo)
+        val testDoc = """{ "test_strict_date_time" : "$testTime" }"""
+        indexDoc(testIndex, "1", testDoc)
 
-        val input = SearchInput(indices = listOf(".*"), query = SearchSourceBuilder().query(query))
-        val monitor = createMonitor(randomMonitor(name = uniqueName, inputs = listOf(input),
-                triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
+        val query = QueryBuilders.rangeQuery("test_strict_date_time")
+                .gt("{{period_end}}||-10d")
+                .lte("{{period_end}}")
+                .format("epoch_millis")
+        val input = SearchInput(indices = listOf(testIndex), query = SearchSourceBuilder().query(query))
+        val triggerScript = """
+            // make sure there is exactly one hit
+            return ctx.results[0].hits.hits.size() == 1
+        """.trimIndent()
 
+        val trigger = randomTrigger(condition = Script(triggerScript))
+        val monitor = randomMonitor(inputs = listOf(input), triggers = listOf(trigger))
         val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
 
         val output = entityAsMap(response)

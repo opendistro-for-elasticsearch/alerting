@@ -158,12 +158,12 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
     ): List<RestHandler> {
         return listOf(RestGetMonitorAction(),
                 RestDeleteMonitorAction(),
-                RestIndexMonitorAction(settings, restClient),
-                RestSearchMonitorAction(),
+                RestIndexMonitorAction(),
+                RestSearchMonitorAction(settings, clusterService, restClient),
                 RestExecuteMonitorAction(),
                 RestAcknowledgeAlertAction(),
                 RestScheduledJobStatsHandler("_alerting"),
-                RestIndexDestinationAction(settings, restClient),
+                RestIndexDestinationAction(),
                 RestDeleteDestinationAction(),
                 RestIndexEmailAccountAction(),
                 RestDeleteEmailAccountAction(),
@@ -229,7 +229,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
         this.threadPool = threadPool
         this.clusterService = clusterService
         this.restClient = SecureRestClientBuilder(settings, environment.configFile()).build()
-        return listOf(sweeper, scheduler, runner, scheduledJobIndices)
+        return listOf(sweeper, scheduler, runner, scheduledJobIndices, restClient)
     }
 
     override fun getSettings(): List<Setting<*>> {
@@ -255,6 +255,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 AlertingSettings.ALERTING_MAX_MONITORS,
                 AlertingSettings.REQUEST_TIMEOUT,
                 AlertingSettings.MAX_ACTION_THROTTLE_VALUE,
+                AlertingSettings.FILTER_BY_BACKEND_ROLES,
                 DestinationSettings.EMAIL_USERNAME,
                 DestinationSettings.EMAIL_PASSWORD,
                 DestinationSettings.ALLOW_LIST

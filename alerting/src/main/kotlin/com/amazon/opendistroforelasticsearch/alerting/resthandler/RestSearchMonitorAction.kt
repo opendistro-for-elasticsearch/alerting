@@ -16,15 +16,21 @@ package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.context
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
@@ -49,7 +55,17 @@ private val log = LogManager.getLogger(RestSearchMonitorAction::class.java)
 /**
  * Rest handlers to search for monitors.
  */
-class RestSearchMonitorAction : BaseRestHandler() {
+class RestSearchMonitorAction(
+    val settings: Settings,
+    clusterService: ClusterService,
+    private val restClient: RestClient
+) : BaseRestHandler() {
+
+    @Volatile private var filterBy = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterBy = it }
+    }
 
     override fun getName(): String {
         return "search_monitor_action"
@@ -68,21 +84,25 @@ class RestSearchMonitorAction : BaseRestHandler() {
         log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/_search")
 
         val index = request.param("index", SCHEDULED_JOBS_INDEX)
-
+        val auth = request.header(ConfigConstants.AUTHORIZATION)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
         // We add a term query ontop of the customer query to ensure that only scheduled jobs of monitor type are
         // searched.
-        searchSourceBuilder.query(QueryBuilders.boolQuery().must(searchSourceBuilder.query())
-                .filter(QueryBuilders.termQuery(Monitor.MONITOR_TYPE + ".type", Monitor.MONITOR_TYPE)))
+        val queryBuilder = QueryBuilders.boolQuery().must(searchSourceBuilder.query())
+                .filter(QueryBuilders.termQuery(Monitor.MONITOR_TYPE + ".type", Monitor.MONITOR_TYPE))
+
+        searchSourceBuilder.query(queryBuilder)
                 .seqNoAndPrimaryTerm(true)
                 .version(true)
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
                 .indices(index)
+
+        val searchMonitorRequest = SearchMonitorRequest(searchRequest, auth)
         return RestChannelConsumer { channel ->
-            client.execute(SearchMonitorAction.INSTANCE, searchRequest, searchMonitorResponse(channel))
+            client.execute(SearchMonitorAction.INSTANCE, searchMonitorRequest, searchMonitorResponse(channel))
         }
     }
 

@@ -14,10 +14,6 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting
 
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert
-import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
@@ -25,14 +21,18 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
+import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
-import com.amazon.opendistroforelasticsearch.alerting.core.model.User
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
@@ -221,7 +221,7 @@ fun Monitor.toJsonString(): String {
 
 fun randomUser(): User {
     return User(ESRestTestCase.randomAlphaOfLength(10), listOf(ESRestTestCase.randomAlphaOfLength(10),
-            ESRestTestCase.randomAlphaOfLength(10)), listOf("all_access"), listOf("test_attr=test"))
+            ESRestTestCase.randomAlphaOfLength(10)), listOf(ESRestTestCase.randomAlphaOfLength(10), "all_access"), listOf("test_attr=test"))
 }
 
 fun randomUserEmpty(): User {
