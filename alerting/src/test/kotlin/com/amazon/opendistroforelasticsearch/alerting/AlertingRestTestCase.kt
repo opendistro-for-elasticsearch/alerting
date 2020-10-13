@@ -30,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
@@ -53,6 +54,7 @@ import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
+import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.net.URLEncoder
@@ -250,7 +252,11 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun getDestinations(client: RestClient, dataMap: Map<String, Any> = emptyMap()): List<Map<String, Any>> {
+    protected fun getDestinations(
+        client: RestClient,
+        dataMap: Map<String, Any> = emptyMap(),
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): List<Map<String, Any>> {
 
         var baseEndpoint = "$DESTINATION_BASE_URI?"
         for (entry in dataMap.entries) {
@@ -259,7 +265,10 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
 
         val response = client.makeRequest(
                 "GET",
-                baseEndpoint)
+                baseEndpoint,
+                null,
+                header
+        )
         assertEquals("Unable to update a destination", RestStatus.OK, response.restStatus())
         val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
                 response.entity.content).map()
@@ -310,7 +319,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     }
 
     protected fun createAlert(alert: Alert): Alert {
-        val response = client().makeRequest("POST", "/${AlertIndices.ALERT_INDEX}/_doc?refresh=true&routing=${alert.monitorId}",
+        val response = adminClient().makeRequest("POST", "/${AlertIndices.ALERT_INDEX}/_doc?refresh=true&routing=${alert.monitorId}",
                 emptyMap(), alert.toHttpEntity())
         assertEquals("Unable to create a new alert", RestStatus.CREATED, response.restStatus())
 
@@ -368,7 +377,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                   "query" : { "term" : { "${Alert.MONITOR_ID_FIELD}" : "${monitor.id}" } }
                 }
                 """.trimIndent()
-        val httpResponse = client().makeRequest("GET", "/$indices/_search", searchParams, StringEntity(request, APPLICATION_JSON))
+        val httpResponse = adminClient().makeRequest("GET", "/$indices/_search", searchParams, StringEntity(request, APPLICATION_JSON))
         assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
 
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, httpResponse.entity.content))
@@ -602,13 +611,27 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     }
 
     fun enableFilterBy() {
-        if (isHttps()) {
-            val updateResponse = client().makeRequest("PUT", "_cluster/settings",
-                    emptyMap(),
-                    StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
-                            .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, true).endObject()
-                            .endObject().string(), ContentType.APPLICATION_JSON))
-            assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
+        val updateResponse = client().makeRequest("PUT", "_cluster/settings",
+                emptyMap(),
+                StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
+                        .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, true).endObject()
+                        .endObject().string(), ContentType.APPLICATION_JSON))
+        assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
+    }
+
+    fun disableFilterBy() {
+        val updateResponse = client().makeRequest("PUT", "_cluster/settings",
+                emptyMap(),
+                StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
+                        .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, false).endObject()
+                        .endObject().string(), ContentType.APPLICATION_JSON))
+        assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
+    }
+
+    fun getHeader(): BasicHeader {
+        return when (isHttps()) {
+            true -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
+            false -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
         }
     }
 

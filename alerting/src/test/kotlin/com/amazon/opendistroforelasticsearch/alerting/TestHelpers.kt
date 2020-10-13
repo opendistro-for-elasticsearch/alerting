@@ -18,7 +18,6 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
@@ -33,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request

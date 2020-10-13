@@ -16,10 +16,10 @@
 package com.amazon.opendistroforelasticsearch.alerting.action
 
 import com.amazon.opendistroforelasticsearch.alerting.builder
-import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.xcontent.ToXContent
