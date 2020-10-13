@@ -15,48 +15,30 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.action
 
-import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
+import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
-import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import java.io.IOException
 
-class GetDestinationsRequest : ActionRequest {
-    val destinationId: String?
-    val version: Long
-    val srcContext: FetchSourceContext?
-    val table: Table
-    val destinationType: String
+class SearchMonitorRequest : ActionRequest {
+
+    val searchRequest: SearchRequest
     val authHeader: String?
 
     constructor(
-        destinationId: String?,
-        version: Long,
-        srcContext: FetchSourceContext?,
-        table: Table,
-        destinationType: String,
+        searchRequest: SearchRequest,
         authHeader: String?
-    ) : super() {
-        this.destinationId = destinationId
-        this.version = version
-        this.srcContext = srcContext
-        this.table = table
-        this.destinationType = destinationType
+    ): super() {
+        this.searchRequest = searchRequest
         this.authHeader = authHeader
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : this(
-        destinationId = sin.readOptionalString(),
-        version = sin.readLong(),
-        srcContext = if (sin.readBoolean()) {
-            FetchSourceContext(sin)
-        } else null,
-        table = Table.readFrom(sin),
-        destinationType = sin.readString(),
-        authHeader = sin.readOptionalString()
+    constructor(sin: StreamInput): this(
+            searchRequest = SearchRequest(sin),
+            authHeader = sin.readOptionalString()
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -65,12 +47,7 @@ class GetDestinationsRequest : ActionRequest {
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeOptionalString(destinationId)
-        out.writeLong(version)
-        out.writeBoolean(srcContext != null)
-        srcContext?.writeTo(out)
-        table.writeTo(out)
-        out.writeString(destinationType)
+        searchRequest.writeTo(out)
         out.writeOptionalString(authHeader)
     }
 }
