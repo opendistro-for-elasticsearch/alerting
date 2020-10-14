@@ -27,7 +27,36 @@ import java.time.Instant
 @Suppress("UNCHECKED_CAST")
 class SecureDestinationRestApiIT : AlertingRestTestCase() {
 
-    fun `test get destinations with slack destination type and filter by`() {
+    fun `test get destinations with a destination type and disable filter by`() {
+        disableFilterBy()
+        val slack = Slack("url")
+        val destination = Destination(
+                type = DestinationType.SLACK,
+                name = "testSlack",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = null,
+                slack = slack,
+                customWebhook = null,
+                email = null)
+
+        // 1. create a destination as admin user
+        createDestination(destination, true)
+
+        val inputMap = HashMap<String, Any>()
+        inputMap["missing"] = "_last"
+        inputMap["destinationType"] = "slack"
+
+        // 2. get destinations as admin user
+        val adminResponse = getDestinations(client(), inputMap, getHeader())
+        assertEquals(1, adminResponse.size)
+
+        // 3. get destinations as kirk user, super-admin can read all.
+        val kirkResponse = getDestinations(adminClient(), inputMap)
+        assertEquals(1, kirkResponse.size)
+    }
+
+    fun `test get destinations with a destination type and filter by`() {
         enableFilterBy()
         val slack = Slack("url")
         val destination = Destination(
@@ -48,16 +77,16 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
         inputMap["destinationType"] = "slack"
 
         // 2. get destinations as admin user
-        val adminResponse = getDestinations(client(), inputMap)
-        assertEquals(1, adminResponse.size)
-
-        // 3. get destinations as kirk user
+        val adminResponse = getDestinations(client(), inputMap, getHeader())
         val expected = when (isHttps()) {
-            true -> 0
-            false -> 1
+            true -> 1   // when test is run with security - get the correct filtered results.
+            false -> 0  // when test is run without security and filterby is enabled - fails to
+                        // resolve user and filters by empty list, to get zero results.
         }
+        assertEquals(expected, adminResponse.size)
 
+        // 3. get destinations as kirk user, super-admin can read all.
         val kirkResponse = getDestinations(adminClient(), inputMap)
-        assertEquals(expected, kirkResponse.size)
+        assertEquals(1, kirkResponse.size)
     }
 }

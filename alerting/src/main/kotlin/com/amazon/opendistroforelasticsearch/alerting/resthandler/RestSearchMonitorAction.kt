@@ -16,13 +16,13 @@ package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.context
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
-import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -84,7 +84,7 @@ class RestSearchMonitorAction(
         log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/_search")
 
         val index = request.param("index", SCHEDULED_JOBS_INDEX)
-
+        val auth = request.header(ConfigConstants.AUTHORIZATION)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
@@ -93,22 +93,16 @@ class RestSearchMonitorAction(
         val queryBuilder = QueryBuilders.boolQuery().must(searchSourceBuilder.query())
                 .filter(QueryBuilders.termQuery(Monitor.MONITOR_TYPE + ".type", Monitor.MONITOR_TYPE))
 
-        if (filterBy) {
-            val user = AuthUser(settings, restClient, request.headers[ConfigConstants.AUTHORIZATION]).get()
-            if (user != null) {
-                log.info("_search results are filtered by ${user.backendRoles}")
-                queryBuilder.filter(QueryBuilders.termsQuery("monitor.user.backend_roles", user.backendRoles))
-            }
-        }
-
         searchSourceBuilder.query(queryBuilder)
                 .seqNoAndPrimaryTerm(true)
                 .version(true)
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
                 .indices(index)
+
+        val searchMonitorRequest = SearchMonitorRequest(searchRequest, auth)
         return RestChannelConsumer { channel ->
-            client.execute(SearchMonitorAction.INSTANCE, searchRequest, searchMonitorResponse(channel))
+            client.execute(SearchMonitorAction.INSTANCE, searchMonitorRequest, searchMonitorResponse(channel))
         }
     }
 

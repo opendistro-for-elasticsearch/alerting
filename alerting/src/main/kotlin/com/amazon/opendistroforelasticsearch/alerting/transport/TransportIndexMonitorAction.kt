@@ -31,6 +31,8 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -45,6 +47,9 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseListener
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
@@ -61,6 +66,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import java.io.IOException
 import java.time.Duration
 
 private val log = LogManager.getLogger(TransportIndexMonitorAction::class.java)
@@ -68,10 +74,11 @@ private val log = LogManager.getLogger(TransportIndexMonitorAction::class.java)
 class TransportIndexMonitorAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
+    val restClient: RestClient,
     actionFilters: ActionFilters,
     val scheduledJobIndices: ScheduledJobIndices,
     val clusterService: ClusterService,
-    settings: Settings,
+    val settings: Settings,
     val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<IndexMonitorRequest, IndexMonitorResponse>(
         IndexMonitorAction.NAME, transportService, actionFilters, ::IndexMonitorRequest
@@ -97,7 +104,7 @@ class TransportIndexMonitorAction @Inject constructor(
             return
 
         client.threadPool().threadContext.stashContext().use {
-            IndexMonitorHandler(client, actionListener, request).start()
+            IndexMonitorHandler(client, actionListener, request).resolveUserAndStart()
         }
     }
 
@@ -106,6 +113,33 @@ class TransportIndexMonitorAction @Inject constructor(
         private val actionListener: ActionListener<IndexMonitorResponse>,
         private val request: IndexMonitorRequest
     ) {
+
+        fun resolveUserAndStart() {
+            if (request.authHeader.isNullOrEmpty()) {
+                // Security is disabled, add empty user to Monitor. user is null for older versions.
+                request.monitor = request.monitor
+                        .copy(user = User("", listOf(), listOf(), listOf()))
+                start()
+            } else {
+                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
+                restClient.performRequestAsync(authRequest, object : ResponseListener {
+                    override fun onSuccess(response: Response) {
+                        try {
+                            val user = User(response)
+                            request.monitor = request.monitor
+                                    .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+                            start()
+                        } catch (ex: IOException) {
+                            actionListener.onFailure(AlertingException.wrap(ex))
+                        }
+                    }
+
+                    override fun onFailure(ex: Exception) {
+                        actionListener.onFailure(AlertingException.wrap(ex))
+                    }
+                })
+            }
+        }
 
         fun start() {
             if (!scheduledJobIndices.scheduledJobIndexExists()) {
@@ -185,7 +219,7 @@ class TransportIndexMonitorAction @Inject constructor(
         private fun onSearchResponse(response: SearchResponse) {
             val totalHits = response.hits.totalHits?.value
             if (totalHits != null && totalHits >= maxMonitors) {
-                log.error("This request would wrap more than the allowed monitors [$maxMonitors].")
+                log.error("This request would create more than the allowed monitors [$maxMonitors].")
                 actionListener.onFailure(
                     AlertingException.wrap(IllegalArgumentException(
                             "This request would create more than the allowed monitors [$maxMonitors]."))

@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.builder
-import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
@@ -34,6 +33,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith

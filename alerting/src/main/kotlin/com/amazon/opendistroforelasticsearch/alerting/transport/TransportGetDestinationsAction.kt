@@ -19,13 +19,23 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsActi
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsResponse
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.addFilter
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
+import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseListener
+import org.elasticsearch.client.RestClient
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
@@ -44,10 +54,15 @@ import org.elasticsearch.search.sort.SortBuilders
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import java.io.IOException
+
+private val log = LogManager.getLogger(TransportGetDestinationsAction::class.java)
 
 class TransportGetDestinationsAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
+    val restClient: RestClient,
+    clusterService: ClusterService,
     actionFilters: ActionFilters,
     val settings: Settings,
     val xContentRegistry: NamedXContentRegistry
@@ -55,12 +70,17 @@ class TransportGetDestinationsAction @Inject constructor(
         GetDestinationsAction.NAME, transportService, actionFilters, ::GetDestinationsRequest
 ) {
 
+    @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
+    }
+
     override fun doExecute(
         task: Task,
         getDestinationsRequest: GetDestinationsRequest,
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
-        client.threadPool().threadContext.stashContext().use {
 
             val tableProp = getDestinationsRequest.table
 
@@ -95,39 +115,81 @@ class TransportGetDestinationsAction @Inject constructor(
                                 .field("destination.type")
                                 .field("destination.name"))
             }
-
-            if (getDestinationsRequest.filter != null) {
-                queryBuilder.filter(getDestinationsRequest.filter)
-            }
-
             searchSourceBuilder.query(queryBuilder)
 
-            val searchRequest = SearchRequest()
-                    .source(searchSourceBuilder)
-                    .indices(ScheduledJob.SCHEDULED_JOBS_INDEX)
-            client.search(searchRequest, object : ActionListener<SearchResponse> {
-                override fun onResponse(response: SearchResponse) {
-                    val totalDestinationCount = response.hits.totalHits?.value?.toInt()
-                    val destinations = mutableListOf<Destination>()
-                    for (hit in response.hits) {
-                        val id = hit.id
-                        val version = hit.version
-                        val seqNo = hit.seqNo.toInt()
-                        val primaryTerm = hit.primaryTerm.toInt()
-                        val xcp = XContentFactory.xContent(XContentType.JSON)
-                                .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, hit.sourceAsString)
-                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-                        destinations.add(Destination.parse(xcp, id, version, seqNo, primaryTerm))
+            client.threadPool().threadContext.stashContext().use {
+                resolve(getDestinationsRequest, searchSourceBuilder, actionListener)
+            }
+    }
+
+    fun resolve(
+        getDestinationsRequest: GetDestinationsRequest,
+        searchSourceBuilder: SearchSourceBuilder,
+        actionListener: ActionListener<GetDestinationsResponse>
+    ) {
+        if (getDestinationsRequest.authHeader.isNullOrEmpty()) {
+            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+            search(searchSourceBuilder, actionListener)
+        } else if (!filterByEnabled) {
+            // security is enabled and filterby is disabled.
+            search(searchSourceBuilder, actionListener)
+        } else {
+            // security is enabled and filterby is enabled.
+            val authRequest = AuthUserRequestBuilder(
+                    getDestinationsRequest.authHeader
+            ).build()
+            restClient.performRequestAsync(authRequest, object : ResponseListener {
+                override fun onSuccess(response: Response) {
+                    try {
+                        val user = User(response)
+                        addFilter(user, searchSourceBuilder, "destination.user.backend_roles")
+                        log.info("Filtering result by: ${user.backendRoles}")
+                        search(searchSourceBuilder, actionListener)
+                    } catch (ex: IOException) {
+                        actionListener.onFailure(AlertingException.wrap(ex))
                     }
-                    actionListener.onResponse(GetDestinationsResponse(RestStatus.OK, totalDestinationCount, destinations))
                 }
 
-                override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                override fun onFailure(ex: Exception) {
+                    when (ex.message?.contains("Connection refused")) {
+                        // Connection is refused when security plugin is not present. This case can happen only with integration tests.
+                        true -> {
+                            addFilter(User(), searchSourceBuilder, "destination.user.backend_roles")
+                            search(searchSourceBuilder, actionListener)
+                        }
+                        false -> actionListener.onFailure(AlertingException.wrap(ex))
+                    }
                 }
             })
         }
+    }
+
+    fun search(searchSourceBuilder: SearchSourceBuilder, actionListener: ActionListener<GetDestinationsResponse>) {
+        val searchRequest = SearchRequest()
+                .source(searchSourceBuilder)
+                .indices(ScheduledJob.SCHEDULED_JOBS_INDEX)
+        client.search(searchRequest, object : ActionListener<SearchResponse> {
+            override fun onResponse(response: SearchResponse) {
+                val totalDestinationCount = response.hits.totalHits?.value?.toInt()
+                val destinations = mutableListOf<Destination>()
+                for (hit in response.hits) {
+                    val id = hit.id
+                    val version = hit.version
+                    val seqNo = hit.seqNo.toInt()
+                    val primaryTerm = hit.primaryTerm.toInt()
+                    val xcp = XContentFactory.xContent(XContentType.JSON)
+                            .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, hit.sourceAsString)
+                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                    destinations.add(Destination.parse(xcp, id, version, seqNo, primaryTerm))
+                }
+                actionListener.onResponse(GetDestinationsResponse(RestStatus.OK, totalDestinationCount, destinations))
+            }
+
+            override fun onFailure(t: Exception) {
+                actionListener.onFailure(AlertingException.wrap(t))
+            }
+        })
     }
 }

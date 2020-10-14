@@ -18,9 +18,9 @@ package com.amazon.opendistroforelasticsearch.alerting.action
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
-import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.rest.ESRestTestCase
 
 class GetDestinationsRequestTests : ESTestCase() {
 
@@ -78,8 +78,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request with filter`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val filter = QueryBuilders.termsQuery("destination.user.backend_roles", listOf("admin", "hr"))
-        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", filter)
+        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", ESRestTestCase.randomAlphaOfLength(20))
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -91,6 +90,6 @@ class GetDestinationsRequestTests : ESTestCase() {
         assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
         assertEquals(table, newReq.table)
         assertEquals("slack", newReq.destinationType)
-        assertNotNull(newReq.filter)
+        assertNotNull(newReq.authHeader)
     }
 }

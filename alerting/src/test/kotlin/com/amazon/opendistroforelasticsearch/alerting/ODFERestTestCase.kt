@@ -107,12 +107,12 @@ abstract class ODFERestTestCase : ESRestTestCase() {
                 true -> {
                     val uri = javaClass.classLoader.getResource("sample.pem").toURI()
                     val configPath = PathUtils.get(uri).parent.toAbsolutePath()
-                    SecureRestClientBuilder(settings, configPath).build()
+                    SecureRestClientBuilder(settings, configPath).setSocketTimeout(60000).build()
                 }
                 false -> {
                     val userName = System.getProperty("user")
                     val password = System.getProperty("password")
-                    SecureRestClientBuilder(hosts, true, userName, password).build()
+                    SecureRestClientBuilder(hosts, true, userName, password).setSocketTimeout(60000).build()
                 }
             }
         } else {

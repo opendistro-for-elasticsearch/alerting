@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.core.model.User
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
@@ -33,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.search.builder.SearchSourceBuilder
