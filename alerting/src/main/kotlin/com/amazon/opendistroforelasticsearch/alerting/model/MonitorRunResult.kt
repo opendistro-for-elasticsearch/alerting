@@ -61,11 +61,11 @@ data class MonitorRunResult(
     /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
     fun alertError(): AlertError? {
         if (error != null) {
-            return AlertError(Instant.now(), "Error running monitor:\n${error.userErrorMessage()}")
+            return AlertError(Instant.now(), "Failed running monitor:\n${error.userErrorMessage()}")
         }
 
         if (inputResults.error != null) {
-            return AlertError(Instant.now(), "Error fetching inputs:\n${inputResults.error.userErrorMessage()}")
+            return AlertError(Instant.now(), "Failed fetching inputs:\n${inputResults.error.userErrorMessage()}")
         }
         return null
     }
@@ -164,11 +164,11 @@ data class TriggerRunResult(
     /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
     fun alertError(): AlertError? {
         if (error != null) {
-            return AlertError(Instant.now(), "Error evaluating trigger:\n${error.userErrorMessage()}")
+            return AlertError(Instant.now(), "Failed evaluating trigger:\n${error.userErrorMessage()}")
         }
         for (actionResult in actionResults.values) {
             if (actionResult.error != null) {
-                return AlertError(Instant.now(), "Error running action:\n${actionResult.error.userErrorMessage()}")
+                return AlertError(Instant.now(), "Failed running action:\n${actionResult.error.userErrorMessage()}")
             }
         }
         return null
