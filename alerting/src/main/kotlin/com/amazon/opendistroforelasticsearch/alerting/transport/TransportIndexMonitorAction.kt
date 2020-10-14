@@ -24,7 +24,6 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Co
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERTING_MAX_MONITORS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
@@ -315,7 +314,7 @@ class TransportIndexMonitorAction @Inject constructor(
             return null
         }
 
-        private fun checkForDisallowedDestinations(allowList: List<String>) {
+        /*private fun checkForDisallowedDestinations(allowList: List<String>) {
             this.request.monitor.triggers.forEach { trigger ->
                 trigger.actions.forEach { action ->
                     // Check for empty destinationId for test cases, otherwise we get test failures
@@ -347,7 +346,7 @@ class TransportIndexMonitorAction @Inject constructor(
                     }
                 })
             }
-        }
+        }*/
     }
 
     /**
