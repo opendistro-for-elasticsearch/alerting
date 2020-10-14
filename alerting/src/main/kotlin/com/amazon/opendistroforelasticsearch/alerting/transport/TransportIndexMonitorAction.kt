@@ -141,7 +141,8 @@ class TransportIndexMonitorAction @Inject constructor(
          */
         private fun prepareMonitorIndexing() {
 
-            checkForDisallowedDestinations(allowList)
+            // Below check needs to be async operations and needs to be refactored issue#269
+            // checkForDisallowedDestinations(allowList)
 
             try {
                 validateActionThrottle(request.monitor, maxActionThrottle, TimeValue.timeValueMinutes(1))
