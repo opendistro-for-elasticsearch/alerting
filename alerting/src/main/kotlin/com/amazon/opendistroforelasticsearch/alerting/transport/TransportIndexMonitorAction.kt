@@ -34,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ElasticsearchSecurityException
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -99,13 +100,46 @@ class TransportIndexMonitorAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>) {
+        checkIndicesAndExecute(client, actionListener, request)
+    }
 
-        if (!isValidIndex(request, actionListener))
-            return
-
-        client.threadPool().threadContext.stashContext().use {
-            IndexMonitorHandler(client, actionListener, request).resolveUserAndStart()
+    /**
+     *  Check if user has permissions to read the configured indices on the monitor and
+     *  then create monitor.
+     */
+    fun checkIndicesAndExecute(
+        client: Client,
+        actionListener: ActionListener<IndexMonitorResponse>,
+        request: IndexMonitorRequest
+    ) {
+        val indices = mutableListOf<String>()
+        val searchInputs = request.monitor.inputs.filter { it.name() == SearchInput.SEARCH_FIELD }
+        searchInputs.forEach {
+            val searchInput = it as SearchInput
+            indices.addAll(searchInput.indices)
         }
+        val searchRequest = SearchRequest().indices(*indices.toTypedArray())
+                .source(SearchSourceBuilder.searchSource().size(1).query(QueryBuilders.matchAllQuery()))
+        client.search(searchRequest, object : ActionListener<SearchResponse> {
+            override fun onResponse(searchResponse: SearchResponse) {
+                // User has read access to configured indices in the monitor, now create monitor with out user context.
+                client.threadPool().threadContext.stashContext().use {
+                    IndexMonitorHandler(client, actionListener, request).resolveUserAndStart()
+                }
+            }
+
+            //  Due to below issue with security plugin, we get security_exception when invalid index name is mentioned.
+            //  https://github.com/opendistro-for-elasticsearch/security/issues/718
+            override fun onFailure(t: Exception) {
+                actionListener.onFailure(AlertingException.wrap(
+                    when (t is ElasticsearchSecurityException) {
+                        true -> ElasticsearchStatusException("User doesn't have read permissions for one or more configured index " +
+                            "${indices.indices}", RestStatus.FORBIDDEN)
+                        false -> t
+                    }
+                ))
+            }
+        })
     }
 
     inner class IndexMonitorHandler(
@@ -381,33 +415,5 @@ class TransportIndexMonitorAction @Inject constructor(
                 })
             }
         }*/
-    }
-
-    /**
-     *  Check if user has permissions to read the configured indices on the monitor.
-     *  Due to below issue with security plugin, we get security_exception when invalid index name is mentioned.
-     *  https://github.com/opendistro-for-elasticsearch/security/issues/718
-     */
-    private fun isValidIndex(request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>): Boolean {
-        var ret = true
-        val searchInputs = request.monitor.inputs.filter { it.name() == SearchInput.SEARCH_FIELD }
-        searchInputs.forEach {
-            val searchInput = it as SearchInput
-            val searchRequest = SearchRequest().indices(*searchInput.indices.toTypedArray())
-                    .source(SearchSourceBuilder.searchSource().size(1).query(QueryBuilders.matchAllQuery()))
-            client.search(searchRequest, object : ActionListener<SearchResponse> {
-                override fun onResponse(searchResponse: SearchResponse) {
-                    // ignore
-                }
-
-                override fun onFailure(t: Exception) {
-                    val ex = ElasticsearchStatusException("User doesn't have read permissions for the configured index " +
-                            "${searchInput.indices}", RestStatus.FORBIDDEN)
-                    actionListener.onFailure(AlertingException.wrap(ex))
-                    ret = false
-                }
-            })
-        }
-        return ret
     }
 }
