@@ -60,6 +60,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
@@ -223,7 +224,7 @@ class MonitorRunner(
             logger.error("Error loading alerts for monitor: $id", e)
             return monitorResult.copy(error = e)
         }
-        withContext(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
+        runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
             monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
         }
         val updatedAlerts = mutableListOf<Alert>()
