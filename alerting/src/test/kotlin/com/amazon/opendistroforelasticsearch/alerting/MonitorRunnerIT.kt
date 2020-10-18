@@ -272,7 +272,17 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     fun `test execute monitor search with period`() {
-        val query = QueryBuilders.rangeQuery("monitor.last_update_time").gte("{{period_start}}").lte("{{period_end}}")
+        // We cant query .opendistro-alerting-config as its system index. Create a test index starting with "."
+        val testIndex = createTestConfigIndex()
+        val fiveDaysAgo = ZonedDateTime.now().minus(5, DAYS).truncatedTo(MILLIS)
+        val testTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(fiveDaysAgo)
+        val testDoc = """{ "test_strict_date_time" : "$testTime" }"""
+        indexDoc(testIndex, "1", testDoc)
+
+        val query = QueryBuilders.rangeQuery("test_strict_date_time")
+                .gt("{{period_end}}||-10d")
+                .lte("{{period_end}}")
+                .format("epoch_millis")
         val input = SearchInput(indices = listOf(".*"), query = SearchSourceBuilder().query(query))
         val triggerScript = """
             // make sure there is at least one monitor
@@ -588,6 +598,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         verifyAlert(activeAlert1.single(), monitor, ACTIVE)
         val actionResults1 = verifyActionExecutionResultInAlert(activeAlert1[0], mutableMapOf(Pair(actionThrottleEnabled.id, 0)))
 
+        Thread.sleep(200)
         updateMonitor(monitor.copy(triggers = listOf(trigger.copy(condition = NEVER_RUN)), id = monitor.id))
         executeMonitor(monitor.id)
         val completedAlert = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN).single()
