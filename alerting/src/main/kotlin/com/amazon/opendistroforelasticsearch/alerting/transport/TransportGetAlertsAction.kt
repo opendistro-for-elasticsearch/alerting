@@ -118,42 +118,7 @@ class TransportGetAlertsAction @Inject constructor(
                 resolve(getAlertsRequest, searchSourceBuilder, actionListener)
             }
         }
-/*
-if (getDestinationsRequest.authHeader.isNullOrEmpty()) {
-            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
-            search(searchSourceBuilder, actionListener)
-        } else if (!filterByEnabled) {
-            // security is enabled and filterby is disabled.
-            search(searchSourceBuilder, actionListener)
-        } else {
-            // security is enabled and filterby is enabled.
-            val authRequest = AuthUserRequestBuilder(
-                    getDestinationsRequest.authHeader
-            ).build()
-            restClient.performRequestAsync(authRequest, object : ResponseListener {
-                override fun onSuccess(response: Response) {
-                    try {
-                        val user = User(response)
-                        addFilter(user, searchSourceBuilder)
-                        search(searchSourceBuilder, actionListener)
-                    } catch (ex: IOException) {
-                        actionListener.onFailure(AlertingException.wrap(ex))
-                    }
-                }
 
-                override fun onFailure(ex: Exception) {
-                    when (ex.message?.contains("Connection refused")) {
-                        // Connection is refused when security plugin is not present. This case can happen only with integration tests.
-                        true -> {
-                            addFilter(User(), searchSourceBuilder)
-                            search(searchSourceBuilder, actionListener)
-                        }
-                        false -> actionListener.onFailure(AlertingException.wrap(ex))
-                    }
-                }
-            })
-        }
- */
         fun resolve(
             getAlertsRequest: GetAlertsRequest,
             searchSourceBuilder: SearchSourceBuilder,

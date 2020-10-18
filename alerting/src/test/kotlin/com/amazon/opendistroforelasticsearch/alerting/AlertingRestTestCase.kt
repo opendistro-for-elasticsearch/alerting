@@ -40,6 +40,7 @@ import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.client.WarningFailureException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -460,12 +461,16 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return index
     }
 
-    protected fun createTestHiddenIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
-        createIndex(index, Settings.builder().put("hidden", true).build(), """
+    protected fun createTestConfigIndex(index: String = "." + randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
+        try {
+            createIndex(index, Settings.builder().build(), """
           "properties" : {
              "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
           }
         """.trimIndent())
+        } catch (ex: WarningFailureException) {
+            // ignore
+        }
         return index
     }
 
