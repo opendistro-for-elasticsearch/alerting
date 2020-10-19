@@ -145,11 +145,14 @@ fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilde
 }
 
 fun addFilter(user: User, searchSourceBuilder: SearchSourceBuilder, fieldName: String) {
-    val filterBckendRoles = QueryBuilders.termsQuery(fieldName, user.backendRoles)
-    val queryBuilder = searchSourceBuilder.query() as BoolQueryBuilder
-    searchSourceBuilder.query(queryBuilder.filter(filterBckendRoles))
+    addUserRolesFilter(user.backendRoles, searchSourceBuilder, fieldName)
 }
 
+fun addUserRolesFilter(userRoles: List<String>, searchSourceBuilder: SearchSourceBuilder, fieldName: String) {
+    val filterBackendRoles = QueryBuilders.termsQuery(fieldName, userRoles)
+    val queryBuilder = searchSourceBuilder.query() as BoolQueryBuilder
+    searchSourceBuilder.query(queryBuilder.filter(filterBackendRoles))
+}
 /**
  * Extension function for ES 6.3 and above that duplicates the ES 6.2 XContentBuilder.string() method.
  */

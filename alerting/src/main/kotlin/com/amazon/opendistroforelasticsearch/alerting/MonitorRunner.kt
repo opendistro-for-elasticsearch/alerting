@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.addUserRolesFilter
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
@@ -323,7 +324,19 @@ class MonitorRunner(
                         XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
                             searchRequest.source(SearchSourceBuilder.fromXContent(it))
                         }
-                        val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
+
+                        lateinit var searchResponse: SearchResponse
+                        // Add user role filter for AD result
+                        if (input.indices.size == 1 && input.indices[0] == ".opendistro-anomaly-results*") {
+                            client.threadPool().threadContext.stashContext().use {
+                                if (monitor.user != null && !monitor.user.backendRoles.isNullOrEmpty()) {
+                                    addUserRolesFilter(monitor.user.backendRoles, searchRequest.source(), "user.backend_roles")
+                                }
+                                searchResponse = client.suspendUntil { client.search(searchRequest, it) }
+                            }
+                        } else {
+                            searchResponse = client.suspendUntil { client.search(searchRequest, it) }
+                        }
                         results += searchResponse.convertToMap()
                     }
                     else -> {
