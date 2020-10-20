@@ -15,8 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.destination.response;
 
-import org.elasticsearch.common.Strings;
-
 /**
  * This class is a place holder for destination response metadata
  */
@@ -26,7 +24,7 @@ public class DestinationResponse extends BaseResponse {
 
     private DestinationResponse(final String responseString, final int statusCode) {
         super(statusCode);
-        if (Strings.isNullOrEmpty(responseString)) {
+        if (responseString == null) {
             throw new IllegalArgumentException("Response is missing");
         }
         this.responseContent = responseString;
