@@ -225,9 +225,14 @@ class MonitorRunner(
             logger.error("Error loading alerts for monitor: $id", e)
             return monitorResult.copy(error = e)
         }
-        runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
-            monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
+        if (!isADMonitor(monitor)) {
+            runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
+                monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
+            }
+        } else {
+            monitorResult = monitorResult.copy(inputResults = collectInputResultsForADMonitor(monitor, periodStart, periodEnd))
         }
+
         val updatedAlerts = mutableListOf<Alert>()
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
@@ -324,19 +329,7 @@ class MonitorRunner(
                         XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
                             searchRequest.source(SearchSourceBuilder.fromXContent(it))
                         }
-
-                        lateinit var searchResponse: SearchResponse
-                        // Add user role filter for AD result
-                        if (input.indices.size == 1 && input.indices[0] == ".opendistro-anomaly-results*") {
-                            client.threadPool().threadContext.stashContext().use {
-                                if (monitor.user != null && !monitor.user.backendRoles.isNullOrEmpty()) {
-                                    addUserRolesFilter(monitor.user.backendRoles, searchRequest.source(), "user.backend_roles")
-                                }
-                                searchResponse = client.suspendUntil { client.search(searchRequest, it) }
-                            }
-                        } else {
-                            searchResponse = client.suspendUntil { client.search(searchRequest, it) }
-                        }
+                        val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
                         results += searchResponse.convertToMap()
                     }
                     else -> {
@@ -347,6 +340,65 @@ class MonitorRunner(
             InputRunResults(results.toList())
         } catch (e: Exception) {
             logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
+            InputRunResults(emptyList(), e)
+        }
+    }
+
+    /**
+     * AD monitor is search input monitor on top of anomaly result index. This method will return
+     * true if monitor input only contains anomaly result index.
+     */
+    private fun isADMonitor(monitor: Monitor): Boolean {
+        // If monitor has other input than AD result index, it's not AD monitor
+        if (monitor.inputs.size != 1) {
+            return false
+        }
+        val input = monitor.inputs[0]
+        // AD monitor can only have 1 anomaly result index.
+        if (input is SearchInput && input.indices.size == 1 && input.indices[0] == ".opendistro-anomaly-results*") {
+            return true
+        }
+        return false
+    }
+
+    /**
+     * We moved anomaly result index to system index list. So common user could not directly query
+     * this index any more. This method will stash current thread context to pass security check.
+     * So monitor job can access anomaly result index. We will add monitor user roles filter in
+     * search query to only return documents the monitor user can access.
+     *
+     * On alerting Kibana, monitor users can only see detectors that they have read access. So they
+     * can't create monitor on other user's detector which they have no read access. Even they know
+     * other user's detector id and use it to create monitor, this method will only return anomaly
+     * results they can read.
+     */
+    private suspend fun collectInputResultsForADMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
+        return try {
+            val results = mutableListOf<Map<String, Any>>()
+            val input = monitor.inputs[0] as SearchInput
+
+            val searchParams = mapOf("period_start" to periodStart.toEpochMilli(), "period_end" to periodEnd.toEpochMilli())
+            val searchSource = scriptService.compile(Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG,
+                    input.query.toString(), searchParams), TemplateScript.CONTEXT)
+                    .newInstance(searchParams)
+                    .execute()
+
+            val searchRequest = SearchRequest().indices(*input.indices.toTypedArray())
+            XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
+                searchRequest.source(SearchSourceBuilder.fromXContent(it))
+            }
+
+            // Add user role filter for AD result
+            client.threadPool().threadContext.stashContext().use {
+                if (monitor.user != null && !monitor.user.backendRoles.isNullOrEmpty()) {
+                    addUserRolesFilter(monitor.user.backendRoles, searchRequest.source(), "user.backend_roles")
+                }
+                val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
+                results += searchResponse.convertToMap()
+            }
+            InputRunResults(results.toList())
+        } catch (e: Exception) {
+            logger.info("Error collecting anomaly result inputs for monitor: ${monitor.id}", e)
             InputRunResults(emptyList(), e)
         }
     }
