@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.Destin
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicStatusLine;
 import org.easymock.EasyMock;
@@ -35,11 +36,14 @@ import static org.junit.Assert.assertEquals;
 public class ChimeDestinationTest {
 
     @Test
-    public void testChimeMessage() throws Exception {
+    public void testChimeMessage_NullEntityResponse() throws Exception {
         CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
 
-        DestinationResponse expectedChimeResponse = new DestinationResponse.Builder().withResponseContent("{}")
-                .withStatusCode(RestStatus.OK.getStatus()).build();
+        // The DestinationHttpClient replaces a null entity with "{}".
+        DestinationResponse expectedChimeResponse = new DestinationResponse.Builder()
+                .withResponseContent("{}")
+                .withStatusCode(RestStatus.OK.getStatus())
+                .build();
         CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
         EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse);
 
@@ -47,6 +51,82 @@ public class ChimeDestinationTest {
 
         EasyMock.expect(httpResponse.getStatusLine()).andReturn(mockStatusLine);
         EasyMock.expect(httpResponse.getEntity()).andReturn(null).anyTimes();
+        EasyMock.expect(mockStatusLine.getStatusCode()).andReturn(RestStatus.OK.getStatus());
+        EasyMock.replay(mockHttpClient);
+        EasyMock.replay(httpResponse);
+        EasyMock.replay(mockStatusLine);
+
+        DestinationHttpClient httpClient = new DestinationHttpClient();
+        httpClient.setHttpClient(mockHttpClient);
+        ChimeDestinationFactory chimeDestinationFactory = new ChimeDestinationFactory();
+        chimeDestinationFactory.setClient(httpClient);
+
+        DestinationFactoryProvider.setFactory(DestinationType.CHIME, chimeDestinationFactory);
+
+        String message = "{\"Content\":\"Message gughjhjlkh Body emoji test: :) :+1: " +
+                "link test: http://sample.com email test: marymajor@example.com All member callout: " +
+                "@All All Present member callout: @Present\"}";
+        BaseMessage bm = new ChimeMessage.Builder("abc").withMessage(message).
+                withUrl("https://abc/com").build();
+        DestinationResponse actualChimeResponse = (DestinationResponse) Notification.publish(bm);
+
+        assertEquals(expectedChimeResponse.getResponseContent(), actualChimeResponse.getResponseContent());
+        assertEquals(expectedChimeResponse.getStatusCode(), actualChimeResponse.getStatusCode());
+    }
+
+    @Test
+    public void testChimeMessage_EmptyEntityResponse() throws Exception {
+        CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
+
+        DestinationResponse expectedChimeResponse = new DestinationResponse.Builder()
+                .withResponseContent("")
+                .withStatusCode(RestStatus.OK.getStatus())
+                .build();
+        CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
+        EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse);
+
+        BasicStatusLine mockStatusLine = EasyMock.createMock(BasicStatusLine.class);
+
+        EasyMock.expect(httpResponse.getStatusLine()).andReturn(mockStatusLine);
+        EasyMock.expect(httpResponse.getEntity()).andReturn(new StringEntity("")).anyTimes();
+        EasyMock.expect(mockStatusLine.getStatusCode()).andReturn(RestStatus.OK.getStatus());
+        EasyMock.replay(mockHttpClient);
+        EasyMock.replay(httpResponse);
+        EasyMock.replay(mockStatusLine);
+
+        DestinationHttpClient httpClient = new DestinationHttpClient();
+        httpClient.setHttpClient(mockHttpClient);
+        ChimeDestinationFactory chimeDestinationFactory = new ChimeDestinationFactory();
+        chimeDestinationFactory.setClient(httpClient);
+
+        DestinationFactoryProvider.setFactory(DestinationType.CHIME, chimeDestinationFactory);
+
+        String message = "{\"Content\":\"Message gughjhjlkh Body emoji test: :) :+1: " +
+                "link test: http://sample.com email test: marymajor@example.com All member callout: " +
+                "@All All Present member callout: @Present\"}";
+        BaseMessage bm = new ChimeMessage.Builder("abc").withMessage(message).
+                withUrl("https://abc/com").build();
+        DestinationResponse actualChimeResponse = (DestinationResponse) Notification.publish(bm);
+
+        assertEquals(expectedChimeResponse.getResponseContent(), actualChimeResponse.getResponseContent());
+        assertEquals(expectedChimeResponse.getStatusCode(), actualChimeResponse.getStatusCode());
+    }
+
+    @Test
+    public void testChimeMessage_NonemptyEntityResponse() throws Exception {
+        String responseContent = "It worked!";
+
+        CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
+
+        DestinationResponse expectedChimeResponse = new DestinationResponse.Builder().withResponseContent(responseContent)
+                .withStatusCode(RestStatus.OK.getStatus()).build();
+        CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
+        EasyMock.expect(mockHttpClient.execute(EasyMock.anyObject(HttpPost.class))).andReturn(httpResponse);
+
+        BasicStatusLine mockStatusLine = EasyMock.createMock(BasicStatusLine.class);
+
+        EasyMock.expect(httpResponse.getStatusLine()).andReturn(mockStatusLine);
+        EasyMock.expect(httpResponse.getEntity()).andReturn(new StringEntity(responseContent)).anyTimes();
         EasyMock.expect(mockStatusLine.getStatusCode()).andReturn(RestStatus.OK.getStatus());
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
