@@ -80,8 +80,8 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
         val adminResponse = getDestinations(client(), inputMap, getHeader())
         val expected = when (isHttps()) {
             true -> 1   // when test is run with security - get the correct filtered results.
-            false -> 0  // when test is run without security and filterby is enabled - fails to
-                        // resolve user and filters by empty list, to get zero results.
+            false -> 1  // when test is run without security and filterby is enabled - filtering
+                        // does not work without security, so filtering is ignored and gets a result
         }
         assertEquals(expected, adminResponse.size)
 

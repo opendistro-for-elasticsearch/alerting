@@ -635,8 +635,8 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
 
     fun getHeader(): BasicHeader {
         return when (isHttps()) {
-            true -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
-            false -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
+            false -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
+            true -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
         }
     }
 
