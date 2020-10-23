@@ -191,7 +191,7 @@ data class Monitor(
                 when (fieldName) {
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     NAME_FIELD -> name = xcp.text()
-                    USER_FIELD -> user = User.parse(xcp)
+                    USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
                     INPUTS_FIELD -> {
