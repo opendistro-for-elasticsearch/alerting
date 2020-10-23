@@ -15,8 +15,10 @@
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.ALERTING_BASE_URI
+import com.amazon.opendistroforelasticsearch.alerting.ANOMALY_DETECTOR_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
+import com.amazon.opendistroforelasticsearch.alerting.anomalyDetectorIndexMapping
 import com.amazon.opendistroforelasticsearch.alerting.core.model.CronSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
@@ -25,8 +27,12 @@ import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.randomADMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomADUser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
+import com.amazon.opendistroforelasticsearch.alerting.randomAnomalyDetector
+import com.amazon.opendistroforelasticsearch.alerting.randomAnomalyDetectorWithUser
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
@@ -36,6 +42,7 @@ import org.apache.http.entity.ContentType
 import org.apache.http.message.BasicHeader
 import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.client.WarningFailureException
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -97,7 +104,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Incorrect Location header", "$ALERTING_BASE_URI/$createdId", createResponse.getHeader("Location"))
     }
 
-    @Throws(Exception::class)
     fun `test creating a monitor with action threshold greater than max threshold`() {
         val monitor = randomMonitorWithThrottle(100000, ChronoUnit.MINUTES)
 
@@ -108,7 +114,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
-    @Throws(Exception::class)
     fun `test creating a monitor with action threshold less than min threshold`() {
         val monitor = randomMonitorWithThrottle(-1)
 
@@ -119,7 +124,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
-    @Throws(Exception::class)
     fun `test creating a monitor with updating action threshold`() {
         adminClient().updateSettings("opendistro.alerting.action_throttle_max_value", TimeValue.timeValueHours(1))
 
@@ -154,6 +158,75 @@ class MonitorRestApiIT : AlertingRestTestCase() {
             // Without security plugin we get BAD_REQUEST correctly. With security_plugin we get INTERNAL_SERVER_ERROR, till above issue is fixed.
             assertTrue("Unexpected status",
                     listOf<RestStatus>(RestStatus.BAD_REQUEST, RestStatus.FORBIDDEN).contains(e.response.restStatus()))
+        }
+    }
+
+    fun `test creating an AD monitor without detector index`() {
+        try {
+            val monitor = randomADMonitor()
+
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+        } catch (e: ResponseException) {
+            // When user create AD monitor without detector index, will throw index not found exception
+            assertTrue("Unexpected error", e.message!!.contains("Configured indices are not found"))
+            assertTrue("Unexpected status",
+                    listOf<RestStatus>(RestStatus.NOT_FOUND).contains(e.response.restStatus()))
+        }
+    }
+
+    fun `test creating an AD monitor with detector index created but no detectors`() {
+        createAnomalyDetectorIndex()
+        try {
+            val monitor = randomADMonitor()
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+        } catch (e: ResponseException) {
+            // When user create AD monitor with no detector, will throw exception
+            assertTrue("Unexpected error", e.message!!.contains("User has no available detectors"))
+            assertTrue("Unexpected status",
+                    listOf<RestStatus>(RestStatus.NOT_FOUND).contains(e.response.restStatus()))
+        }
+    }
+
+    fun `test creating an AD monitor with no detector has monitor backend role`() {
+        createAnomalyDetectorIndex()
+        indexDoc(ANOMALY_DETECTOR_INDEX, "1", randomAnomalyDetector())
+        indexDoc(ANOMALY_DETECTOR_INDEX, "2", randomAnomalyDetectorWithUser(randomAlphaOfLength(5)))
+        try {
+            val monitor = randomADMonitor()
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+        } catch (e: ResponseException) {
+            // When user create AD monitor with no detector has backend role, will throw exception
+            assertTrue("Unexpected error", e.message!!.contains("User has no available detectors"))
+            assertTrue("Unexpected status",
+                    listOf<RestStatus>(RestStatus.NOT_FOUND).contains(e.response.restStatus()))
+        }
+    }
+
+    fun `test creating an AD monitor with detector has monitor backend role`() {
+        createAnomalyDetectorIndex()
+        val backendRole = "test-role"
+        val user = randomADUser(backendRole)
+        indexDoc(ANOMALY_DETECTOR_INDEX, "1", randomAnomalyDetector())
+        indexDoc(ANOMALY_DETECTOR_INDEX, "2", randomAnomalyDetectorWithUser(randomAlphaOfLength(5)))
+        indexDoc(ANOMALY_DETECTOR_INDEX, "3", randomAnomalyDetectorWithUser(backendRole = backendRole), refresh = true)
+
+        val monitor = randomADMonitor(user = user)
+        val createResponse = client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+        assertEquals("Create monitor failed", RestStatus.CREATED, createResponse.restStatus())
+        val responseBody = createResponse.asMap()
+        val createdId = responseBody["_id"] as String
+        val createdVersion = responseBody["_version"] as Int
+        assertNotEquals("response is missing Id", Monitor.NO_ID, createdId)
+        assertTrue("incorrect version", createdVersion > 0)
+        assertEquals("Incorrect Location header", "$ALERTING_BASE_URI/$createdId", createResponse.getHeader("Location"))
+    }
+
+    private fun createAnomalyDetectorIndex() {
+        try {
+            createTestIndex(ANOMALY_DETECTOR_INDEX, anomalyDetectorIndexMapping())
+        } catch (e: Exception) {
+            // WarningFailureException is expected as we are creating system index start with dot
+            assertTrue(e is WarningFailureException)
         }
     }
 
