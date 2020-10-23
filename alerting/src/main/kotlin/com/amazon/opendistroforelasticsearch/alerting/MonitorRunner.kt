@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.addUserRolesFilter
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
@@ -55,6 +54,8 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
+import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -345,23 +346,6 @@ class MonitorRunner(
     }
 
     /**
-     * AD monitor is search input monitor on top of anomaly result index. This method will return
-     * true if monitor input only contains anomaly result index.
-     */
-    private fun isADMonitor(monitor: Monitor): Boolean {
-        // If monitor has other input than AD result index, it's not AD monitor
-        if (monitor.inputs.size != 1) {
-            return false
-        }
-        val input = monitor.inputs[0]
-        // AD monitor can only have 1 anomaly result index.
-        if (input is SearchInput && input.indices.size == 1 && input.indices[0] == ".opendistro-anomaly-results*") {
-            return true
-        }
-        return false
-    }
-
-    /**
      * We moved anomaly result index to system index list. So common user could not directly query
      * this index any more. This method will stash current thread context to pass security check.
      * So monitor job can access anomaly result index. We will add monitor user roles filter in
@@ -390,9 +374,22 @@ class MonitorRunner(
 
             // Add user role filter for AD result
             client.threadPool().threadContext.stashContext().use {
-                if (monitor.user != null && !monitor.user.backendRoles.isNullOrEmpty()) {
-                    addUserRolesFilter(monitor.user.backendRoles, searchRequest.source(), "user.backend_roles")
-                }
+                // Currently we have no way to verify if user has AD read permission or not. So we always add user
+                // role filter here no matter AD backend role filter enabled or not. If we don't add user role filter
+                // when AD backend filter disabled, user can run monitor on any detector and get anomaly data even
+                // they have no AD read permission. So if domain disabled AD backend role filter, monitor runner
+                // still can't get AD result with different user backend role, even the monitor user has permission
+                // to read AD result. This is a short term solution to trade off between user experience and security.
+                //
+                // Possible long term solution:
+                // 1.Use secure rest client to send request to AD search result API. If no permission exception,
+                // that mean user has read access on AD result. Then don't need to add user role filter when query
+                // AD result if AD backend role filter is disabled.
+                // 2.Security provide some transport action to verify if user has permission to search AD result.
+                // Monitor runner will send transport request to check permission first. If security plugin response
+                // is yes, user has permission to query AD result. If AD role filter enabled, we will add user role
+                // filter to protect data at user role level; otherwise, user can query any AD result.
+                addUserBackendRolesFilter(monitor.user, searchRequest.source())
                 val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
                 results += searchResponse.convertToMap()
             }

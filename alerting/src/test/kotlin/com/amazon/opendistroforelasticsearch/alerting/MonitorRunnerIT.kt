@@ -31,7 +31,9 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destinat
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.client.WarningFailureException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
@@ -649,6 +651,125 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
         verifyAlert(alerts.single(), monitor, ACTIVE)
+    }
+
+    fun `test execute AD monitor doesn't return search result without user`() {
+        val user = randomUser()
+        val detectorId = randomAlphaOfLength(5)
+        prepareTestAnomalyResult(detectorId, user)
+        // for old monitor before enable FGAC, the user field is empty
+        val monitor = randomADMonitor(inputs = listOf(adSearchInput(detectorId)), triggers = listOf(adMonitorTrigger()), user = null)
+        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
+        val output = entityAsMap(response)
+        @Suppress("UNCHECKED_CAST")
+        (output["trigger_results"] as HashMap<String, Any>).forEach {
+            _, v -> assertTrue((v as HashMap<String, Boolean>)["triggered"] as Boolean)
+        }
+        assertEquals(monitor.name, output["monitor_name"])
+        @Suppress("UNCHECKED_CAST")
+        val searchResult = (output.objectMap("input_results")["results"] as List<Map<String, Any>>).first()
+        @Suppress("UNCHECKED_CAST")
+        val total = searchResult.stringMap("hits")?.get("total") as Map<String, String>
+        assertEquals("Incorrect search result", 1, total["value"])
+        @Suppress("UNCHECKED_CAST")
+        val maxAnomalyGrade = searchResult.stringMap("aggregations")?.get("max_anomaly_grade") as Map<String, String>
+        assertEquals("Incorrect search result", 0.75, maxAnomalyGrade["value"])
+    }
+
+    fun `test execute AD monitor doesn't return search result with empty backend role`() {
+        val user = randomUser()
+        val detectorId = randomAlphaOfLength(5)
+        prepareTestAnomalyResult(detectorId, user)
+        // for old monitor before enable FGAC, the user field is empty
+        val monitor = randomADMonitor(inputs = listOf(adSearchInput(detectorId)), triggers = listOf(adMonitorTrigger()),
+                user = User(user.name, listOf(), user.roles, user.customAttNames))
+        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
+        val output = entityAsMap(response)
+        @Suppress("UNCHECKED_CAST")
+        (output["trigger_results"] as HashMap<String, Any>).forEach {
+            _, v -> assertTrue((v as HashMap<String, Boolean>)["triggered"] as Boolean)
+        }
+        assertEquals(monitor.name, output["monitor_name"])
+        @Suppress("UNCHECKED_CAST")
+        val searchResult = (output.objectMap("input_results")["results"] as List<Map<String, Any>>).first()
+        @Suppress("UNCHECKED_CAST")
+        val total = searchResult.stringMap("hits")?.get("total") as Map<String, String>
+        assertEquals("Incorrect search result", 1, total["value"])
+        @Suppress("UNCHECKED_CAST")
+        val maxAnomalyGrade = searchResult.stringMap("aggregations")?.get("max_anomaly_grade") as Map<String, String>
+        assertEquals("Incorrect search result", 0.9, maxAnomalyGrade["value"])
+    }
+
+    fun `test execute AD monitor returns search result with same backend role`() {
+        val detectorId = randomAlphaOfLength(5)
+        val user = randomUser()
+        prepareTestAnomalyResult(detectorId, user)
+        // Test monitor with same user
+        val monitor = randomADMonitor(inputs = listOf(adSearchInput(detectorId)), triggers = listOf(adMonitorTrigger()), user = user)
+        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
+        val output = entityAsMap(response)
+        @Suppress("UNCHECKED_CAST")
+        (output["trigger_results"] as HashMap<String, Any>).forEach {
+            _, v -> assertTrue((v as HashMap<String, Boolean>)["triggered"] as Boolean)
+        }
+        @Suppress("UNCHECKED_CAST")
+        val searchResult = (output.objectMap("input_results")["results"] as List<Map<String, Any>>).first()
+        @Suppress("UNCHECKED_CAST")
+        val total = searchResult.stringMap("hits")?.get("total") as Map<String, String>
+        assertEquals("Incorrect search result", 3, total["value"])
+        @Suppress("UNCHECKED_CAST")
+        val maxAnomalyGrade = searchResult.stringMap("aggregations")?.get("max_anomaly_grade") as Map<String, String>
+        assertEquals("Incorrect search result", 0.8, maxAnomalyGrade["value"])
+    }
+
+    fun `test execute AD monitor returns no search result with different backend role`() {
+        val detectorId = randomAlphaOfLength(5)
+        val user = randomUser()
+        prepareTestAnomalyResult(detectorId, user)
+        // Test monitor with different user
+        val monitor = randomADMonitor(inputs = listOf(adSearchInput(detectorId)),
+                triggers = listOf(adMonitorTrigger()), user = randomUser())
+        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
+        val output = entityAsMap(response)
+        @Suppress("UNCHECKED_CAST")
+        (output["trigger_results"] as HashMap<String, Any>).forEach {
+            _, v -> assertFalse((v as HashMap<String, Boolean>)["triggered"] as Boolean)
+        }
+        @Suppress("UNCHECKED_CAST")
+        val searchResult = (output.objectMap("input_results")["results"] as List<Map<String, Any>>).first()
+        @Suppress("UNCHECKED_CAST")
+        val total = searchResult.stringMap("hits")?.get("total") as Map<String, String>
+        assertEquals("Incorrect search result", 0, total["value"])
+    }
+
+    private fun prepareTestAnomalyResult(detectorId: String, user: User) {
+        val adResultIndex = ".opendistro-anomaly-results-history-2020.10.17"
+        try {
+            createTestIndex(adResultIndex, anomalyResultIndexMapping())
+        } catch (e: Exception) {
+            // WarningFailureException is expected as we are creating system index start with dot
+            assertTrue(e is WarningFailureException)
+        }
+
+        val twoMinsAgo = ZonedDateTime.now().minus(2, MINUTES).truncatedTo(MILLIS)
+        val testTime = twoMinsAgo.toEpochSecond() * 1000
+        val testResult1 = randomAnomalyResult(detectorId = detectorId, executionEndTime = testTime, user = user,
+                anomalyGrade = 0.1)
+        indexDoc(adResultIndex, "1", testResult1)
+        val testResult2 = randomAnomalyResult(detectorId = detectorId, executionEndTime = testTime, user = user,
+                anomalyGrade = 0.8)
+        indexDoc(adResultIndex, "2", testResult2)
+        val testResult3 = randomAnomalyResult(detectorId = detectorId, executionEndTime = testTime, user = user,
+                anomalyGrade = 0.5)
+        indexDoc(adResultIndex, "3", testResult3)
+        val testResult4 = randomAnomalyResult(detectorId = detectorId, executionEndTime = testTime,
+                user = User(user.name, listOf(), user.roles, user.customAttNames),
+                anomalyGrade = 0.9)
+        indexDoc(adResultIndex, "4", testResult4)
+        // User is null
+        val testResult5 = randomAnomalyResultWithoutUser(detectorId = detectorId, executionEndTime = testTime,
+                anomalyGrade = 0.75)
+        indexDoc(adResultIndex, "5", testResult5)
     }
 
     private fun verifyActionExecutionResultInAlert(alert: Alert, expectedResult: Map<String, Int>):
