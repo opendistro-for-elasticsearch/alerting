@@ -303,4 +303,11 @@ class DestinationTests : ESTestCase() {
         val parsedDest = Destination.parse(parser(userString))
         assertNotNull(parsedDest.user)
     }
+
+    fun `test chime destination with user as null`() {
+        val userString = "{\"type\":\"chime\",\"name\":\"TestChimeDest\",\"user\":null,\"schema_version\":1," +
+            "\"last_update_time\":1600063313658,\"chime\":{\"url\":\"test.com\"}}"
+        val parsedDest = Destination.parse(parser(userString))
+        assertNull(parsedDest.user)
+    }
 }

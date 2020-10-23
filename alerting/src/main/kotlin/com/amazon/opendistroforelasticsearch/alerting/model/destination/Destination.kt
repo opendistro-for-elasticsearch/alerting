@@ -154,7 +154,7 @@ data class Destination(
 
                 when (fieldName) {
                     NAME_FIELD -> name = xcp.text()
-                    USER_FIELD -> user = User.parse(xcp)
+                    USER_FIELD -> user = if (xcp.currentToken() == XContentParser.Token.VALUE_NULL) null else User.parse(xcp)
                     TYPE_FIELD -> {
                         type = xcp.text()
                         val allowedTypes = DestinationType.values().map { it.value }
