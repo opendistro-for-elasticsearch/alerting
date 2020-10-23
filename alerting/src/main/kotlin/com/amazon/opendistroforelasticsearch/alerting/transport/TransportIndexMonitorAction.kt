@@ -162,7 +162,7 @@ class TransportIndexMonitorAction @Inject constructor(
         request: IndexMonitorRequest
     ) {
         client.threadPool().threadContext.stashContext().use {
-            val searchSourceBuilder = SearchSourceBuilder()
+            val searchSourceBuilder = SearchSourceBuilder().size(0)
             addUserBackendRolesFilter(request.monitor.user, searchSourceBuilder)
             val searchRequest = SearchRequest().indices(".opendistro-anomaly-detectors").source(searchSourceBuilder)
             client.search(searchRequest, object : ActionListener<SearchResponse> {

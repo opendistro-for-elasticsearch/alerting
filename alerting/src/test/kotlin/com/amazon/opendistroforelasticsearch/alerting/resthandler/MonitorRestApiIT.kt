@@ -104,7 +104,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Incorrect Location header", "$ALERTING_BASE_URI/$createdId", createResponse.getHeader("Location"))
     }
 
-    @Throws(Exception::class)
     fun `test creating a monitor with action threshold greater than max threshold`() {
         val monitor = randomMonitorWithThrottle(100000, ChronoUnit.MINUTES)
 
@@ -115,7 +114,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
-    @Throws(Exception::class)
     fun `test creating a monitor with action threshold less than min threshold`() {
         val monitor = randomMonitorWithThrottle(-1)
 
@@ -126,7 +124,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
-    @Throws(Exception::class)
     fun `test creating a monitor with updating action threshold`() {
         adminClient().updateSettings("opendistro.alerting.action_throttle_max_value", TimeValue.timeValueHours(1))
 
