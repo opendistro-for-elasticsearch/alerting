@@ -162,25 +162,7 @@ class TransportIndexMonitorAction @Inject constructor(
         request: IndexMonitorRequest
     ) {
         client.threadPool().threadContext.stashContext().use {
-            val searchSourceBuilder = SearchSourceBuilder().size(0)
-            addUserBackendRolesFilter(request.monitor.user, searchSourceBuilder)
-            val searchRequest = SearchRequest().indices(".opendistro-anomaly-detectors").source(searchSourceBuilder)
-            client.search(searchRequest, object : ActionListener<SearchResponse> {
-                override fun onResponse(response: SearchResponse?) {
-                    val totalHits = response?.hits?.totalHits?.value
-                    if (totalHits != null && totalHits > 0L) {
-                        IndexMonitorHandler(client, actionListener, request).resolveUserAndStart()
-                    } else {
-                        actionListener.onFailure(AlertingException.wrap(
-                                ElasticsearchStatusException("User has no available detectors", RestStatus.NOT_FOUND)
-                        ))
-                    }
-                }
-
-                override fun onFailure(t: Exception) {
-                    actionListener.onFailure(AlertingException.wrap(t))
-                }
-            })
+            IndexMonitorHandler(client, actionListener, request).resolveUserAndStartForAD()
         }
     }
 
@@ -205,6 +187,51 @@ class TransportIndexMonitorAction @Inject constructor(
                             request.monitor = request.monitor
                                     .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
                             start()
+                        } catch (ex: IOException) {
+                            actionListener.onFailure(AlertingException.wrap(ex))
+                        }
+                    }
+
+                    override fun onFailure(ex: Exception) {
+                        actionListener.onFailure(AlertingException.wrap(ex))
+                    }
+                })
+            }
+        }
+
+        fun resolveUserAndStartForAD() {
+            if (request.authHeader.isNullOrEmpty()) {
+                // Security is disabled, add empty user to Monitor. user is null for older versions.
+                request.monitor = request.monitor
+                        .copy(user = User("", listOf(), listOf(), listOf()))
+                start()
+            } else {
+                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
+                restClient.performRequestAsync(authRequest, object : ResponseListener {
+                    override fun onSuccess(response: Response) {
+                        try {
+                            val user = User(response)
+                            request.monitor = request.monitor
+                                    .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+                            val searchSourceBuilder = SearchSourceBuilder().size(0)
+                            addUserBackendRolesFilter(user, searchSourceBuilder)
+                            val searchRequest = SearchRequest().indices(".opendistro-anomaly-detectors").source(searchSourceBuilder)
+                            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                                override fun onResponse(response: SearchResponse?) {
+                                    val totalHits = response?.hits?.totalHits?.value
+                                    if (totalHits != null && totalHits > 0L) {
+                                        start()
+                                    } else {
+                                        actionListener.onFailure(AlertingException.wrap(
+                                                ElasticsearchStatusException("User has no available detectors", RestStatus.NOT_FOUND)
+                                        ))
+                                    }
+                                }
+
+                                override fun onFailure(t: Exception) {
+                                    actionListener.onFailure(AlertingException.wrap(t))
+                                }
+                            })
                         } catch (ex: IOException) {
                             actionListener.onFailure(AlertingException.wrap(ex))
                         }
