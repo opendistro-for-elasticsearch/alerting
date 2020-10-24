@@ -141,7 +141,7 @@ class TransportIndexMonitorAction @Inject constructor(
                 actionListener.onFailure(AlertingException.wrap(
                     when (t is ElasticsearchSecurityException) {
                         true -> ElasticsearchStatusException("User doesn't have read permissions for one or more configured index " +
-                            "${indices.indices}", RestStatus.FORBIDDEN)
+                            "$indices", RestStatus.FORBIDDEN)
                         false -> t
                     }
                 ))
