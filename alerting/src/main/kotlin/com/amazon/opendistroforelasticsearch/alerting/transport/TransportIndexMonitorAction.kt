@@ -93,6 +93,8 @@ class TransportIndexMonitorAction @Inject constructor(
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
     @Volatile private var allowList = ALLOW_LIST.get(settings)
 
+    var user: User? = null
+
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
@@ -102,6 +104,12 @@ class TransportIndexMonitorAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>) {
+
+        val usrStr = client.threadPool().threadContext.getTransient<String>("_opendistro_security_user_roles_string")
+
+        log.warn("SRIRAM alerting transport: $usrStr")
+        user = User.parse(usrStr)
+
         if (!isADMonitor(request.monitor)) {
             checkIndicesAndExecute(client, actionListener, request)
         } else {
@@ -196,6 +204,12 @@ class TransportIndexMonitorAction @Inject constructor(
                         actionListener.onFailure(AlertingException.wrap(ex))
                     }
                 })
+                /*if(user != null) {
+                    request.monitor = request.monitor
+                            .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+
+                }
+                start()*/
             }
         }
 
