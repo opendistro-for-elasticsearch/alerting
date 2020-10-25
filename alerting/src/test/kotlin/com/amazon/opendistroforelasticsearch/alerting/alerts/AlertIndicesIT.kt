@@ -40,6 +40,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
     }
 
     fun `test update alert index mapping with new schema version`() {
+        wipeAllODFEIndices()
         assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
         assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
 
@@ -59,6 +60,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
     }
 
     fun `test alert index gets recreated automatically if deleted`() {
+        wipeAllODFEIndices()
         assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
         val trueMonitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN)))
 
