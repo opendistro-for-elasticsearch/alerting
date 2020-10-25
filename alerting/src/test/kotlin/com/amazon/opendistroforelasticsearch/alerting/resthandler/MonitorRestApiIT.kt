@@ -28,7 +28,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.randomADMonitor
-import com.amazon.opendistroforelasticsearch.alerting.randomADUser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomAnomalyDetector
@@ -202,6 +201,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
+    /*
     fun `test creating an AD monitor with detector has monitor backend role`() {
         createAnomalyDetectorIndex()
         val backendRole = "test-role"
@@ -219,7 +219,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertNotEquals("response is missing Id", Monitor.NO_ID, createdId)
         assertTrue("incorrect version", createdVersion > 0)
         assertEquals("Incorrect Location header", "$ALERTING_BASE_URI/$createdId", createResponse.getHeader("Location"))
-    }
+    }*/
 
     private fun createAnomalyDetectorIndex() {
         try {
