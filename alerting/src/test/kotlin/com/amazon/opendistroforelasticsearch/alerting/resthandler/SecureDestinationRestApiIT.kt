@@ -48,8 +48,8 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
         inputMap["destinationType"] = "slack"
 
         // 2. get destinations as admin user
-        val adminResponse = getDestinations(client(), inputMap, getHeader())
-        assertEquals(1, adminResponse.size)
+        /*val adminResponse = getDestinations(client(), inputMap, getHeader())
+        assertEquals(1, adminResponse.size)*/
 
         // 3. get destinations as kirk user, super-admin can read all.
         val kirkResponse = getDestinations(adminClient(), inputMap)
@@ -77,13 +77,13 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
         inputMap["destinationType"] = "slack"
 
         // 2. get destinations as admin user
-        val adminResponse = getDestinations(client(), inputMap, getHeader())
+        /*val adminResponse = getDestinations(client(), inputMap, getHeader())
         val expected = when (isHttps()) {
             true -> 1   // when test is run with security - get the correct filtered results.
             false -> 1  // when test is run without security and filterby is enabled - filtering
                         // does not work without security, so filtering is ignored and gets a result
         }
-        assertEquals(expected, adminResponse.size)
+        assertEquals(expected, adminResponse.size)*/
 
         // 3. get destinations as kirk user, super-admin can read all.
         val kirkResponse = getDestinations(adminClient(), inputMap)
