@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsActi
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import com.amazon.opendistroforelasticsearch.alerting.util.context
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
@@ -67,7 +66,6 @@ class RestGetDestinationsAction : BaseRestHandler() {
         val startIndex = request.paramAsInt("startIndex", 0)
         val searchString = request.param("searchString", "")
         val destinationType = request.param("destinationType", "ALL")
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
 
         val table = Table(
                 sortOrder,
@@ -83,8 +81,7 @@ class RestGetDestinationsAction : BaseRestHandler() {
                 RestActions.parseVersion(request),
                 srcContext,
                 table,
-                destinationType,
-                auth
+                destinationType
         )
         return RestChannelConsumer {
             channel -> client.execute(GetDestinationsAction.INSTANCE, getDestinationsRequest, RestToXContentListener(channel))

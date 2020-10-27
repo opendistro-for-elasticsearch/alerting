@@ -21,11 +21,9 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.context
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.bytes.BytesReference
@@ -57,8 +55,7 @@ private val log = LogManager.getLogger(RestSearchMonitorAction::class.java)
  */
 class RestSearchMonitorAction(
     val settings: Settings,
-    clusterService: ClusterService,
-    private val restClient: RestClient
+    clusterService: ClusterService
 ) : BaseRestHandler() {
 
     @Volatile private var filterBy = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
@@ -84,7 +81,6 @@ class RestSearchMonitorAction(
         log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/_search")
 
         val index = request.param("index", SCHEDULED_JOBS_INDEX)
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
@@ -98,7 +94,7 @@ class RestSearchMonitorAction(
                 .source(searchSourceBuilder)
                 .indices(index)
 
-        val searchMonitorRequest = SearchMonitorRequest(searchRequest, auth)
+        val searchMonitorRequest = SearchMonitorRequest(searchRequest)
         return RestChannelConsumer { channel ->
             client.execute(SearchMonitorAction.INSTANCE, searchMonitorRequest, searchMonitorResponse(channel))
         }

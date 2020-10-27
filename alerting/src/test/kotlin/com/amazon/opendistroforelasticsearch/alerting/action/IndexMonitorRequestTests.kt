@@ -23,14 +23,12 @@ import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
 
 class IndexMonitorRequestTests : ESTestCase() {
 
     fun `test index monitor post request`() {
 
         val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.POST,
-                ESRestTestCase.randomAlphaOfLength(20),
                 randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
         assertNotNull(req)
 
@@ -48,7 +46,6 @@ class IndexMonitorRequestTests : ESTestCase() {
     fun `test index monitor put request`() {
 
         val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.PUT,
-                ESRestTestCase.randomAlphaOfLength(20),
                 randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
         assertNotNull(req)
 
