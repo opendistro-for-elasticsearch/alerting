@@ -67,7 +67,6 @@ class RestGetDestinationsAction : BaseRestHandler() {
         val startIndex = request.paramAsInt("startIndex", 0)
         val searchString = request.param("searchString", "")
         val destinationType = request.param("destinationType", "ALL")
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
 
         val table = Table(
                 sortOrder,
@@ -83,8 +82,7 @@ class RestGetDestinationsAction : BaseRestHandler() {
                 RestActions.parseVersion(request),
                 srcContext,
                 table,
-                destinationType,
-                auth
+                destinationType
         )
         return RestChannelConsumer {
             channel -> client.execute(GetDestinationsAction.INSTANCE, getDestinationsRequest, RestToXContentListener(channel))

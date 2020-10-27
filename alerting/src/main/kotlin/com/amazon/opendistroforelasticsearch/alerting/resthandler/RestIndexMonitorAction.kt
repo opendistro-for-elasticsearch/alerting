@@ -82,8 +82,7 @@ class RestIndexMonitorAction : BaseRestHandler() {
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
-        val indexMonitorRequest = IndexMonitorRequest(id, seqNo, primaryTerm, refreshPolicy, request.method(), auth, monitor)
+        val indexMonitorRequest = IndexMonitorRequest(id, seqNo, primaryTerm, refreshPolicy, request.method(), monitor)
 
         return RestChannelConsumer { channel ->
             client.execute(IndexMonitorAction.INSTANCE, indexMonitorRequest, indexMonitorResponse(channel, request.method()))

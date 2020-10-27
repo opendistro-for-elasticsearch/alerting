@@ -638,13 +638,6 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
     }
 
-    fun getHeader(): BasicHeader {
-        return when (isHttps()) {
-            false -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
-            true -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
-        }
-    }
-
     fun removeEmailFromAllowList() {
         val allowedDestinations = DestinationType.values().toList()
             .filter { destinationType -> destinationType != DestinationType.EMAIL }

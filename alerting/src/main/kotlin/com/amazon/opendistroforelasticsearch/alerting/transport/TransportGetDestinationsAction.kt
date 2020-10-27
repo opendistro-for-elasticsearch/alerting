@@ -127,7 +127,7 @@ class TransportGetDestinationsAction @Inject constructor(
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
         if (user == null) {
-            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+            // user is null when: 1/ security is disabled. 2/when user is super-admin.
             search(searchSourceBuilder, actionListener)
         } else if (!filterByEnabled) {
             // security is enabled and filterby is disabled.

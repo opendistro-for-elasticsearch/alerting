@@ -80,8 +80,7 @@ class RestIndexDestinationAction : BaseRestHandler() {
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
-        val indexDestinationRequest = IndexDestinationRequest(id, seqNo, primaryTerm, refreshPolicy, request.method(), auth, destination)
+        val indexDestinationRequest = IndexDestinationRequest(id, seqNo, primaryTerm, refreshPolicy, request.method(), destination)
         return RestChannelConsumer {
             channel -> client.execute(IndexDestinationAction.INSTANCE, indexDestinationRequest,
                 indexDestinationResponse(channel, request.method()))

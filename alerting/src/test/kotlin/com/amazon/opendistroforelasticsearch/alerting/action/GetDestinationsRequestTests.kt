@@ -27,7 +27,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetDestinationsRequest("1234", 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", null)
+        val req = GetDestinationsRequest("1234", 1L, FetchSourceContext.FETCH_SOURCE, table, "slack")
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -44,7 +44,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request without src context`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetDestinationsRequest("1234", 1L, null, table, "slack", null)
+        val req = GetDestinationsRequest("1234", 1L, null, table, "slack")
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -61,7 +61,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request without destinationId`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", null)
+        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack")
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -78,7 +78,7 @@ class GetDestinationsRequestTests : ESTestCase() {
     fun `test get destination request with filter`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack", ESRestTestCase.randomAlphaOfLength(20))
+        val req = GetDestinationsRequest(null, 1L, FetchSourceContext.FETCH_SOURCE, table, "slack")
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -90,6 +90,5 @@ class GetDestinationsRequestTests : ESTestCase() {
         assertEquals(FetchSourceContext.FETCH_SOURCE, newReq.srcContext)
         assertEquals(table, newReq.table)
         assertEquals("slack", newReq.destinationType)
-        assertNotNull(newReq.authHeader)
     }
 }

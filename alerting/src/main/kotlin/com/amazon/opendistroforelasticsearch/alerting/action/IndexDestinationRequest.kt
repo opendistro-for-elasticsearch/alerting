@@ -30,7 +30,6 @@ class IndexDestinationRequest : ActionRequest {
     val primaryTerm: Long
     val refreshPolicy: WriteRequest.RefreshPolicy
     val method: RestRequest.Method
-    val authHeader: String?
     var destination: Destination
 
     constructor(
@@ -39,7 +38,6 @@ class IndexDestinationRequest : ActionRequest {
         primaryTerm: Long,
         refreshPolicy: WriteRequest.RefreshPolicy,
         method: RestRequest.Method,
-        authHeader: String?,
         destination: Destination
     ): super() {
         this.destinationId = destinationId
@@ -47,7 +45,6 @@ class IndexDestinationRequest : ActionRequest {
         this.primaryTerm = primaryTerm
         this.refreshPolicy = refreshPolicy
         this.method = method
-        this.authHeader = authHeader
         this.destination = destination
     }
 
@@ -58,7 +55,6 @@ class IndexDestinationRequest : ActionRequest {
         this.primaryTerm = sin.readLong()
         this.refreshPolicy = WriteRequest.RefreshPolicy.readFrom(sin)
         this.method = sin.readEnum(RestRequest.Method::class.java)
-        this.authHeader = sin.readOptionalString()
         this.destination = Destination.readFrom(sin)
     }
 
@@ -73,7 +69,6 @@ class IndexDestinationRequest : ActionRequest {
         out.writeLong(primaryTerm)
         refreshPolicy.writeTo(out)
         out.writeEnum(method)
-        out.writeOptionalString(authHeader)
         destination.writeTo(out)
     }
 }

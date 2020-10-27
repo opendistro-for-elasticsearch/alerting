@@ -29,22 +29,19 @@ class GetDestinationsRequest : ActionRequest {
     val srcContext: FetchSourceContext?
     val table: Table
     val destinationType: String
-    val authHeader: String?
 
     constructor(
         destinationId: String?,
         version: Long,
         srcContext: FetchSourceContext?,
         table: Table,
-        destinationType: String,
-        authHeader: String?
+        destinationType: String
     ) : super() {
         this.destinationId = destinationId
         this.version = version
         this.srcContext = srcContext
         this.table = table
         this.destinationType = destinationType
-        this.authHeader = authHeader
     }
 
     @Throws(IOException::class)
@@ -55,8 +52,7 @@ class GetDestinationsRequest : ActionRequest {
             FetchSourceContext(sin)
         } else null,
         table = Table.readFrom(sin),
-        destinationType = sin.readString(),
-        authHeader = sin.readOptionalString()
+        destinationType = sin.readString()
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -71,6 +67,5 @@ class GetDestinationsRequest : ActionRequest {
         srcContext?.writeTo(out)
         table.writeTo(out)
         out.writeString(destinationType)
-        out.writeOptionalString(authHeader)
     }
 }

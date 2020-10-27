@@ -37,7 +37,6 @@ class IndexDestinationRequestTests : ESTestCase() {
                 1L,
                 WriteRequest.RefreshPolicy.IMMEDIATE,
                 RestRequest.Method.POST,
-                ESRestTestCase.randomAlphaOfLength(20),
                 Destination(
                         "1234",
                         0L,
@@ -77,7 +76,6 @@ class IndexDestinationRequestTests : ESTestCase() {
                 1L,
                 WriteRequest.RefreshPolicy.IMMEDIATE,
                 RestRequest.Method.PUT,
-                ESRestTestCase.randomAlphaOfLength(20),
                 Destination(
                         "1234",
                         0L,

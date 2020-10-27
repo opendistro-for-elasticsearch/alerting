@@ -24,7 +24,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
-import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
@@ -117,28 +116,23 @@ class TransportGetAlertsAction @Inject constructor(
                     .from(tableProp.startIndex)
 
             client.threadPool().threadContext.stashContext().use {
-                resolve(getAlertsRequest, searchSourceBuilder, actionListener)
+                resolve(searchSourceBuilder, actionListener)
             }
         }
 
         fun resolve(
-            getAlertsRequest: GetAlertsRequest,
             searchSourceBuilder: SearchSourceBuilder,
             actionListener: ActionListener<GetAlertsResponse>
         ) {
-            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+            // user is null when: 1/ security is disabled. 2/when user is super-admin.
             if (user == null) {
-                // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+                // user is null when: 1/ security is disabled. 2/when user is super-admin.
                 search(searchSourceBuilder, actionListener)
             } else if (!filterByEnabled) {
                 // security is enabled and filterby is disabled.
                 search(searchSourceBuilder, actionListener)
             } else {
                 // security is enabled and filterby is enabled.
-                val authRequest = AuthUserRequestBuilder(
-                        getAlertsRequest.authHeader
-                ).build()
-
                 try {
                     addFilter(user as User, searchSourceBuilder, "monitor_user.backend_roles")
                     log.info("Filtering result by: ${user?.backendRoles}")

@@ -82,7 +82,6 @@ class RestSearchMonitorAction(
         log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/_search")
 
         val index = request.param("index", SCHEDULED_JOBS_INDEX)
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
@@ -96,7 +95,7 @@ class RestSearchMonitorAction(
                 .source(searchSourceBuilder)
                 .indices(index)
 
-        val searchMonitorRequest = SearchMonitorRequest(searchRequest, auth)
+        val searchMonitorRequest = SearchMonitorRequest(searchRequest)
         return RestChannelConsumer { channel ->
             client.execute(SearchMonitorAction.INSTANCE, searchMonitorRequest, searchMonitorResponse(channel))
         }
