@@ -25,7 +25,6 @@ import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.bytes.BytesReference
@@ -57,8 +56,7 @@ private val log = LogManager.getLogger(RestSearchMonitorAction::class.java)
  */
 class RestSearchMonitorAction(
     val settings: Settings,
-    clusterService: ClusterService,
-    private val restClient: RestClient
+    clusterService: ClusterService
 ) : BaseRestHandler() {
 
     @Volatile private var filterBy = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)

@@ -18,14 +18,14 @@ import com.amazon.opendistroforelasticsearch.alerting.action.AcknowledgeAlertAct
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailGroupAction
-import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorAction
-import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountAction
-import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorAction
@@ -49,10 +49,10 @@ import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmai
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestExecuteMonitorAction
-import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailAccountAction
-import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetDestinationsAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailAccountAction
@@ -68,25 +68,23 @@ import com.amazon.opendistroforelasticsearch.alerting.transport.TransportAcknowl
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteEmailGroupAction
-import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetAlertsAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetDestinationsAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetEmailGroupAction
-import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchMonitorAction
-import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
-import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetDestinationsAction
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
 import org.elasticsearch.cluster.service.ClusterService
@@ -145,7 +143,6 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
     lateinit var threadPool: ThreadPool
     lateinit var alertIndices: AlertIndices
     lateinit var clusterService: ClusterService
-    lateinit var restClient: RestClient
 
     override fun getRestHandlers(
         settings: Settings,
@@ -159,7 +156,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
         return listOf(RestGetMonitorAction(),
                 RestDeleteMonitorAction(),
                 RestIndexMonitorAction(),
-                RestSearchMonitorAction(settings, clusterService, restClient),
+                RestSearchMonitorAction(settings, clusterService),
                 RestExecuteMonitorAction(),
                 RestAcknowledgeAlertAction(),
                 RestScheduledJobStatsHandler("_alerting"),
@@ -228,8 +225,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler, ALERTING_JOB_TYPES)
         this.threadPool = threadPool
         this.clusterService = clusterService
-        this.restClient = SecureRestClientBuilder(settings, environment.configFile()).build()
-        return listOf(sweeper, scheduler, runner, scheduledJobIndices, restClient)
+        return listOf(sweeper, scheduler, runner, scheduledJobIndices)
     }
 
     override fun getSettings(): List<Setting<*>> {
