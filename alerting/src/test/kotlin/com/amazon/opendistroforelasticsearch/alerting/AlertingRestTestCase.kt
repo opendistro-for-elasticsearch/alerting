@@ -461,6 +461,11 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return index
     }
 
+    protected fun createTestIndex(index: String, mapping: String): String {
+        createIndex(index, Settings.EMPTY, mapping.trimIndent())
+        return index
+    }
+
     protected fun createTestConfigIndex(index: String = "." + randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
         try {
             createIndex(index, Settings.builder().build(), """
@@ -635,8 +640,8 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
 
     fun getHeader(): BasicHeader {
         return when (isHttps()) {
-            true -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
-            false -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
+            false -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
+            true -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
         }
     }
 

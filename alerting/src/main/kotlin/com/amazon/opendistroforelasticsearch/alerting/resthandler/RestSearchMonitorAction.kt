@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
-import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.context
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
@@ -54,6 +53,7 @@ private val log = LogManager.getLogger(RestSearchMonitorAction::class.java)
 
 /**
  * Rest handlers to search for monitors.
+ * TODO: Deprecate API for a set of new APIs that will support this APIs use cases
  */
 class RestSearchMonitorAction(
     val settings: Settings,
@@ -88,10 +88,8 @@ class RestSearchMonitorAction(
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
-        // We add a term query ontop of the customer query to ensure that only scheduled jobs of monitor type are
-        // searched.
+
         val queryBuilder = QueryBuilders.boolQuery().must(searchSourceBuilder.query())
-                .filter(QueryBuilders.termQuery(Monitor.MONITOR_TYPE + ".type", Monitor.MONITOR_TYPE))
 
         searchSourceBuilder.query(queryBuilder)
                 .seqNoAndPrimaryTerm(true)
@@ -113,13 +111,19 @@ class RestSearchMonitorAction(
                 if (response.isTimedOut) {
                     return BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString())
                 }
-                for (hit in response.hits) {
-                    XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
+
+                // Swallow exception and return response as is
+                try {
+                    for (hit in response.hits) {
+                        XContentType.JSON.xContent().createParser(channel.request().xContentRegistry,
                             LoggingDeprecationHandler.INSTANCE, hit.sourceAsString).use { hitsParser ->
-                                val monitor = ScheduledJob.parse(hitsParser, hit.id, hit.version)
-                                val xcb = monitor.toXContent(jsonBuilder(), EMPTY_PARAMS)
-                                hit.sourceRef(BytesReference.bytes(xcb))
-                            }
+                            val monitor = ScheduledJob.parse(hitsParser, hit.id, hit.version)
+                            val xcb = monitor.toXContent(jsonBuilder(), EMPTY_PARAMS)
+                            hit.sourceRef(BytesReference.bytes(xcb))
+                        }
+                    }
+                } catch (e: Exception) {
+                    log.info("The monitor parsing failed. Will return response as is.")
                 }
                 return BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS))
             }

@@ -31,6 +31,8 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
+import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
 import org.apache.logging.log4j.LogManager
@@ -100,7 +102,12 @@ class TransportIndexMonitorAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>) {
-        checkIndicesAndExecute(client, actionListener, request)
+        if (!isADMonitor(request.monitor)) {
+            checkIndicesAndExecute(client, actionListener, request)
+        } else {
+            // check if user has access to any anomaly detector for AD monitor
+            checkAnomalyDetectorAndExecute(client, actionListener, request)
+        }
     }
 
     /**
@@ -134,12 +141,29 @@ class TransportIndexMonitorAction @Inject constructor(
                 actionListener.onFailure(AlertingException.wrap(
                     when (t is ElasticsearchSecurityException) {
                         true -> ElasticsearchStatusException("User doesn't have read permissions for one or more configured index " +
-                            "${indices.indices}", RestStatus.FORBIDDEN)
+                            "$indices", RestStatus.FORBIDDEN)
                         false -> t
                     }
                 ))
             }
         })
+    }
+
+    /**
+     * It's no reasonable to create AD monitor if the user has no access to any detector. Otherwise
+     * the monitor will not get any anomaly result. So we will check user has access to at least 1
+     * anomaly detector if they need to create AD monitor.
+     * As anomaly detector index is system index, common user has no permission to query. So we need
+     * to send REST API call to AD REST API.
+     */
+    fun checkAnomalyDetectorAndExecute(
+        client: Client,
+        actionListener: ActionListener<IndexMonitorResponse>,
+        request: IndexMonitorRequest
+    ) {
+        client.threadPool().threadContext.stashContext().use {
+            IndexMonitorHandler(client, actionListener, request).resolveUserAndStartForAD()
+        }
     }
 
     inner class IndexMonitorHandler(
@@ -163,6 +187,51 @@ class TransportIndexMonitorAction @Inject constructor(
                             request.monitor = request.monitor
                                     .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
                             start()
+                        } catch (ex: IOException) {
+                            actionListener.onFailure(AlertingException.wrap(ex))
+                        }
+                    }
+
+                    override fun onFailure(ex: Exception) {
+                        actionListener.onFailure(AlertingException.wrap(ex))
+                    }
+                })
+            }
+        }
+
+        fun resolveUserAndStartForAD() {
+            if (request.authHeader.isNullOrEmpty()) {
+                // Security is disabled, add empty user to Monitor. user is null for older versions.
+                request.monitor = request.monitor
+                        .copy(user = User("", listOf(), listOf(), listOf()))
+                start()
+            } else {
+                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
+                restClient.performRequestAsync(authRequest, object : ResponseListener {
+                    override fun onSuccess(response: Response) {
+                        try {
+                            val user = User(response)
+                            request.monitor = request.monitor
+                                    .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+                            val searchSourceBuilder = SearchSourceBuilder().size(0)
+                            addUserBackendRolesFilter(user, searchSourceBuilder)
+                            val searchRequest = SearchRequest().indices(".opendistro-anomaly-detectors").source(searchSourceBuilder)
+                            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                                override fun onResponse(response: SearchResponse?) {
+                                    val totalHits = response?.hits?.totalHits?.value
+                                    if (totalHits != null && totalHits > 0L) {
+                                        start()
+                                    } else {
+                                        actionListener.onFailure(AlertingException.wrap(
+                                                ElasticsearchStatusException("User has no available detectors", RestStatus.NOT_FOUND)
+                                        ))
+                                    }
+                                }
+
+                                override fun onFailure(t: Exception) {
+                                    actionListener.onFailure(AlertingException.wrap(t))
+                                }
+                            })
                         } catch (ex: IOException) {
                             actionListener.onFailure(AlertingException.wrap(ex))
                         }

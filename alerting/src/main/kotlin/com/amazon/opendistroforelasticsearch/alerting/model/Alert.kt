@@ -182,7 +182,7 @@ data class Alert(
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     MONITOR_NAME_FIELD -> monitorName = xcp.text()
                     MONITOR_VERSION_FIELD -> monitorVersion = xcp.longValue()
-                    MONITOR_USER_FIELD -> monitorUser = User.parse(xcp)
+                    MONITOR_USER_FIELD -> monitorUser = if (xcp.currentToken() == XContentParser.Token.VALUE_NULL) null else User.parse(xcp)
                     TRIGGER_ID_FIELD -> triggerId = xcp.text()
                     STATE_FIELD -> state = State.valueOf(xcp.text())
                     TRIGGER_NAME_FIELD -> triggerName = xcp.text()
