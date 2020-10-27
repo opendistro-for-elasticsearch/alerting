@@ -23,7 +23,6 @@ import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
 
 class IndexMonitorRequestTests : ESTestCase() {
 

@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsActi
 import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import com.amazon.opendistroforelasticsearch.alerting.util.context
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler

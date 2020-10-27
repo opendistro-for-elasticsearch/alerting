@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
 
 class GetAlertsRequestTests : ESTestCase() {
 

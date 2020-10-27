@@ -24,7 +24,6 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 
 class IndexDestinationRequestTests : ESTestCase() {
