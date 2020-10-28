@@ -30,7 +30,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
@@ -55,7 +54,6 @@ import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
-import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.net.URLEncoder
@@ -636,13 +634,6 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                         .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, false).endObject()
                         .endObject().string(), ContentType.APPLICATION_JSON))
         assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
-    }
-
-    fun getHeader(): BasicHeader {
-        return when (isHttps()) {
-            false -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
-            true -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
-        }
     }
 
     fun removeEmailFromAllowList() {

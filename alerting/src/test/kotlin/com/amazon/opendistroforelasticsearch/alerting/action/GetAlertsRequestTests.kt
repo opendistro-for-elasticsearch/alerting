@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Table
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
 
 class GetAlertsRequestTests : ESTestCase() {
 
@@ -27,7 +26,7 @@ class GetAlertsRequestTests : ESTestCase() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
 
-        val req = GetAlertsRequest(table, "1", "active", null, null)
+        val req = GetAlertsRequest(table, "1", "active", null)
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -44,7 +43,7 @@ class GetAlertsRequestTests : ESTestCase() {
     fun `test get alerts request with filter`() {
 
         val table = Table("asc", "sortString", null, 1, 0, "")
-        val req = GetAlertsRequest(table, "1", "active", null, ESRestTestCase.randomAlphaOfLength(20))
+        val req = GetAlertsRequest(table, "1", "active", null)
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -56,13 +55,12 @@ class GetAlertsRequestTests : ESTestCase() {
         assertEquals("active", newReq.alertState)
         assertNull(newReq.monitorId)
         assertEquals(table, newReq.table)
-        assertNotNull(newReq.authHeader)
     }
 
     fun `test validate returns null`() {
         val table = Table("asc", "sortString", null, 1, 0, "")
 
-        val req = GetAlertsRequest(table, "1", "active", null, null)
+        val req = GetAlertsRequest(table, "1", "active", null)
         assertNotNull(req)
         assertNull(req.validate())
     }

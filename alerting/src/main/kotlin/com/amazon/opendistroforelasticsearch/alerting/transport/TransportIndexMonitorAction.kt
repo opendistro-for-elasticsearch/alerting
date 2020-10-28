@@ -33,8 +33,8 @@ import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
-import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchSecurityException
 import org.elasticsearch.ElasticsearchStatusException
@@ -50,9 +50,6 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.client.Response
-import org.elasticsearch.client.ResponseListener
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
@@ -77,7 +74,6 @@ private val log = LogManager.getLogger(TransportIndexMonitorAction::class.java)
 class TransportIndexMonitorAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
-    val restClient: RestClient,
     actionFilters: ActionFilters,
     val scheduledJobIndices: ScheduledJobIndices,
     val clusterService: ClusterService,
@@ -92,6 +88,7 @@ class TransportIndexMonitorAction @Inject constructor(
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
     @Volatile private var allowList = ALLOW_LIST.get(settings)
+    var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
@@ -102,11 +99,16 @@ class TransportIndexMonitorAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>) {
+
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES)
+        log.debug("User and roles string from thread context: $userStr")
+        user = User.parse(userStr)
+
         if (!isADMonitor(request.monitor)) {
-            checkIndicesAndExecute(client, actionListener, request)
+            checkIndicesAndExecute(client, actionListener, request, user)
         } else {
             // check if user has access to any anomaly detector for AD monitor
-            checkAnomalyDetectorAndExecute(client, actionListener, request)
+            checkAnomalyDetectorAndExecute(client, actionListener, request, user)
         }
     }
 
@@ -117,7 +119,8 @@ class TransportIndexMonitorAction @Inject constructor(
     fun checkIndicesAndExecute(
         client: Client,
         actionListener: ActionListener<IndexMonitorResponse>,
-        request: IndexMonitorRequest
+        request: IndexMonitorRequest,
+        user: User?
     ) {
         val indices = mutableListOf<String>()
         val searchInputs = request.monitor.inputs.filter { it.name() == SearchInput.SEARCH_FIELD }
@@ -131,7 +134,7 @@ class TransportIndexMonitorAction @Inject constructor(
             override fun onResponse(searchResponse: SearchResponse) {
                 // User has read access to configured indices in the monitor, now create monitor with out user context.
                 client.threadPool().threadContext.stashContext().use {
-                    IndexMonitorHandler(client, actionListener, request).resolveUserAndStart()
+                    IndexMonitorHandler(client, actionListener, request, user).resolveUserAndStart()
                 }
             }
 
@@ -159,88 +162,66 @@ class TransportIndexMonitorAction @Inject constructor(
     fun checkAnomalyDetectorAndExecute(
         client: Client,
         actionListener: ActionListener<IndexMonitorResponse>,
-        request: IndexMonitorRequest
+        request: IndexMonitorRequest,
+        user: User?
     ) {
         client.threadPool().threadContext.stashContext().use {
-            IndexMonitorHandler(client, actionListener, request).resolveUserAndStartForAD()
+            IndexMonitorHandler(client, actionListener, request, user).resolveUserAndStartForAD()
         }
     }
 
     inner class IndexMonitorHandler(
         private val client: Client,
         private val actionListener: ActionListener<IndexMonitorResponse>,
-        private val request: IndexMonitorRequest
+        private val request: IndexMonitorRequest,
+        private val user: User?
     ) {
 
         fun resolveUserAndStart() {
-            if (request.authHeader.isNullOrEmpty()) {
+            if (user == null) {
                 // Security is disabled, add empty user to Monitor. user is null for older versions.
                 request.monitor = request.monitor
                         .copy(user = User("", listOf(), listOf(), listOf()))
                 start()
             } else {
-                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
-                restClient.performRequestAsync(authRequest, object : ResponseListener {
-                    override fun onSuccess(response: Response) {
-                        try {
-                            val user = User(response)
-                            request.monitor = request.monitor
-                                    .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
-                            start()
-                        } catch (ex: IOException) {
-                            actionListener.onFailure(AlertingException.wrap(ex))
-                        }
-                    }
-
-                    override fun onFailure(ex: Exception) {
-                        actionListener.onFailure(AlertingException.wrap(ex))
-                    }
-                })
+                request.monitor = request.monitor
+                        .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+                start()
             }
         }
 
         fun resolveUserAndStartForAD() {
-            if (request.authHeader.isNullOrEmpty()) {
+            if (user == null) {
                 // Security is disabled, add empty user to Monitor. user is null for older versions.
                 request.monitor = request.monitor
                         .copy(user = User("", listOf(), listOf(), listOf()))
                 start()
             } else {
-                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
-                restClient.performRequestAsync(authRequest, object : ResponseListener {
-                    override fun onSuccess(response: Response) {
-                        try {
-                            val user = User(response)
-                            request.monitor = request.monitor
-                                    .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
-                            val searchSourceBuilder = SearchSourceBuilder().size(0)
-                            addUserBackendRolesFilter(user, searchSourceBuilder)
-                            val searchRequest = SearchRequest().indices(".opendistro-anomaly-detectors").source(searchSourceBuilder)
-                            client.search(searchRequest, object : ActionListener<SearchResponse> {
-                                override fun onResponse(response: SearchResponse?) {
-                                    val totalHits = response?.hits?.totalHits?.value
-                                    if (totalHits != null && totalHits > 0L) {
-                                        start()
-                                    } else {
-                                        actionListener.onFailure(AlertingException.wrap(
-                                                ElasticsearchStatusException("User has no available detectors", RestStatus.NOT_FOUND)
-                                        ))
-                                    }
-                                }
-
-                                override fun onFailure(t: Exception) {
-                                    actionListener.onFailure(AlertingException.wrap(t))
-                                }
-                            })
-                        } catch (ex: IOException) {
-                            actionListener.onFailure(AlertingException.wrap(ex))
+                try {
+                    request.monitor = request.monitor
+                            .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+                    val searchSourceBuilder = SearchSourceBuilder().size(0)
+                    addUserBackendRolesFilter(user, searchSourceBuilder)
+                    val searchRequest = SearchRequest().indices(".opendistro-anomaly-detectors").source(searchSourceBuilder)
+                    client.search(searchRequest, object : ActionListener<SearchResponse> {
+                        override fun onResponse(response: SearchResponse?) {
+                            val totalHits = response?.hits?.totalHits?.value
+                            if (totalHits != null && totalHits > 0L) {
+                                start()
+                            } else {
+                                actionListener.onFailure(AlertingException.wrap(
+                                        ElasticsearchStatusException("User has no available detectors", RestStatus.NOT_FOUND)
+                                ))
+                            }
                         }
-                    }
 
-                    override fun onFailure(ex: Exception) {
-                        actionListener.onFailure(AlertingException.wrap(ex))
-                    }
-                })
+                        override fun onFailure(t: Exception) {
+                            actionListener.onFailure(AlertingException.wrap(t))
+                        }
+                    })
+                } catch (ex: IOException) {
+                    actionListener.onFailure(AlertingException.wrap(ex))
+                }
             }
         }
 

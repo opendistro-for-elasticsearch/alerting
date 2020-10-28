@@ -9,8 +9,8 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
-import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -23,9 +23,6 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.client.Response
-import org.elasticsearch.client.ResponseListener
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
@@ -42,7 +39,6 @@ private val log = LogManager.getLogger(TransportIndexDestinationAction::class.ja
 class TransportIndexDestinationAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
-    val restClient: RestClient,
     actionFilters: ActionFilters,
     val scheduledJobIndices: ScheduledJobIndices,
     val clusterService: ClusterService,
@@ -53,6 +49,7 @@ class TransportIndexDestinationAction @Inject constructor(
 
     @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
     @Volatile private var allowList = DestinationSettings.ALLOW_LIST.get(settings)
+    private var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
@@ -60,40 +57,36 @@ class TransportIndexDestinationAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexDestinationRequest, actionListener: ActionListener<IndexDestinationResponse>) {
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES)
+        log.debug("User and roles string from thread context: $userStr")
+        user = User.parse(userStr)
+
         client.threadPool().threadContext.stashContext().use {
-            IndexDestinationHandler(client, actionListener, request).resolveUserAndStart()
+            IndexDestinationHandler(client, actionListener, request, user).resolveUserAndStart()
         }
     }
 
     inner class IndexDestinationHandler(
         private val client: Client,
         private val actionListener: ActionListener<IndexDestinationResponse>,
-        private val request: IndexDestinationRequest
+        private val request: IndexDestinationRequest,
+        private val user: User?
     ) {
 
         fun resolveUserAndStart() {
-            if (request.authHeader.isNullOrEmpty()) {
+            if (user == null) {
                 // Security is disabled, add empty user to destination. user is null for older versions.
                 request.destination = request.destination
                         .copy(user = User("", listOf(), listOf(), listOf()))
                 start()
             } else {
-                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
-                restClient.performRequestAsync(authRequest, object : ResponseListener {
-                    override fun onSuccess(response: Response) {
-                        try {
-                            val user = User(response)
-                            request.destination = request.destination
-                                    .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
-                            start()
-                        } catch (ex: IOException) {
-                            actionListener.onFailure(AlertingException.wrap(ex))
-                        }
-                    }
-                    override fun onFailure(ex: Exception) {
-                        actionListener.onFailure(AlertingException.wrap(ex))
-                    }
-                })
+                try {
+                    request.destination = request.destination
+                            .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+                    start()
+                } catch (ex: IOException) {
+                    actionListener.onFailure(AlertingException.wrap(ex))
+                }
             }
         }
 

@@ -23,7 +23,7 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.addFilter
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
-import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
@@ -32,9 +32,6 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
-import org.elasticsearch.client.Response
-import org.elasticsearch.client.ResponseListener
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.inject.Inject
@@ -61,7 +58,6 @@ private val log = LogManager.getLogger(TransportGetDestinationsAction::class.jav
 class TransportGetDestinationsAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
-    val restClient: RestClient,
     clusterService: ClusterService,
     actionFilters: ActionFilters,
     val settings: Settings,
@@ -71,6 +67,7 @@ class TransportGetDestinationsAction @Inject constructor(
 ) {
 
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+    private var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
@@ -81,6 +78,9 @@ class TransportGetDestinationsAction @Inject constructor(
         getDestinationsRequest: GetDestinationsRequest,
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
+            val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES)
+            log.debug("User and roles string from thread context: $userStr")
+            user = User.parse(userStr)
 
             val tableProp = getDestinationsRequest.table
 
@@ -118,49 +118,29 @@ class TransportGetDestinationsAction @Inject constructor(
             searchSourceBuilder.query(queryBuilder)
 
             client.threadPool().threadContext.stashContext().use {
-                resolve(getDestinationsRequest, searchSourceBuilder, actionListener)
+                resolve(searchSourceBuilder, actionListener)
             }
     }
 
     fun resolve(
-        getDestinationsRequest: GetDestinationsRequest,
         searchSourceBuilder: SearchSourceBuilder,
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
-        if (getDestinationsRequest.authHeader.isNullOrEmpty()) {
-            // auth header is null when: 1/ security is disabled. 2/when user is super-admin.
+        if (user == null) {
+            // user is null when: 1/ security is disabled. 2/when user is super-admin.
             search(searchSourceBuilder, actionListener)
         } else if (!filterByEnabled) {
             // security is enabled and filterby is disabled.
             search(searchSourceBuilder, actionListener)
         } else {
             // security is enabled and filterby is enabled.
-            val authRequest = AuthUserRequestBuilder(
-                    getDestinationsRequest.authHeader
-            ).build()
-            restClient.performRequestAsync(authRequest, object : ResponseListener {
-                override fun onSuccess(response: Response) {
-                    try {
-                        val user = User(response)
-                        addFilter(user, searchSourceBuilder, "destination.user.backend_roles")
-                        log.info("Filtering result by: ${user.backendRoles}")
-                        search(searchSourceBuilder, actionListener)
-                    } catch (ex: IOException) {
-                        actionListener.onFailure(AlertingException.wrap(ex))
-                    }
-                }
-
-                override fun onFailure(ex: Exception) {
-                    when (ex.message?.contains("Connection refused")) {
-                        // Connection is refused when security plugin is not present. This case can happen only with integration tests.
-                        true -> {
-                            addFilter(User(), searchSourceBuilder, "destination.user.backend_roles")
-                            search(searchSourceBuilder, actionListener)
-                        }
-                        false -> actionListener.onFailure(AlertingException.wrap(ex))
-                    }
-                }
-            })
+            try {
+                addFilter(user as User, searchSourceBuilder, "destination.user.backend_roles")
+                log.info("Filtering result by: ${user?.backendRoles}")
+                search(searchSourceBuilder, actionListener)
+            } catch (ex: IOException) {
+                actionListener.onFailure(AlertingException.wrap(ex))
+            }
         }
     }
 
