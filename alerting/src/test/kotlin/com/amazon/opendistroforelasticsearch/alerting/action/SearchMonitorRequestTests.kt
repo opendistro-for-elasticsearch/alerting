@@ -29,7 +29,7 @@ class SearchMonitorRequestTests : ESTestCase() {
     fun `test search monitors request`() {
         val searchSourceBuilder = SearchSourceBuilder().from(0).size(100).timeout(TimeValue(60, TimeUnit.SECONDS))
         val searchRequest = SearchRequest().indices(ESRestTestCase.randomAlphaOfLength(10)).source(searchSourceBuilder)
-        val searchMonitorRequest = SearchMonitorRequest(searchRequest, ESRestTestCase.randomAlphaOfLength(20))
+        val searchMonitorRequest = SearchMonitorRequest(searchRequest)
         assertNotNull(searchMonitorRequest)
 
         val out = BytesStreamOutput()
@@ -37,7 +37,6 @@ class SearchMonitorRequestTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = SearchMonitorRequest(sin)
 
-        assertNotNull(newReq.authHeader)
         assertNotNull(newReq.searchRequest)
         assertEquals(1, newReq.searchRequest.indices().size)
     }
