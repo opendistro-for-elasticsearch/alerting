@@ -17,6 +17,10 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.rest.RestStatus
 
 /**
  * RFC 5322 compliant pattern matching: https://www.ietf.org/rfc/rfc5322.txt
@@ -36,3 +40,35 @@ fun isValidEmail(email: String): Boolean {
 
 /** Allowed Destinations are ones that are specified in the [DestinationSettings.ALLOW_LIST] setting. */
 fun Destination.isAllowed(allowList: List<String>): Boolean = allowList.contains(this.type.value)
+
+/**
+  1. If filterBy is enabled
+     a) Don't allow to create monitor/ destination (throw error) if the logged-on user has no backend roles configured.
+  2. If filterBy is enabled & monitors are created when filterBy is disabled:
+     a) If backend_roles are saved with config, results will get filtered and data is shown
+     b) If backend_roles are not saved with monitor config, results will get filtered and no monitors
+        will be displayed.
+     c) Users can edit and save the monitors to associate their backend_roles.
+  3. If filterBy is enabled & monitors are created by older version:
+     a) No User details are present on monitor.
+     b) No monitors will be displayed.
+     c) Users can edit and save the monitors to associate their backend_roles.
+ */
+fun <T : Any> checkFilterByUserBackendRoles(filterByEnabled: Boolean, user: User?, actionListener: ActionListener<T>): Boolean {
+    if (filterByEnabled) {
+        if (user == null) {
+            actionListener.onFailure(AlertingException.wrap(
+                    ElasticsearchStatusException(
+                            "Filter by user backend roles is not enabled with security disabled.", RestStatus.FORBIDDEN
+                    )
+            ))
+            return false
+        } else if (user.backendRoles.isNullOrEmpty()) {
+            actionListener.onFailure(AlertingException.wrap(
+                    ElasticsearchStatusException("User doesn't have backend roles configured. Contact administrator.", RestStatus.FORBIDDEN)
+            ))
+            return false
+        }
+    }
+    return true
+}

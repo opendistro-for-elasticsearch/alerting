@@ -16,16 +16,75 @@
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
 import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
+import com.amazon.opendistroforelasticsearch.alerting.DESTINATION_BASE_URI
+import com.amazon.opendistroforelasticsearch.alerting.makeRequest
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import org.elasticsearch.client.ResponseException
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 import java.time.Instant
 
 @TestLogging("level:DEBUG", reason = "Debug for tests.")
 @Suppress("UNCHECKED_CAST")
 class SecureDestinationRestApiIT : AlertingRestTestCase() {
+
+    fun `test create destination with disable filter by`() {
+        disableFilterBy()
+
+        val chime = Chime("http://abc.com")
+        val destination = Destination(
+                type = DestinationType.CHIME,
+                name = "test",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = chime,
+                slack = null,
+                customWebhook = null,
+                email = null)
+        val createdDestination = createDestination(destination = destination)
+        assertEquals("Incorrect destination name", createdDestination.name, "test")
+        assertEquals("Incorrect destination type", createdDestination.type, DestinationType.CHIME)
+    }
+
+    fun `test create destination with enable filter by`() {
+        enableFilterBy()
+        val chime = Chime("http://abc.com")
+        val destination = Destination(
+                type = DestinationType.CHIME,
+                name = "test",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = chime,
+                slack = null,
+                customWebhook = null,
+                email = null)
+
+        if (isHttps()) {
+            // when security is enabled. No errors, must succeed.
+            val response = client().makeRequest(
+                    "POST",
+                    "$DESTINATION_BASE_URI?refresh=true",
+                    emptyMap(),
+                    destination.toHttpEntity())
+            assertEquals("Create monitor failed", RestStatus.CREATED, response.restStatus())
+        } else {
+            // when security is disable. Must return Forbidden.
+            try {
+                client().makeRequest(
+                        "POST",
+                        "$DESTINATION_BASE_URI?refresh=true",
+                        emptyMap(),
+                        destination.toHttpEntity())
+                fail("Expected 403 FORBIDDEN response")
+            } catch (e: ResponseException) {
+                assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+            }
+        }
+    }
 
     fun `test get destinations with a destination type and disable filter by`() {
         disableFilterBy()
@@ -48,16 +107,17 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
         inputMap["destinationType"] = "slack"
 
         // 2. get destinations as admin user
-        /*val adminResponse = getDestinations(client(), inputMap, getHeader())
-        assertEquals(1, adminResponse.size)*/
-
-        // 3. get destinations as kirk user, super-admin can read all.
-        val kirkResponse = getDestinations(adminClient(), inputMap)
-        assertEquals(1, kirkResponse.size)
+        val adminResponse = getDestinations(client(), inputMap)
+        assertEquals(1, adminResponse.size)
     }
 
     fun `test get destinations with a destination type and filter by`() {
         enableFilterBy()
+        if (!isHttps()) {
+            // if security is disabled and filter by is enabled, we can't create monitor
+            // refer: `test create destination with enable filter by`
+            return
+        }
         val slack = Slack("url")
         val destination = Destination(
                 type = DestinationType.SLACK,
@@ -77,16 +137,7 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
         inputMap["destinationType"] = "slack"
 
         // 2. get destinations as admin user
-        /*val adminResponse = getDestinations(client(), inputMap, getHeader())
-        val expected = when (isHttps()) {
-            true -> 1   // when test is run with security - get the correct filtered results.
-            false -> 1  // when test is run without security and filterby is enabled - filtering
-                        // does not work without security, so filtering is ignored and gets a result
-        }
-        assertEquals(expected, adminResponse.size)*/
-
-        // 3. get destinations as kirk user, super-admin can read all.
-        val kirkResponse = getDestinations(adminClient(), inputMap)
-        assertEquals(1, kirkResponse.size)
+        val adminResponse = getDestinations(client(), inputMap)
+        assertEquals(1, adminResponse.size)
     }
 }
