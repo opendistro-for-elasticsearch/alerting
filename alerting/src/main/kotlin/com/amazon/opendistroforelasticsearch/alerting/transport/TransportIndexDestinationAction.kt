@@ -67,7 +67,6 @@ class TransportIndexDestinationAction @Inject constructor(
         if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
             return
         }
-
         client.threadPool().threadContext.stashContext().use {
             IndexDestinationHandler(client, actionListener, request, user).resolveUserAndStart()
         }
