@@ -9,6 +9,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.checkFilterByUserBackendRoles
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
@@ -49,11 +50,13 @@ class TransportIndexDestinationAction @Inject constructor(
 
     @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
     @Volatile private var allowList = DestinationSettings.ALLOW_LIST.get(settings)
+    @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
     private var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(DestinationSettings.ALLOW_LIST) { allowList = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
     }
 
     override fun doExecute(task: Task, request: IndexDestinationRequest, actionListener: ActionListener<IndexDestinationResponse>) {
@@ -61,6 +64,9 @@ class TransportIndexDestinationAction @Inject constructor(
         log.debug("User and roles string from thread context: $userStr")
         user = User.parse(userStr)
 
+        if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
+            return
+        }
         client.threadPool().threadContext.stashContext().use {
             IndexDestinationHandler(client, actionListener, request, user).resolveUserAndStart()
         }

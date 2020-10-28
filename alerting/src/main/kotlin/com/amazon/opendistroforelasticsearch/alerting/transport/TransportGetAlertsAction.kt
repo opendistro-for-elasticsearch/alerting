@@ -134,8 +134,8 @@ class TransportGetAlertsAction @Inject constructor(
             } else {
                 // security is enabled and filterby is enabled.
                 try {
-                    addFilter(user as User, searchSourceBuilder, "monitor_user.backend_roles")
                     log.info("Filtering result by: ${user?.backendRoles}")
+                    addFilter(user as User, searchSourceBuilder, "monitor_user.backend_roles.keyword")
                     search(searchSourceBuilder, actionListener)
                 } catch (ex: IOException) {
                     actionListener.onFailure(AlertingException.wrap(ex))
