@@ -24,7 +24,9 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Co
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOB_TYPE
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERTING_MAX_MONITORS
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.FILTER_BY_BACKEND_ROLES
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
@@ -32,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
+import com.amazon.opendistroforelasticsearch.alerting.util.checkFilterByUserBackendRoles
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -88,6 +91,7 @@ class TransportIndexMonitorAction @Inject constructor(
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
     @Volatile private var allowList = ALLOW_LIST.get(settings)
+    @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
     var user: User? = null
 
     init {
@@ -96,6 +100,7 @@ class TransportIndexMonitorAction @Inject constructor(
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(MAX_ACTION_THROTTLE_VALUE) { maxActionThrottle = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
     }
 
     override fun doExecute(task: Task, request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>) {
@@ -103,6 +108,10 @@ class TransportIndexMonitorAction @Inject constructor(
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES)
         log.debug("User and roles string from thread context: $userStr")
         user = User.parse(userStr)
+
+        if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
+            return
+        }
 
         if (!isADMonitor(request.monitor)) {
             checkIndicesAndExecute(client, actionListener, request, user)
