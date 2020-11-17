@@ -159,8 +159,7 @@ class AlertIndices(
         // Instead of using a LocalNodeMasterListener to track master changes, this service will
         // track them here to avoid conditions where master listener events run after other
         // listeners that depend on what happened in the master listener
-        val prevIsMaster = this.isMaster
-        if (prevIsMaster != event.localNodeMaster()) {
+        if (this.isMaster != event.localNodeMaster()) {
             this.isMaster = event.localNodeMaster()
             if (this.isMaster) {
                 onMaster()
@@ -169,7 +168,7 @@ class AlertIndices(
             }
         }
 
-        // if the indexes have been deleted they need to be reinitalized
+        // if the indexes have been deleted they need to be reinitialized
         alertIndexInitialized = event.state().routingTable().hasIndex(ALERT_INDEX)
         historyIndexInitialized = event.state().metadata().hasAlias(HISTORY_WRITE_INDEX)
     }

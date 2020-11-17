@@ -79,7 +79,6 @@ task ktlint(type: JavaExec, group: "verification") {
     main = "com.github.shyiko.ktlint.Main"
     classpath = configurations.ktlint
     args "alerting/**/*.kt", "elastic-api/**/*.kt", "core/**/*.kt"
-
 }
 
 task ktlintFormat(type: JavaExec, group: "formatting") {

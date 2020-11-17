@@ -159,6 +159,7 @@ run {
             cluster.waitForAllConditions()
         }
     }
+    useCluster testClusters.integTest
 }
 
 // Only apply jacoco test coverage if we are running a local single node cluster
