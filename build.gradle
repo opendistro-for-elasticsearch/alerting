@@ -57,9 +57,6 @@ allprojects {
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = "1.8"
     }
-    plugins.withId('elasticsearch.java-rest-test') {
-        compileJavaRestTestKotlin.kotlinOptions.jvmTarget = compileJavaRestTestKotlin.kotlinOptions.jvmTarget = "1.8"
-    }
     plugins.withId('org.jetbrains.kotlin.jvm') {
         compileKotlin.kotlinOptions.jvmTarget = compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
     }

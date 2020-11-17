@@ -1,6 +1,3 @@
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-
 /*
  *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
@@ -15,12 +12,11 @@ import java.nio.file.Files
  *   express or implied. See the License for the specific language governing
  *   permissions and limitations under the License.
  */
+
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'elasticsearch.esplugin'
-// apply plugin: 'elasticsearch.testclusters'
-// apply plugin: 'elasticsearch.java-rest-test'
 apply plugin: 'jacoco'
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
@@ -77,9 +73,6 @@ dependencies {
     compile project(":alerting-notification")
 
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
-
-    // let the javaRestTest see the classpath of main
-    // javaRestTestImplementation project.sourceSets.main.runtimeClasspath
 }
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
@@ -97,28 +90,12 @@ es_tmp_dir.mkdirs()
 
 test {
     systemProperty 'tests.security.manager', 'false'
-
-    // include("**/*Tests.class")
 }
 
-task printSourceSetInformation(){
-    doLast{
-        sourceSets.each { srcSet ->
-            println "["+srcSet.name+"]"
-            print "-->Source directories: "+srcSet.allJava.srcDirs+"\n"
-            print "-->Output directories: "+srcSet.output.classesDirs.files+"\n"
-            print "-->Compile classpath:\n"
-            // srcSet.compileClasspath.files.each {
-            //     print "  "+it.path+"\n"
-            // }
-            println ""
-        }
-    }
-}
 
+import org.elasticsearch.gradle.test.RestIntegTestTask
 task integTest(type: RestIntegTestTask) {
     description = "Run tests against a cluster that has security enabled"
-    // useCluster testClusters.javaRestTest
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 }
@@ -126,28 +103,6 @@ tasks.named("check").configure { dependsOn(integTest) }
 
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 integTest {
-    // SourceSetContainer sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
-    // SourceSet javaRestTestSourceSet = sourceSets.getByName("test")
-    // setTestClassesDirs(javaRestTestSourceSet.getOutput().getClassesDirs())
-    // println("java rest files ${javaRestTestSourceSet.getOutput().getClassesDirs().asPath}")
-
-    // sourceSets.each {
-    //     println("source set ${it.output.classesDirs}")
-    //     println("source set ${it.output.classesDirs.asPath}")
-    // }
-
-    // testClassesDirs = sourceSets.javaRestTest.output.classesDirs
-
-    // println("java rest files ${sourceSets.javaRestTest.output.classesDirs.asPath}")
-    // /Volumes/workplace/ODFE/alerting/alerting/build/classes/java/javaRestTest:
-    // /Volumes/workplace/ODFE/alerting/alerting/build/classes/kotlin/javaRestTest
-
-    // println("candidate files ${getCandidateClassFiles().asPath}")
-    // java rest test classesDirs
-    // println("test classes dirs ${getTestClassesDirs().getAsFileTree().asPath}")
-
-    // include("**/*IT.class")
-
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
 
@@ -176,13 +131,9 @@ integTest {
     }
 }
 
-import org.elasticsearch.gradle.testclusters.StandaloneRestIntegTestTask
-import org.elasticsearch.gradle.test.RestIntegTestTask
-
 Zip bundle = (Zip) project.getTasks().getByName("bundlePlugin");
 integTest.dependsOn(bundle)
 integTest.getClusters().forEach{c -> c.plugin(project.getObjects().fileProperty().value(bundle.getArchiveFile()))}
-
 
 testClusters.integTest {
     testDistribution = "OSS"

@@ -34,7 +34,6 @@ class AlertIndicesIT : AlertingRestTestCase() {
 
     fun `test create alert index`() {
         executeMonitor(randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN))))
-        // executeMonitor(createRandomMonitor())
 
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
