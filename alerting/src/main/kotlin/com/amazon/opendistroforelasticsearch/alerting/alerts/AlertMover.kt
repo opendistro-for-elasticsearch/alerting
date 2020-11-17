@@ -111,6 +111,6 @@ suspend fun moveAlerts(client: Client, monitorId: String, monitor: Monitor? = nu
 private fun alertContentParser(bytesReference: BytesReference): XContentParser {
     val xcp = XContentHelper.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
                 bytesReference, XContentType.JSON)
-    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
     return xcp
 }

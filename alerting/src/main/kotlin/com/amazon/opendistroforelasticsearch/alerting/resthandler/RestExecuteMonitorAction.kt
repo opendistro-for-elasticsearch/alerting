@@ -58,7 +58,7 @@ class RestExecuteMonitorAction : BaseRestHandler() {
                 client.execute(ExecuteMonitorAction.INSTANCE, execMonitorRequest, RestToXContentListener(channel))
             } else {
                 val xcp = request.contentParser()
-                ensureExpectedToken(START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                ensureExpectedToken(START_OBJECT, xcp.nextToken(), xcp)
                 val monitor = Monitor.parse(xcp, Monitor.NO_ID, Monitor.NO_VERSION)
                 val execMonitorRequest = ExecuteMonitorRequest(dryrun, requestEnd, null, monitor)
                 client.execute(ExecuteMonitorAction.INSTANCE, execMonitorRequest, RestToXContentListener(channel))

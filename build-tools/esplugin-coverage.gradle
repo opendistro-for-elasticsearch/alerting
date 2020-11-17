@@ -51,11 +51,11 @@ task dummyIntegTest(type: Test) {
     }
 }
 
-integTest.runner {
+javaRestTest {
     systemProperty 'jacoco.dir', "${jacocoDir}"
 }
 
-testClusters.integTest {
+testClusters.javaRestTest {
     //Hack: to fix jacocoagent path with gradle 6.5, add the missing "/" at the start of the jacocoagent path.
     jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}".replace('javaagent:','javaagent:/')
     systemProperty 'com.sun.management.jmxremote', "true"
@@ -66,7 +66,7 @@ testClusters.integTest {
 }
 
 jacocoTestReport {
-    dependsOn integTest, test
+    dependsOn javaRestTest, test
     executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
     getSourceDirectories().from(sourceSets.main.allSource)
     getClassDirectories().from(sourceSets.main.output)
@@ -77,5 +77,5 @@ jacocoTestReport {
 }
 
 project.gradle.projectsEvaluated {
-    jacocoTestReport.dependsOn integTest.runner
+    jacocoTestReport.dependsOn javaRestTest
 }

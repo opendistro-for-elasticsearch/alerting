@@ -87,7 +87,7 @@ data class Trigger(
             lateinit var severity: String
             lateinit var condition: Script
             val actions: MutableList<Action> = mutableListOf()
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
@@ -106,7 +106,7 @@ data class Trigger(
                         xcp.nextToken()
                     }
                     ACTIONS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             actions.add(Action.parse(xcp))
                         }

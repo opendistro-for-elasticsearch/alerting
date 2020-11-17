@@ -438,7 +438,7 @@ class MonitorRunner(
     private fun contentParser(bytesReference: BytesReference): XContentParser {
         val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                 bytesReference, XContentType.JSON)
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
         return xcp
     }
 

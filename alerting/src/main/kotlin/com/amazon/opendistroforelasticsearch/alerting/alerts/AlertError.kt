@@ -52,7 +52,7 @@ data class AlertError(val timestamp: Instant, val message: String) : Writeable, 
             lateinit var timestamp: Instant
             lateinit var message: String
 
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

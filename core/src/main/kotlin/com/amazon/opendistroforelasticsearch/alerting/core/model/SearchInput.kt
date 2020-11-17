@@ -67,13 +67,13 @@ data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder
             val indices = mutableListOf<String>()
             lateinit var searchSourceBuilder: SearchSourceBuilder
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
                 when (fieldName) {
                     INDICES_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             indices.add(xcp.text())
                         }

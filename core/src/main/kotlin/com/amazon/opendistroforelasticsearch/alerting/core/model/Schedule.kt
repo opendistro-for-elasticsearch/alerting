@@ -56,7 +56,7 @@ sealed class Schedule : Writeable, ToXContentObject {
             var unit: ChronoUnit? = null
             var schedule: Schedule? = null
             var type: TYPE? = null
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldname = xcp.currentName()
                 xcp.nextToken()

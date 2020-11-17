@@ -120,7 +120,7 @@ data class EmailAccount(
             var port: Int = -1
             lateinit var method: String
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -155,11 +155,11 @@ data class EmailAccount(
         @JvmStatic
         @Throws(IOException::class)
         fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): EmailAccount {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
             val emailAccount = parse(xcp, id, version)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return emailAccount
         }
 
