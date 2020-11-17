@@ -82,9 +82,8 @@ public class CustomWebhookMessage extends BaseMessage {
             // Default to POST for backwards compatibility
             this.method = "POST";
         } else if (!HttpPost.METHOD_NAME.equals(method) && !HttpPut.METHOD_NAME.equals(method)
-                && !HttpGet.METHOD_NAME.equals(method) && !HttpDelete.METHOD_NAME.equals(method)
                 && !HttpPatch.METHOD_NAME.equals(method)) {
-            throw new IllegalArgumentException("Invalid method supplied. Only POST, PUT, PATCH, GET and DELETE are allowed");
+            throw new IllegalArgumentException("Invalid method supplied. Only POST, PUT and PATCH are allowed");
         } else {
             this.method = method;
         }

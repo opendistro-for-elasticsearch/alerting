@@ -45,8 +45,6 @@ public class CustomWebhookMessageTest {
                     {"POST", HttpPost.class},
                     {"PUT", HttpPut.class},
                     {"PATCH", HttpPatch.class},
-                    {"GET", HttpGet.class},
-                    {"DELETE", HttpDelete.class}
             };
         }
 

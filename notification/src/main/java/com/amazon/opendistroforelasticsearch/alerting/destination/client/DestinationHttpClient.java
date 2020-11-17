@@ -139,10 +139,6 @@ public class DestinationHttpClient {
                 return new HttpPut();
             case "PATCH":
                 return new HttpPatch();
-            case "GET":
-                return new HttpGet();
-            case "DELETE":
-                return new HttpDelete();
             default:
                 throw new IllegalArgumentException("Invalid method supplied");
         }
