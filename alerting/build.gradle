@@ -20,15 +20,12 @@ apply plugin: 'idea'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'elasticsearch.esplugin'
 // apply plugin: 'elasticsearch.testclusters'
-apply plugin: 'elasticsearch.java-rest-test'
+// apply plugin: 'elasticsearch.java-rest-test'
 apply plugin: 'jacoco'
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
-// Only apply jacoco test coverage if we are running a local single node cluster
-if (!usingRemoteCluster && !usingMultiNode) {
-    apply from: '../build-tools/esplugin-coverage.gradle'
-}
+
 
 ext {
     projectSubstitutions = [:]
@@ -82,7 +79,7 @@ dependencies {
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
 
     // let the javaRestTest see the classpath of main
-    javaRestTestImplementation project.sourceSets.main.runtimeClasspath
+    // javaRestTestImplementation project.sourceSets.main.runtimeClasspath
 }
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
@@ -104,12 +101,44 @@ test {
     // include("**/*Tests.class")
 }
 
+task printSourceSetInformation(){
+    doLast{
+        sourceSets.each { srcSet ->
+            println "["+srcSet.name+"]"
+            print "-->Source directories: "+srcSet.allJava.srcDirs+"\n"
+            print "-->Output directories: "+srcSet.output.classesDirs.files+"\n"
+            print "-->Compile classpath:\n"
+            // srcSet.compileClasspath.files.each {
+            //     print "  "+it.path+"\n"
+            // }
+            println ""
+        }
+    }
+}
+
+task integTest(type: RestIntegTestTask) {
+    description = "Run tests against a cluster that has security enabled"
+    // useCluster testClusters.javaRestTest
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+tasks.named("check").configure { dependsOn(integTest) }
+
 def _numNodes = findProperty('numNodes') as Integer ?: 1
-javaRestTest {
-    SourceSetContainer sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
-    SourceSet javaRestTestSourceSet = sourceSets.getByName("test")
-    setTestClassesDirs(javaRestTestSourceSet.getOutput().getClassesDirs())
-    println("java rest files ${javaRestTestSourceSet.getOutput().getClassesDirs().asPath}")
+integTest {
+    // SourceSetContainer sourceSets = project.getExtensions().getByType(SourceSetContainer.class);
+    // SourceSet javaRestTestSourceSet = sourceSets.getByName("test")
+    // setTestClassesDirs(javaRestTestSourceSet.getOutput().getClassesDirs())
+    // println("java rest files ${javaRestTestSourceSet.getOutput().getClassesDirs().asPath}")
+
+    // sourceSets.each {
+    //     println("source set ${it.output.classesDirs}")
+    //     println("source set ${it.output.classesDirs.asPath}")
+    // }
+
+    // testClassesDirs = sourceSets.javaRestTest.output.classesDirs
+
+    // println("java rest files ${sourceSets.javaRestTest.output.classesDirs.asPath}")
     // /Volumes/workplace/ODFE/alerting/alerting/build/classes/java/javaRestTest:
     // /Volumes/workplace/ODFE/alerting/alerting/build/classes/kotlin/javaRestTest
 
@@ -147,7 +176,15 @@ javaRestTest {
     }
 }
 
-testClusters.javaRestTest {
+import org.elasticsearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.elasticsearch.gradle.test.RestIntegTestTask
+
+Zip bundle = (Zip) project.getTasks().getByName("bundlePlugin");
+integTest.dependsOn(bundle)
+integTest.getClusters().forEach{c -> c.plugin(project.getObjects().fileProperty().value(bundle.getArchiveFile()))}
+
+
+testClusters.integTest {
     testDistribution = "OSS"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
@@ -171,6 +208,11 @@ run {
             cluster.waitForAllConditions()
         }
     }
+}
+
+// Only apply jacoco test coverage if we are running a local single node cluster
+if (!usingRemoteCluster && !usingMultiNode) {
+    apply from: '../build-tools/esplugin-coverage.gradle'
 }
 
 apply from: '../build-tools/pkgbuild.gradle'

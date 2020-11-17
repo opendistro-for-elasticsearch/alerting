@@ -42,7 +42,6 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterStateListener
-import org.elasticsearch.cluster.LocalNodeMasterListener
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -160,9 +159,9 @@ class AlertIndices(
         // Instead of using a LocalNodeMasterListener to track master changes, this service will
         // track them here to avoid conditions where master listener events run after other
         // listeners that depend on what happened in the master listener
-        val prevIsMaster = this.isMaster;
+        val prevIsMaster = this.isMaster
         if (prevIsMaster != event.localNodeMaster()) {
-            this.isMaster = event.localNodeMaster();
+            this.isMaster = event.localNodeMaster()
             if (this.isMaster) {
                 onMaster()
             } else {
