@@ -15,7 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.destination.message;
 
-import org.apache.http.client.methods.*;
+import org.apache.http.client.methods.HttpPatch;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.elasticsearch.common.Strings;
 
 import java.util.Map;

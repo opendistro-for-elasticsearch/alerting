@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
 import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Table
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
@@ -58,7 +57,6 @@ class RestGetAlertsAction : BaseRestHandler() {
         val severityLevel = request.param("severityLevel", "ALL")
         val alertState = request.param("alertState", "ALL")
         val monitorId: String? = request.param("monitorId")
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
         val table = Table(
                 sortOrder,
                 sortString,
@@ -68,7 +66,7 @@ class RestGetAlertsAction : BaseRestHandler() {
                 searchString
         )
 
-        val getAlertsRequest = GetAlertsRequest(table, severityLevel, alertState, monitorId, auth)
+        val getAlertsRequest = GetAlertsRequest(table, severityLevel, alertState, monitorId)
         return RestChannelConsumer {
             channel -> client.execute(GetAlertsAction.INSTANCE, getAlertsRequest, RestToXContentListener(channel))
         }

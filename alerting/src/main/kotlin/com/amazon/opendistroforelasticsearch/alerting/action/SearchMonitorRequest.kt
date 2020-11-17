@@ -25,20 +25,16 @@ import java.io.IOException
 class SearchMonitorRequest : ActionRequest {
 
     val searchRequest: SearchRequest
-    val authHeader: String?
 
     constructor(
-        searchRequest: SearchRequest,
-        authHeader: String?
+        searchRequest: SearchRequest
     ): super() {
         this.searchRequest = searchRequest
-        this.authHeader = authHeader
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-            searchRequest = SearchRequest(sin),
-            authHeader = sin.readOptionalString()
+        searchRequest = SearchRequest(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -48,6 +44,5 @@ class SearchMonitorRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         searchRequest.writeTo(out)
-        out.writeOptionalString(authHeader)
     }
 }

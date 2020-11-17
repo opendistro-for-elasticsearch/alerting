@@ -30,7 +30,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
@@ -40,6 +39,7 @@ import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.client.WarningFailureException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -54,7 +54,6 @@ import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
-import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.net.URLEncoder
@@ -460,12 +459,21 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return index
     }
 
-    protected fun createTestHiddenIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
-        createIndex(index, Settings.builder().put("hidden", true).build(), """
+    protected fun createTestIndex(index: String, mapping: String): String {
+        createIndex(index, Settings.EMPTY, mapping.trimIndent())
+        return index
+    }
+
+    protected fun createTestConfigIndex(index: String = "." + randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
+        try {
+            createIndex(index, Settings.builder().build(), """
           "properties" : {
              "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
           }
         """.trimIndent())
+        } catch (ex: WarningFailureException) {
+            // ignore
+        }
         return index
     }
 
@@ -626,13 +634,6 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                         .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, false).endObject()
                         .endObject().string(), ContentType.APPLICATION_JSON))
         assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
-    }
-
-    fun getHeader(): BasicHeader {
-        return when (isHttps()) {
-            true -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
-            false -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
-        }
     }
 
     fun removeEmailFromAllowList() {

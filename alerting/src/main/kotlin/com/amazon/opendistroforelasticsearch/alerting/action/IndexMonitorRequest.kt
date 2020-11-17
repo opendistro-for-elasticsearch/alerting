@@ -30,7 +30,6 @@ class IndexMonitorRequest : ActionRequest {
     val primaryTerm: Long
     val refreshPolicy: WriteRequest.RefreshPolicy
     val method: RestRequest.Method
-    val authHeader: String?
     var monitor: Monitor
 
     constructor(
@@ -39,7 +38,6 @@ class IndexMonitorRequest : ActionRequest {
         primaryTerm: Long,
         refreshPolicy: WriteRequest.RefreshPolicy,
         method: RestRequest.Method,
-        authHeader: String?,
         monitor: Monitor
     ): super() {
         this.monitorId = monitorId
@@ -47,7 +45,6 @@ class IndexMonitorRequest : ActionRequest {
         this.primaryTerm = primaryTerm
         this.refreshPolicy = refreshPolicy
         this.method = method
-        this.authHeader = authHeader
         this.monitor = monitor
     }
 
@@ -58,7 +55,6 @@ class IndexMonitorRequest : ActionRequest {
         primaryTerm = sin.readLong(),
         refreshPolicy = WriteRequest.RefreshPolicy.readFrom(sin),
         method = sin.readEnum(RestRequest.Method::class.java),
-        authHeader = sin.readOptionalString(),
         monitor = Monitor.readFrom(sin) as Monitor
     )
 
@@ -73,7 +69,6 @@ class IndexMonitorRequest : ActionRequest {
         out.writeLong(primaryTerm)
         refreshPolicy.writeTo(out)
         out.writeEnum(method)
-        out.writeOptionalString(authHeader)
         monitor.writeTo(out)
     }
 }

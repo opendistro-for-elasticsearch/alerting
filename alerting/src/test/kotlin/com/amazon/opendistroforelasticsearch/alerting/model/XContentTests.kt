@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomMonitorWithoutUser
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
@@ -127,6 +128,17 @@ class XContentTests : ESTestCase() {
         assertNull(parsedAlert.monitorUser)
     }
 
+    fun `test alert parsing with user as null`() {
+        val alertStr = "{\"id\":\"\",\"version\":-1,\"monitor_id\":\"\",\"schema_version\":0,\"monitor_version\":1,\"monitor_user\":null," +
+            "\"monitor_name\":\"ARahqfRaJG\",\"trigger_id\":\"fhe1-XQBySl0wQKDBkOG\",\"trigger_name\":\"ffELMuhlro\"," +
+            "\"state\":\"ACTIVE\",\"error_message\":null,\"alert_history\":[],\"severity\":\"1\",\"action_execution_results\"" +
+            ":[{\"action_id\":\"ghe1-XQBySl0wQKDBkOG\",\"last_execution_time\":1601917224583,\"throttled_count\":-1478015168}," +
+            "{\"action_id\":\"gxe1-XQBySl0wQKDBkOH\",\"last_execution_time\":1601917224583,\"throttled_count\":-768533744}]," +
+            "\"start_time\":1601917224599,\"last_notification_time\":null,\"end_time\":null,\"acknowledged_time\":null}"
+        val parsedAlert = Alert.parse(parser(alertStr))
+        assertNull(parsedAlert.monitorUser)
+    }
+
     fun `test action execution result parsing`() {
         val actionExecutionResult = randomActionExecutionResult()
 
@@ -163,10 +175,11 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test monitor parsing without user`() {
-        val prevVersionMonitorStr = "{\"type\":\"monitor\",\"schema_version\":0,\"name\":\"bkHIMJSbfj\",\"enabled\":true,\"enabled_time" +
-                "\":1600052622174,\"schedule\":{\"period\":{\"interval\":5,\"unit\":\"MINUTES\"}},\"inputs\":[{\"search\":{\"indices\"" +
-                ":[],\"query\":{\"query\":{\"match_all\":{\"boost\":1.0}}}}}],\"triggers\":[],\"last_update_time\":1600052622174}"
-        val parsedMonitor = Monitor.parse(parser(prevVersionMonitorStr))
+        val monitor = randomMonitorWithoutUser()
+
+        val monitorString = monitor.toJsonString()
+        val parsedMonitor = Monitor.parse(parser(monitorString))
+        assertEquals("Round tripping Monitor doesn't work", monitor, parsedMonitor)
         assertNull(parsedMonitor.user)
     }
 
