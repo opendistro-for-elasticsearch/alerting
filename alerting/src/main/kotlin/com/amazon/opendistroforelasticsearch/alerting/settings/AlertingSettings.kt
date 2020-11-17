@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 class AlertingSettings {
 
     companion object {
+
         const val MONITOR_MAX_INPUTS = 1
         const val MONITOR_MAX_TRIGGERS = 10
 
@@ -91,7 +92,7 @@ class AlertingSettings {
 
         val ALERT_HISTORY_INDEX_MAX_AGE = Setting.positiveTimeSetting(
                 "opendistro.alerting.alert_history_max_age",
-                TimeValue.timeValueHours(24),
+                TimeValue(30, TimeUnit.DAYS),
                 Setting.Property.NodeScope, Setting.Property.Dynamic
         )
 
@@ -104,7 +105,7 @@ class AlertingSettings {
 
         val ALERT_HISTORY_RETENTION_PERIOD = Setting.positiveTimeSetting(
                 "opendistro.alerting.alert_history_retention_period",
-                TimeValue(30, TimeUnit.DAYS),
+                TimeValue(60, TimeUnit.DAYS),
                 Setting.Property.NodeScope, Setting.Property.Dynamic
         )
 
@@ -117,6 +118,11 @@ class AlertingSettings {
         val MAX_ACTION_THROTTLE_VALUE = Setting.positiveTimeSetting(
                 "opendistro.alerting.action_throttle_max_value",
                 TimeValue.timeValueHours(24),
+                Setting.Property.NodeScope, Setting.Property.Dynamic)
+
+        val FILTER_BY_BACKEND_ROLES = Setting.boolSetting(
+                "opendistro.alerting.filter_by_backend_roles",
+                false,
                 Setting.Property.NodeScope, Setting.Property.Dynamic)
     }
 }

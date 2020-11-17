@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.alerting.model.destination
 
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -59,6 +61,20 @@ data class CustomWebhook(
                 .field(USERNAME_FIELD, username)
                 .field(PASSWORD_FIELD, password)
                 .endObject()
+    }
+
+    @Throws(IOException::class)
+    fun writeTo(out: StreamOutput) {
+        out.writeString(url)
+        out.writeOptionalString(scheme)
+        out.writeString(host)
+        out.writeOptionalInt(port)
+        out.writeOptionalString(path)
+        out.writeOptionalString(method)
+        out.writeMap(queryParams)
+        out.writeMap(headerParams)
+        out.writeOptionalString(username)
+        out.writeOptionalString(password)
     }
 
     companion object {
@@ -109,6 +125,30 @@ data class CustomWebhook(
                 }
             }
             return CustomWebhook(url, scheme, host, port, path, method, queryParams, headerParams, username, password)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, String> {
+            return map as Map<String, String>
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): CustomWebhook? {
+            return if (sin.readBoolean()) {
+                CustomWebhook(
+                    sin.readString(), // url
+                    sin.readOptionalString(), // scheme
+                    sin.readString(), // host
+                    sin.readOptionalInt(), // port
+                    sin.readOptionalString(), // path
+                    sin.readOptionalString(), // method
+                    suppressWarning(sin.readMap()), // queryParams)
+                    suppressWarning(sin.readMap()), // headerParams)
+                    sin.readOptionalString(), // username
+                    sin.readOptionalString() // password
+                )
+            } else null
         }
     }
 }

@@ -15,42 +15,50 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationRequest
 import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
-import org.elasticsearch.action.delete.DeleteRequest
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.action.RestStatusToXContentListener
+import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
+
+private val log: Logger = LogManager.getLogger(RestDeleteDestinationAction::class.java)
 
 /**
  * This class consists of the REST handler to delete destination.
  */
-class RestDeleteDestinationAction(controller: RestController) : BaseRestHandler() {
-
-    init {
-        controller.registerHandler(RestRequest.Method.DELETE, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}", this)
-    }
+class RestDeleteDestinationAction : BaseRestHandler() {
 
     override fun getName(): String {
         return "delete_destination_action"
     }
 
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(RestRequest.Method.DELETE, "${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}")
+        )
+    }
+
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${AlertingPlugin.DESTINATION_BASE_URI}/{destinationID}")
+
         val destinationId = request.param("destinationID")
+        log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/$destinationId")
+
         val refreshPolicy = WriteRequest.RefreshPolicy.parse(request.param(REFRESH, WriteRequest.RefreshPolicy.IMMEDIATE.value))
+        val deleteDestinationRequest = DeleteDestinationRequest(destinationId, refreshPolicy)
 
         return RestChannelConsumer { channel ->
-                val deleteDestinationRequest =
-                        DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, destinationId)
-                                .setRefreshPolicy(refreshPolicy)
-                client.delete(deleteDestinationRequest, RestStatusToXContentListener(channel))
+            client.execute(DeleteDestinationAction.INSTANCE, deleteDestinationRequest, RestToXContentListener(channel))
         }
     }
 }

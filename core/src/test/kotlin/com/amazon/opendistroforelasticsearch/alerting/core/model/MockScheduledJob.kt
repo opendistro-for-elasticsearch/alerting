@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.core.model
 
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
+import java.io.IOException
 import java.time.Instant
 
 class MockScheduledJob(
@@ -34,6 +36,11 @@ class MockScheduledJob(
     }
 
     override fun toXContent(builder: XContentBuilder?, params: ToXContent.Params?): XContentBuilder {
+        TODO("not implemented")
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
         TODO("not implemented")
     }
 }

@@ -1,0 +1,44 @@
+name: Upload Notification Jar to Maven
+
+on:
+  push:
+    tags: 
+      - v*
+jobs:
+  upload-notification-jar:
+    runs-on: [ubuntu-16.04]
+    name: Upload Notification Jar to Maven
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+        
+      - name: Configure AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: '14'
+
+      - name: Upload Notification Jar to Maven
+        env:
+          passphrase: ${{ secrets.PASSPHRASE }}
+        run: |
+          cd ..
+          export JAVA14_HOME=$JAVA_HOME
+          aws s3 cp s3://opendistro-docs/github-actions/pgp-public-key .
+          aws s3 cp s3://opendistro-docs/github-actions/pgp-private-key .
+          
+          gpg --import pgp-public-key
+          gpg --allow-secret-key-import --import pgp-private-key
+
+          mkdir /home/runner/.gradle
+          aws s3 cp s3://opendistro-docs/github-actions/gradle.properties /home/runner/.gradle/
+          
+          cd alerting/notification
+          
+          ../gradlew publishShadowPublicationToSonatype-stagingRepository -Dcompiler.java=14 -Dbuild.snapshot=false -Djavax.net.ssl.trustStore=$JAVA_HOME/lib/security/cacerts

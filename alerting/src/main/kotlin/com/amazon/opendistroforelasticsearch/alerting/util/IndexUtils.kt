@@ -22,7 +22,7 @@ import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterState
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser
@@ -92,16 +92,16 @@ class IndexUtils {
 
         @JvmStatic
         fun getIndexNameWithAlias(clusterState: ClusterState, alias: String): String {
-            return clusterState.metaData.indices.first { it -> it.value.aliases.containsKey(alias) }.key
+            return clusterState.metadata.indices.first { it.value.aliases.containsKey(alias) }.key
         }
 
         @JvmStatic
-        fun shouldUpdateIndex(index: IndexMetaData, mapping: String): Boolean {
+        fun shouldUpdateIndex(index: IndexMetadata, mapping: String): Boolean {
             var oldVersion = NO_SCHEMA_VERSION
             val newVersion = getSchemaVersion(mapping)
 
-            val indexMapping = index.mapping().sourceAsMap()
-            if (indexMapping.containsKey(_META) && indexMapping[_META] is HashMap<*, *>) {
+            val indexMapping = index.mapping()?.sourceAsMap()
+            if (indexMapping != null && indexMapping.containsKey(_META) && indexMapping[_META] is HashMap<*, *>) {
                 val metaData = indexMapping[_META] as HashMap<*, *>
                 if (metaData.containsKey(SCHEMA_VERSION)) {
                     oldVersion = metaData[SCHEMA_VERSION] as Int
@@ -119,9 +119,9 @@ class IndexUtils {
             client: IndicesAdminClient,
             actionListener: ActionListener<AcknowledgedResponse>
         ) {
-            if (clusterState.metaData.indices.containsKey(index)) {
-                if (shouldUpdateIndex(clusterState.metaData.indices[index], mapping)) {
-                    var putMappingRequest: PutMappingRequest = PutMappingRequest(index).type(type).source(mapping, XContentType.JSON)
+            if (clusterState.metadata.indices.containsKey(index)) {
+                if (shouldUpdateIndex(clusterState.metadata.indices[index], mapping)) {
+                    val putMappingRequest: PutMappingRequest = PutMappingRequest(index).type(type).source(mapping, XContentType.JSON)
                     client.putMapping(putMappingRequest, actionListener)
                 } else {
                     actionListener.onResponse(AcknowledgedResponse(true))

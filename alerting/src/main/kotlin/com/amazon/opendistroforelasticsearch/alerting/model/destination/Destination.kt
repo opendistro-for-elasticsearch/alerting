@@ -19,18 +19,24 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.Notification
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.EmailMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.time.Instant
 import java.util.Locale
@@ -42,20 +48,28 @@ data class Destination(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
+    val seqNo: Int = NO_SEQ_NO,
+    val primaryTerm: Int = NO_PRIMARY_TERM,
     val type: DestinationType,
     val name: String,
+    val user: User?,
     val lastUpdateTime: Instant,
     val chime: Chime?,
     val slack: Slack?,
-    val customWebhook: CustomWebhook?
+    val customWebhook: CustomWebhook?,
+    val email: Email?
 ) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean("with_type", false)) builder.startObject(DESTINATION)
-        builder.field(TYPE_FIELD, type.value)
+        builder.field(ID_FIELD, id)
+                .field(TYPE_FIELD, type.value)
                 .field(NAME_FIELD, name)
+                .optionalUserField(USER_FIELD, user)
                 .field(SCHEMA_VERSION, schemaVersion)
+                .field(SEQ_NO_FIELD, seqNo)
+                .field(PRIMARY_TERM_FIELD, primaryTerm)
                 .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
                 .field(type.value, constructResponseForDestinationType(type))
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
@@ -66,17 +80,47 @@ data class Destination(
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
     }
 
+    @Throws(IOException::class)
+    fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        out.writeLong(version)
+        out.writeInt(schemaVersion)
+        out.writeInt(seqNo)
+        out.writeInt(primaryTerm)
+        out.writeEnum(type)
+        out.writeString(name)
+        out.writeBoolean(user != null)
+        user?.writeTo(out)
+        out.writeInstant(lastUpdateTime)
+        out.writeBoolean(chime != null)
+        chime?.writeTo(out)
+        out.writeBoolean(slack != null)
+        slack?.writeTo(out)
+        out.writeBoolean(customWebhook != null)
+        customWebhook?.writeTo(out)
+        out.writeBoolean(email != null)
+        email?.writeTo(out)
+    }
+
     companion object {
         const val DESTINATION = "destination"
+        const val ID_FIELD = "id"
         const val TYPE_FIELD = "type"
         const val NAME_FIELD = "name"
+        const val USER_FIELD = "user"
         const val NO_ID = ""
         const val NO_VERSION = 1L
+        const val NO_SEQ_NO = 0
+        const val NO_PRIMARY_TERM = 0
         const val SCHEMA_VERSION = "schema_version"
+        const val SEQ_NO_FIELD = "seq_no"
+        const val PRIMARY_TERM_FIELD = "primary_term"
         const val LAST_UPDATE_TIME_FIELD = "last_update_time"
         const val CHIME = "chime"
         const val SLACK = "slack"
         const val CUSTOMWEBHOOK = "custom_webhook"
+        const val EMAIL = "email"
+
         // This constant is used for test actions created part of integ tests
         const val TEST_ACTION = "test"
 
@@ -85,22 +129,32 @@ data class Destination(
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Destination {
+        fun parse(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            version: Long = NO_VERSION,
+            seqNo: Int = NO_SEQ_NO,
+            primaryTerm: Int = NO_PRIMARY_TERM
+        ): Destination {
+
             lateinit var name: String
+            var user: User? = null
             lateinit var type: String
             var slack: Slack? = null
             var chime: Chime? = null
             var customWebhook: CustomWebhook? = null
+            var email: Email? = null
             var lastUpdateTime: Instant? = null
             var schemaVersion = NO_SCHEMA_VERSION
 
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 
                 when (fieldName) {
                     NAME_FIELD -> name = xcp.text()
+                    USER_FIELD -> user = User.parse(xcp)
                     TYPE_FIELD -> {
                         type = xcp.text()
                         val allowedTypes = DestinationType.values().map { it.value }
@@ -118,6 +172,9 @@ data class Destination(
                     CUSTOMWEBHOOK -> {
                         customWebhook = CustomWebhook.parse(xcp)
                     }
+                    EMAIL -> {
+                        email = Email.parse(xcp)
+                    }
                     TEST_ACTION -> {
                         // This condition is for integ tests to avoid parsing
                     }
@@ -132,18 +189,57 @@ data class Destination(
             return Destination(id,
                     version,
                     schemaVersion,
+                    seqNo,
+                    primaryTerm,
                     DestinationType.valueOf(type.toUpperCase(Locale.ROOT)),
                     requireNotNull(name) { "Destination name is null" },
+                    user,
                     lastUpdateTime ?: Instant.now(),
                     chime,
                     slack,
-                    customWebhook)
+                    customWebhook,
+                    email)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Destination {
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val destination = parse(xcp, id, version)
+            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            return destination
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun readFrom(sin: StreamInput): Destination {
+            return Destination(
+                id = sin.readString(),
+                version = sin.readLong(),
+                schemaVersion = sin.readInt(),
+                seqNo = sin.readInt(),
+                primaryTerm = sin.readInt(),
+                type = sin.readEnum(DestinationType::class.java),
+                name = sin.readString(),
+                user = if (sin.readBoolean()) {
+                    User(sin)
+                } else null,
+                lastUpdateTime = sin.readInstant(),
+                chime = Chime.readFrom(sin),
+                slack = Slack.readFrom(sin),
+                customWebhook = CustomWebhook.readFrom(sin),
+                email = Email.readFrom(sin)
+            )
         }
     }
 
     @Throws(IOException::class)
-    fun publish(compiledSubject: String?, compiledMessage: String): String {
+    fun publish(compiledSubject: String?, compiledMessage: String, destinationCtx: DestinationContext): String {
         val destinationMessage: BaseMessage
+        val responseContent: String
+        val responseStatusCode: Int
         when (type) {
             DestinationType.CHIME -> {
                 val messageContent = chime?.constructMessageContent(compiledSubject, compiledMessage)
@@ -171,13 +267,30 @@ data class Destination(
                         .withHeaderParams(customWebhook?.headerParams)
                         .withMessage(compiledMessage).build()
             }
+            DestinationType.EMAIL -> {
+                val emailAccount = destinationCtx.emailAccount
+                destinationMessage = EmailMessage.Builder(name)
+                        .withHost(emailAccount?.host)
+                        .withPort(emailAccount?.port)
+                        .withMethod(emailAccount?.method?.value)
+                        .withUserName(emailAccount?.username)
+                        .withPassword(emailAccount?.password)
+                        .withFrom(emailAccount?.email)
+                        .withRecipients(destinationCtx.recipients)
+                        .withSubject(compiledSubject)
+                        .withMessage(compiledMessage).build()
+            }
             DestinationType.TEST_ACTION -> {
                 return "test action"
             }
         }
-        val response = Notification.publish(destinationMessage) as DestinationHttpResponse
-        logger.info("Message published for action name: $name, messageid: ${response.responseContent}, statuscode: ${response.statusCode}")
-        return response.responseContent
+
+        val response = Notification.publish(destinationMessage) as DestinationResponse
+        responseContent = response.responseContent
+        responseStatusCode = response.statusCode
+
+        logger.info("Message published for action name: $name, messageid: $responseContent, statuscode: $responseStatusCode")
+        return responseContent
     }
 
     fun constructResponseForDestinationType(type: DestinationType): Any {
@@ -186,6 +299,7 @@ data class Destination(
             DestinationType.CHIME -> content = chime?.convertToMap()?.get(type.value)
             DestinationType.SLACK -> content = slack?.convertToMap()?.get(type.value)
             DestinationType.CUSTOM_WEBHOOK -> content = customWebhook?.convertToMap()?.get(type.value)
+            DestinationType.EMAIL -> content = email?.convertToMap()?.get(type.value)
             DestinationType.TEST_ACTION -> content = "dummy"
         }
         if (content == null) {

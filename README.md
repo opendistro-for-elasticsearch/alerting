@@ -1,3 +1,10 @@
+[![Test Workflow](https://github.com/opendistro-for-elasticsearch/alerting/workflows/Test%20Workflow/badge.svg)](https://github.com/opendistro-for-elasticsearch/alerting/actions)
+[![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/alerting/branch/master/graph/badge.svg)](https://codecov.io/gh/opendistro-for-elasticsearch/alerting)
+[![Documentation](https://img.shields.io/badge/api-reference-blue.svg)](https://opendistro.github.io/for-elasticsearch-docs/docs/alerting/api/)
+[![Chat](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/alerting/)
+![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
+
+
 # Open Distro for Elasticsearch Alerting
 
 The Open Distro for Elasticsearch Alerting enables you to monitor your data and send alert notifications automatically to your stakeholders. With an intuitive Kibana interface and a powerful API, it is easy to set up, manage, and monitor your alerts. Craft highly specific alert conditions using Elasticsearch's full query language and scripting capabilities.
@@ -14,19 +21,20 @@ When trigger conditions are met, you can publish messages to the following desti
 * [Slack](https://slack.com/)
 * Custom webhook
 * [Amazon Chime](https://aws.amazon.com/chime/)
+* Email
 
 Messages can be static strings, or you can use the [Mustache](https://mustache.github.io/mustache.5.html) templates to include contextual information.
 
 
 ## Documentation
 
-Please see our [documentation](https://opendistro.github.io/for-elasticsearch-docs/).
+Please see our [documentation](https://opendistro.github.io/for-elasticsearch-docs/docs/alerting/).
 
 ## Setup
 
 1. Check out this package from version control.
 1. Launch Intellij IDEA, choose **Import Project**, and select the `settings.gradle` file in the root of this package. 
-1. To build from the command line, set `JAVA_HOME` to point to a JDK >= 12 before running `./gradlew`.
+1. To build from the command line, set `JAVA_HOME` to point to a JDK >= 14 before running `./gradlew`.
 
 
 ## Build
@@ -42,19 +50,32 @@ However, to build the `alerting` plugin subproject, we also use the Elastic buil
 
 1. `./gradlew build` builds and tests all subprojects.
 2. `./gradlew :alerting:run` launches a single node cluster with the alerting plugin installed.
-3. `./gradlew :alerting:integTest` launches a single node cluster with the alerting plugin installed and runs all integ tests.
-4. ` ./gradlew :alerting:integTest --tests="**.test execute foo"` runs a single integ test class or method
+3. `./gradlew :alerting:run -PnumNodes=3` launches a multi-node cluster with the alerting plugin installed.
+4. `./gradlew :alerting:integTest` launches a single node cluster with the alerting plugin installed and runs all integ tests.
+5. `./gradlew :alerting:integTest -PnumNodes=3` launches a multi-node cluster with the alerting plugin installed and runs all integ tests.
+6. `./gradlew :alerting:integTest -Dtests.class="*MonitorRunnerIT"` runs a single integ test class
+7. `./gradlew :alerting:integTest -Dtests.method="test execute monitor with dryrun"` runs a single integ test method
  (remember to quote the test method name if it contains spaces).
 
-When launching a cluster using one of the above commands, logs are placed in `alerting/build/cluster/run node0/elasticsearch-<version>/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
+When launching a cluster using one of the above commands, logs are placed in `alerting/build/testclusters/integTest-0/logs/`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 
+
+#### Run integration tests with Security enabled 
+
+1. Setup a local odfe cluster with security plugin.
+`./gradlew build`
+`./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin`
+`./gradlew :alerting:integTestRunner -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin --tests "com.amazon.opendistroforelasticsearch.alerting.MonitorRunnerIT.test execute monitor returns search result"`
 
 ### Debugging
 
-Sometimes it's useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.  To debug code running in an actual server, run:
+Sometimes it's useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.
+You must start your debugger to listen for remote JVM before running the below commands.
+
+To debug code running in an actual server, run:
 
 ```
-./gradlew :alerting:integTest --debug-jvm # to start a cluster and run integ tests
+./gradlew :alerting:integTest -Des.debug # to start a cluster and run integ tests
 ```
 
 OR
@@ -63,7 +84,9 @@ OR
 ./gradlew :alerting:run --debug-jvm # to just start a cluster that can be debugged
 ```
 
-The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:8000` before starting the Elasticsearch server.
+The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:5005` before starting the Elasticsearch server.
+The IDE needs to listen for the remote JVM. If using Intellij you must set your debug configuration to "Listen to remote JVM" and make sure "Auto Restart" is checked.
+You must start your debugger to listen for remote JVM before running the commands.
 
 To debug code running in an integ test (which exercises the server from a separate JVM), run:
 
@@ -76,32 +99,14 @@ The test runner JVM will start suspended and wait for a debugger to attach to `l
 
 ### Advanced: Launching multi-node clusters locally
 
-Sometimes you need to launch a cluster with more than one Elasticsearch server process. The `startMultiNodeXX` tasks can help. There are two ways to use them:
+Sometimes you need to launch a cluster with more than one Elasticsearch server process.
 
+You can do this by running `./gradlew :alerting:run -PnumNodes=<numberOfNodesYouWant>`
 
-#### Option 1: Start and stop all nodes together
+You can also run the integration tests against a multi-node cluster by running `./gradlew :alerting:integTest -PnumNodes=<numberOfNodesYouWant>`
 
-If you need a multi-node cluster where all nodes are started together, use: 
-
-```
-./gradlew -PnumNodes=2 startMultiNode ... # to launch 2 nodes
-
-```
-
-Remember to manually kill the nodes when you're done.
-
-
-#### Option 2: Nodes join and leave the cluster independently
-
-If you need a multi-node cluster where you'd like to be able to add and kill each node independently, use:
-
-```
-./gradlew startMultiNode1 
-./gradlew startMultiNode2
-... and so on
-```
-
-Just like option 1, remember to manually kill the nodes when you're done.
+You can also debug a multi-node cluster, by using a combination of above multi-node and debug steps.
+But, you must set up debugger configurations to listen on each port starting from `5005` and increasing by 1 for each node.  
 
 
 ## Code of Conduct

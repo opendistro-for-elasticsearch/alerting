@@ -14,15 +14,23 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.context
-import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
@@ -32,7 +40,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestRequest.Method.POST
@@ -42,35 +50,60 @@ import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 
+private val log = LogManager.getLogger(RestSearchMonitorAction::class.java)
+
 /**
  * Rest handlers to search for monitors.
  */
-class RestSearchMonitorAction(controller: RestController) : BaseRestHandler() {
+class RestSearchMonitorAction(
+    val settings: Settings,
+    clusterService: ClusterService,
+    private val restClient: RestClient
+) : BaseRestHandler() {
+
+    @Volatile private var filterBy = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+
     init {
-        // Search for monitors
-        controller.registerHandler(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_search", this)
-        controller.registerHandler(GET, "${AlertingPlugin.MONITOR_BASE_URI}/_search", this)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterBy = it }
     }
 
     override fun getName(): String {
         return "search_monitor_action"
     }
 
+    override fun routes(): List<Route> {
+        return listOf(
+                // Search for monitors
+                Route(POST, "${AlertingPlugin.MONITOR_BASE_URI}/_search"),
+                Route(GET, "${AlertingPlugin.MONITOR_BASE_URI}/_search")
+        )
+    }
+
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${AlertingPlugin.MONITOR_BASE_URI}/_search")
+
+        val index = request.param("index", SCHEDULED_JOBS_INDEX)
+        val auth = request.header(ConfigConstants.AUTHORIZATION)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser())
         searchSourceBuilder.fetchSource(context(request))
         // We add a term query ontop of the customer query to ensure that only scheduled jobs of monitor type are
         // searched.
-        searchSourceBuilder.query(QueryBuilders.boolQuery().must(searchSourceBuilder.query())
-                .filter(QueryBuilders.termQuery(Monitor.MONITOR_TYPE + ".type", Monitor.MONITOR_TYPE)))
+        val queryBuilder = QueryBuilders.boolQuery().must(searchSourceBuilder.query())
+                .filter(QueryBuilders.termQuery(Monitor.MONITOR_TYPE + ".type", Monitor.MONITOR_TYPE))
+
+        searchSourceBuilder.query(queryBuilder)
                 .seqNoAndPrimaryTerm(true)
                 .version(true)
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
-                .indices(SCHEDULED_JOBS_INDEX)
-        return RestChannelConsumer { channel -> client.search(searchRequest, searchMonitorResponse(channel)) }
+                .indices(index)
+
+        val searchMonitorRequest = SearchMonitorRequest(searchRequest, auth)
+        return RestChannelConsumer { channel ->
+            client.execute(SearchMonitorAction.INSTANCE, searchMonitorRequest, searchMonitorResponse(channel))
+        }
     }
 
     private fun searchMonitorResponse(channel: RestChannel): RestResponseListener<SearchResponse> {

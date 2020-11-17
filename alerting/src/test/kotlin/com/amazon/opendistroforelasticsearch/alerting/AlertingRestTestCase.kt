@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin.Companion.EMAIL_ACCOUNT_BASE_URI
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin.Companion.EMAIL_GROUP_BASE_URI
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
@@ -23,7 +25,12 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
@@ -48,15 +55,23 @@ import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.rest.ESRestTestCase
+import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.net.URLEncoder
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 import java.util.Locale
+import javax.management.MBeanServerInvocationHandler
+import javax.management.ObjectName
+import javax.management.remote.JMXConnectorFactory
+import javax.management.remote.JMXServiceURL
 
-abstract class AlertingRestTestCase : ESRestTestCase() {
+abstract class AlertingRestTestCase : ODFERestTestCase() {
 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
+    val numberOfNodes = System.getProperty("cluster.number_of_nodes", "1")!!.toInt()
 
     override fun xContentRegistry(): NamedXContentRegistry {
         return NamedXContentRegistry(mutableListOf(Monitor.XCONTENT_REGISTRY,
@@ -87,7 +102,11 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
         assertEquals("Unable to create a new destination", RestStatus.CREATED, response.restStatus())
         val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
                 response.entity.content).map()
-        return destination.copy(id = destinationJson["_id"] as String, version = (destinationJson["_version"] as Int).toLong())
+        return destination.copy(
+                id = destinationJson["_id"] as String,
+                version = (destinationJson["_version"] as Int).toLong(),
+                primaryTerm = destinationJson["_primary_term"] as Int
+        )
     }
 
     protected fun updateDestination(destination: Destination, refresh: Boolean = true): Destination {
@@ -102,14 +121,189 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
         return destination.copy(id = destinationJson["_id"] as String, version = (destinationJson["_version"] as Int).toLong())
     }
 
+    protected fun getEmailAccount(
+        emailAccountID: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): EmailAccount {
+        val response = client().makeRequest("GET", "$EMAIL_ACCOUNT_BASE_URI/$emailAccountID", null, header)
+        assertEquals("Unable to get email account $emailAccountID", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+
+        lateinit var id: String
+        var version: Long = 0
+        lateinit var emailAccount: EmailAccount
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                "_id" -> id = parser.text()
+                "_version" -> version = parser.longValue()
+                "email_account" -> emailAccount = EmailAccount.parse(parser)
+            }
+        }
+
+        return emailAccount.copy(id = id, version = version)
+    }
+
+    protected fun createEmailAccount(emailAccount: EmailAccount = getTestEmailAccount(), refresh: Boolean = true): EmailAccount {
+        val response = client().makeRequest(
+                "POST",
+                "$EMAIL_ACCOUNT_BASE_URI?refresh=$refresh",
+                emptyMap(),
+                emailAccount.toHttpEntity())
+        assertEquals("Unable to create a new email account", RestStatus.CREATED, response.restStatus())
+        val emailAccountJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailAccount.copy(id = emailAccountJson["_id"] as String)
+    }
+
+    protected fun createRandomEmailAccount(refresh: Boolean = true): EmailAccount {
+        val emailAccount = randomEmailAccount()
+        val emailAccountID = createEmailAccount(emailAccount, refresh).id
+        return getEmailAccount(emailAccountID = emailAccountID)
+    }
+
+    protected fun updateEmailAccount(emailAccount: EmailAccount, refresh: Boolean = true): EmailAccount {
+        val response = client().makeRequest(
+                "PUT",
+                "$EMAIL_ACCOUNT_BASE_URI/${emailAccount.id}?refresh=$refresh",
+                emptyMap(),
+                emailAccount.toHttpEntity())
+        assertEquals("Unable to update email account", RestStatus.OK, response.restStatus())
+        val emailAccountJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailAccount.copy(id = emailAccountJson["_id"] as String)
+    }
+
+    protected fun getEmailGroup(
+        emailGroupID: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): EmailGroup {
+        val response = client().makeRequest("GET", "$EMAIL_GROUP_BASE_URI/$emailGroupID", null, header)
+        assertEquals("Unable to get email group $emailGroupID", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+
+        lateinit var id: String
+        var version: Long = 0
+        lateinit var emailGroup: EmailGroup
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                "_id" -> id = parser.text()
+                "_version" -> version = parser.longValue()
+                "email_group" -> emailGroup = EmailGroup.parse(parser)
+            }
+        }
+
+        return emailGroup.copy(id = id, version = version)
+    }
+
+    protected fun createEmailGroup(emailGroup: EmailGroup = getTestEmailGroup(), refresh: Boolean = true): EmailGroup {
+        val response = client().makeRequest(
+                "POST",
+                "$EMAIL_GROUP_BASE_URI?refresh=$refresh",
+                emptyMap(),
+                emailGroup.toHttpEntity())
+        assertEquals("Unable to create a new email group", RestStatus.CREATED, response.restStatus())
+        val emailGroupJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailGroup.copy(id = emailGroupJson["_id"] as String)
+    }
+
+    protected fun createRandomEmailGroup(refresh: Boolean = true): EmailGroup {
+        val emailGroup = randomEmailGroup()
+        val emailGroupID = createEmailGroup(emailGroup, refresh).id
+        return getEmailGroup(emailGroupID = emailGroupID)
+    }
+
+    protected fun updateEmailGroup(emailGroup: EmailGroup, refresh: Boolean = true): EmailGroup {
+        val response = client().makeRequest(
+                "PUT",
+                "$EMAIL_GROUP_BASE_URI/${emailGroup.id}?refresh=$refresh",
+                emptyMap(),
+                emailGroup.toHttpEntity())
+        assertEquals("Unable to update email group", RestStatus.OK, response.restStatus())
+        val emailGroupJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return emailGroup.copy(id = emailGroupJson["_id"] as String)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getDestination(destination: Destination): Map<String, Any> {
+        val response = client().makeRequest(
+                "GET",
+                "$DESTINATION_BASE_URI/${destination.id}")
+        assertEquals("Unable to update a destination", RestStatus.OK, response.restStatus())
+        val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return (destinationJson["destinations"] as List<Any?>)[0] as Map<String, Any>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getDestinations(dataMap: Map<String, Any> = emptyMap()): List<Map<String, Any>> {
+        return getDestinations(client(), dataMap)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getDestinations(
+        client: RestClient,
+        dataMap: Map<String, Any> = emptyMap(),
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): List<Map<String, Any>> {
+
+        var baseEndpoint = "$DESTINATION_BASE_URI?"
+        for (entry in dataMap.entries) {
+            baseEndpoint += "${entry.key}=${entry.value}&"
+        }
+
+        val response = client.makeRequest(
+                "GET",
+                baseEndpoint,
+                null,
+                header
+        )
+        assertEquals("Unable to update a destination", RestStatus.OK, response.restStatus())
+        val destinationJson = jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        return destinationJson["destinations"] as List<Map<String, Any>>
+    }
+
     private fun getTestDestination(): Destination {
         return Destination(
                 type = DestinationType.TEST_ACTION,
                 name = "test",
+                user = randomUser(),
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
-                customWebhook = null)
+                customWebhook = null,
+                email = null)
+    }
+
+    private fun getTestEmailAccount(): EmailAccount {
+        return EmailAccount(
+                name = "test",
+                email = "test@email.com",
+                host = "smtp.com",
+                port = 25,
+                method = EmailAccount.MethodType.NONE,
+                username = null,
+                password = null
+        )
+    }
+
+    private fun getTestEmailGroup(): EmailGroup {
+        return EmailGroup(
+                name = "test",
+                emails = listOf()
+        )
     }
 
     protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {
@@ -125,7 +319,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
     }
 
     protected fun createAlert(alert: Alert): Alert {
-        val response = client().makeRequest("POST", "/${AlertIndices.ALERT_INDEX}/_doc?refresh=true&routing=${alert.monitorId}",
+        val response = adminClient().makeRequest("POST", "/${AlertIndices.ALERT_INDEX}/_doc?refresh=true&routing=${alert.monitorId}",
                 emptyMap(), alert.toHttpEntity())
         assertEquals("Unable to create a new alert", RestStatus.CREATED, response.restStatus())
 
@@ -183,7 +377,7 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                   "query" : { "term" : { "${Alert.MONITOR_ID_FIELD}" : "${monitor.id}" } }
                 }
                 """.trimIndent()
-        val httpResponse = client().makeRequest("GET", "/$indices/_search", searchParams, StringEntity(request, APPLICATION_JSON))
+        val httpResponse = adminClient().makeRequest("GET", "/$indices/_search", searchParams, StringEntity(request, APPLICATION_JSON))
         assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
 
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, httpResponse.entity.content))
@@ -204,6 +398,28 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                 emptyMap(), request)
         assertEquals("Acknowledge call failed.", RestStatus.OK, response.restStatus())
         return response
+    }
+
+    protected fun getAlerts(
+        client: RestClient,
+        dataMap: Map<String, Any> = emptyMap(),
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): Response {
+        var baseEndpoint = "$ALERTING_BASE_URI/alerts?"
+        for (entry in dataMap.entries) {
+            baseEndpoint += "${entry.key}=${entry.value}&"
+        }
+
+        val response = client.makeRequest("GET", baseEndpoint, null, header)
+        assertEquals("Get call failed.", RestStatus.OK, response.restStatus())
+        return response
+    }
+
+    protected fun getAlerts(
+        dataMap: Map<String, Any> = emptyMap(),
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): Response {
+        return getAlerts(client(), dataMap, header)
     }
 
     protected fun refreshIndex(index: String): Response {
@@ -244,11 +460,21 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
         return index
     }
 
+    protected fun createTestHiddenIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
+        createIndex(index, Settings.builder().put("hidden", true).build(), """
+          "properties" : {
+             "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
+          }
+        """.trimIndent())
+        return index
+    }
+
     fun putAlertMappings(mapping: String? = null) {
         val mappingHack = if (mapping != null) mapping else AlertIndices.alertMapping().trimStart('{').trimEnd('}')
         val encodedHistoryIndex = URLEncoder.encode(AlertIndices.HISTORY_INDEX_PATTERN, Charsets.UTF_8.toString())
-        createIndex(AlertIndices.ALERT_INDEX, Settings.EMPTY, mappingHack)
-        createIndex(encodedHistoryIndex, Settings.EMPTY, mappingHack, "\"${AlertIndices.HISTORY_WRITE_INDEX}\" : {}")
+        val settings = Settings.builder().put("index.hidden", true).build()
+        createIndex(AlertIndices.ALERT_INDEX, settings, mappingHack)
+        createIndex(encodedHistoryIndex, settings, mappingHack, "\"${AlertIndices.HISTORY_WRITE_INDEX}\" : {}")
     }
 
     fun scheduledJobMappings(): String {
@@ -257,7 +483,8 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
 
     fun createAlertingConfigIndex(mapping: String? = null) {
         val mappingHack = if (mapping != null) mapping else scheduledJobMappings().trimStart('{').trimEnd('}')
-        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, Settings.EMPTY, mappingHack)
+        val settings = Settings.builder().put("index.hidden", true).build()
+        createIndex(ScheduledJob.SCHEDULED_JOBS_INDEX, settings, mappingHack)
     }
 
     protected fun Response.restStatus(): RestStatus {
@@ -273,12 +500,30 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
         return shuffleXContent(toXContent(builder)).string()
     }
 
-    private fun Destination.toHttpEntity(): HttpEntity {
+    protected fun Destination.toHttpEntity(): HttpEntity {
         return StringEntity(toJsonString(), APPLICATION_JSON)
     }
 
     private fun Destination.toJsonString(): String {
         val builder = XContentFactory.jsonBuilder()
+        return shuffleXContent(toXContent(builder)).string()
+    }
+
+    protected fun EmailAccount.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), APPLICATION_JSON)
+    }
+
+    private fun EmailAccount.toJsonString(): String {
+        val builder = jsonBuilder()
+        return shuffleXContent(toXContent(builder)).string()
+    }
+
+    protected fun EmailGroup.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), APPLICATION_JSON)
+    }
+
+    private fun EmailGroup.toJsonString(): String {
+        val builder = jsonBuilder()
         return shuffleXContent(toXContent(builder)).string()
     }
 
@@ -363,5 +608,77 @@ abstract class AlertingRestTestCase : ESRestTestCase() {
                         .startObject().field(ScheduledJobSettings.SWEEPER_ENABLED.key, false).endObject()
                         .endObject().string(), ContentType.APPLICATION_JSON))
         return updateResponse
+    }
+
+    fun enableFilterBy() {
+        val updateResponse = client().makeRequest("PUT", "_cluster/settings",
+                emptyMap(),
+                StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
+                        .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, true).endObject()
+                        .endObject().string(), ContentType.APPLICATION_JSON))
+        assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
+    }
+
+    fun disableFilterBy() {
+        val updateResponse = client().makeRequest("PUT", "_cluster/settings",
+                emptyMap(),
+                StringEntity(XContentFactory.jsonBuilder().startObject().field("persistent")
+                        .startObject().field(AlertingSettings.FILTER_BY_BACKEND_ROLES.key, false).endObject()
+                        .endObject().string(), ContentType.APPLICATION_JSON))
+        assertEquals(updateResponse.statusLine.toString(), 200, updateResponse.statusLine.statusCode)
+    }
+
+    fun getHeader(): BasicHeader {
+        return when (isHttps()) {
+            true -> BasicHeader("dummy", ESRestTestCase.randomAlphaOfLength(20))
+            false -> BasicHeader(ConfigConstants.AUTHORIZATION, ESRestTestCase.randomAlphaOfLength(20))
+        }
+    }
+
+    fun removeEmailFromAllowList() {
+        val allowedDestinations = DestinationType.values().toList()
+            .filter { destinationType -> destinationType != DestinationType.EMAIL }
+            .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+        client().updateSettings(DestinationSettings.ALLOW_LIST.key, allowedDestinations)
+    }
+
+    companion object {
+        internal interface IProxy {
+            val version: String?
+            var sessionId: String?
+
+            fun getExecutionData(reset: Boolean): ByteArray?
+            fun dump(reset: Boolean)
+            fun reset()
+        }
+
+        /*
+        * We need to be able to dump the jacoco coverage before the cluster shuts down.
+        * The new internal testing framework removed some gradle tasks we were listening to,
+        * to choose a good time to do it. This will dump the executionData to file after each test.
+        * TODO: This is also currently just overwriting integTest.exec with the updated execData without
+        *   resetting after writing each time. This can be improved to either write an exec file per test
+        *   or by letting jacoco append to the file.
+        * */
+        @JvmStatic
+        @AfterClass
+        fun dumpCoverage() {
+            // jacoco.dir set in esplugin-coverage.gradle, if it doesn't exist we don't
+            // want to collect coverage, so we can return early
+            val jacocoBuildPath = System.getProperty("jacoco.dir") ?: return
+            val serverUrl = "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
+            JMXConnectorFactory.connect(JMXServiceURL(serverUrl)).use { connector ->
+                val proxy = MBeanServerInvocationHandler.newProxyInstance(
+                        connector.mBeanServerConnection,
+                        ObjectName("org.jacoco:type=Runtime"),
+                        IProxy::class.java,
+                        false
+                )
+                proxy.getExecutionData(false)?.let {
+                    val path = Path.of("$jacocoBuildPath/integTest.exec")
+                    Files.write(path, it)
+                }
+            }
+        }
     }
 }

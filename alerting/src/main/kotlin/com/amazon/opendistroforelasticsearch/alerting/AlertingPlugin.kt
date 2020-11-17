@@ -14,6 +14,24 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.action.AcknowledgeAlertAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.action.DeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetAlertsAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetDestinationsAction
+import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.JobSweeper
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
@@ -27,17 +45,48 @@ import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestAcknowledgeAlertAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetAlertsAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetDestinationsAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestGetMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestIndexMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportAcknowledgeAlertAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexDestinationAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportDeleteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportExecuteMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetAlertsAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportIndexMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailAccountAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchEmailGroupAction
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportSearchMonitorAction
+import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
+import com.amazon.opendistroforelasticsearch.alerting.transport.TransportGetDestinationsAction
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
 import org.elasticsearch.cluster.service.ClusterService
@@ -56,7 +105,9 @@ import org.elasticsearch.painless.spi.Whitelist
 import org.elasticsearch.painless.spi.WhitelistLoader
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
+import org.elasticsearch.plugins.ReloadablePlugin
 import org.elasticsearch.plugins.ScriptPlugin
+import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptContext
@@ -71,7 +122,7 @@ import java.util.function.Supplier
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY] to the
  * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
-internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, Plugin() {
+internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, ReloadablePlugin, Plugin() {
     override fun getContextWhitelists(): Map<ScriptContext<*>, List<Whitelist>> {
         val whitelist = WhitelistLoader.loadFromResourceFiles(javaClass, "com.amazon.opendistroforelasticsearch.alerting.txt")
         return mapOf(TriggerScript.CONTEXT to listOf(whitelist))
@@ -82,6 +133,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         @JvmField val UI_METADATA_EXCLUDE = arrayOf("monitor.${Monitor.UI_METADATA_FIELD}")
         @JvmField val MONITOR_BASE_URI = "/_opendistro/_alerting/monitors"
         @JvmField val DESTINATION_BASE_URI = "/_opendistro/_alerting/destinations"
+        @JvmField val EMAIL_ACCOUNT_BASE_URI = "$DESTINATION_BASE_URI/email_accounts"
+        @JvmField val EMAIL_GROUP_BASE_URI = "$DESTINATION_BASE_URI/email_groups"
         @JvmField val ALERTING_JOB_TYPES = listOf("monitor")
     }
 
@@ -92,6 +145,7 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
     lateinit var threadPool: ThreadPool
     lateinit var alertIndices: AlertIndices
     lateinit var clusterService: ClusterService
+    lateinit var restClient: RestClient
 
     override fun getRestHandlers(
         settings: Settings,
@@ -102,19 +156,50 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         indexNameExpressionResolver: IndexNameExpressionResolver?,
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
-        return listOf(RestGetMonitorAction(restController),
-                RestDeleteMonitorAction(restController),
-                RestIndexMonitorAction(settings, restController, scheduledJobIndices, clusterService),
-                RestSearchMonitorAction(restController),
-                RestExecuteMonitorAction(settings, restController, runner),
-                RestAcknowledgeAlertAction(restController),
-                RestScheduledJobStatsHandler(restController, "_alerting"),
-                RestIndexDestinationAction(settings, restController, scheduledJobIndices, clusterService),
-                RestDeleteDestinationAction(restController))
+        return listOf(RestGetMonitorAction(),
+                RestDeleteMonitorAction(),
+                RestIndexMonitorAction(),
+                RestSearchMonitorAction(settings, clusterService, restClient),
+                RestExecuteMonitorAction(),
+                RestAcknowledgeAlertAction(),
+                RestScheduledJobStatsHandler("_alerting"),
+                RestIndexDestinationAction(),
+                RestDeleteDestinationAction(),
+                RestIndexEmailAccountAction(),
+                RestDeleteEmailAccountAction(),
+                RestSearchEmailAccountAction(),
+                RestGetEmailAccountAction(),
+                RestIndexEmailGroupAction(),
+                RestDeleteEmailGroupAction(),
+                RestSearchEmailGroupAction(),
+                RestGetEmailGroupAction(),
+                RestGetDestinationsAction(),
+                RestGetAlertsAction()
+        )
     }
 
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
-        return listOf(ActionPlugin.ActionHandler(ScheduledJobsStatsAction.INSTANCE, ScheduledJobsStatsTransportAction::class.java))
+        return listOf(
+            ActionPlugin.ActionHandler(ScheduledJobsStatsAction.INSTANCE, ScheduledJobsStatsTransportAction::class.java),
+            ActionPlugin.ActionHandler(IndexDestinationAction.INSTANCE, TransportIndexDestinationAction::class.java),
+            ActionPlugin.ActionHandler(IndexMonitorAction.INSTANCE, TransportIndexMonitorAction::class.java),
+            ActionPlugin.ActionHandler(GetMonitorAction.INSTANCE, TransportGetMonitorAction::class.java),
+            ActionPlugin.ActionHandler(ExecuteMonitorAction.INSTANCE, TransportExecuteMonitorAction::class.java),
+            ActionPlugin.ActionHandler(SearchMonitorAction.INSTANCE, TransportSearchMonitorAction::class.java),
+            ActionPlugin.ActionHandler(DeleteMonitorAction.INSTANCE, TransportDeleteMonitorAction::class.java),
+            ActionPlugin.ActionHandler(DeleteDestinationAction.INSTANCE, TransportDeleteDestinationAction::class.java),
+            ActionPlugin.ActionHandler(AcknowledgeAlertAction.INSTANCE, TransportAcknowledgeAlertAction::class.java),
+            ActionPlugin.ActionHandler(IndexEmailAccountAction.INSTANCE, TransportIndexEmailAccountAction::class.java),
+            ActionPlugin.ActionHandler(GetEmailAccountAction.INSTANCE, TransportGetEmailAccountAction::class.java),
+            ActionPlugin.ActionHandler(SearchEmailAccountAction.INSTANCE, TransportSearchEmailAccountAction::class.java),
+            ActionPlugin.ActionHandler(DeleteEmailAccountAction.INSTANCE, TransportDeleteEmailAccountAction::class.java),
+            ActionPlugin.ActionHandler(IndexEmailGroupAction.INSTANCE, TransportIndexEmailGroupAction::class.java),
+            ActionPlugin.ActionHandler(GetEmailGroupAction.INSTANCE, TransportGetEmailGroupAction::class.java),
+            ActionPlugin.ActionHandler(SearchEmailGroupAction.INSTANCE, TransportSearchEmailGroupAction::class.java),
+            ActionPlugin.ActionHandler(DeleteEmailGroupAction.INSTANCE, TransportDeleteEmailGroupAction::class.java),
+            ActionPlugin.ActionHandler(GetDestinationsAction.INSTANCE, TransportGetDestinationsAction::class.java),
+            ActionPlugin.ActionHandler(GetAlertsAction.INSTANCE, TransportGetAlertsAction::class.java)
+        )
     }
 
     override fun getNamedXContent(): List<NamedXContentRegistry.Entry> {
@@ -130,7 +215,9 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         xContentRegistry: NamedXContentRegistry,
         environment: Environment,
         nodeEnvironment: NodeEnvironment,
-        namedWriteableRegistry: NamedWriteableRegistry
+        namedWriteableRegistry: NamedWriteableRegistry,
+        indexNameExpressionResolver: IndexNameExpressionResolver,
+        repositoriesServiceSupplier: Supplier<RepositoriesService>
     ): Collection<Any> {
         // Need to figure out how to use the Elasticsearch DI classes rather than handwiring things here.
         val settings = environment.settings()
@@ -141,7 +228,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
         sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler, ALERTING_JOB_TYPES)
         this.threadPool = threadPool
         this.clusterService = clusterService
-        return listOf(sweeper, scheduler, runner, scheduledJobIndices)
+        this.restClient = SecureRestClientBuilder(settings, environment.configFile()).build()
+        return listOf(sweeper, scheduler, runner, scheduledJobIndices, restClient)
     }
 
     override fun getSettings(): List<Setting<*>> {
@@ -166,7 +254,12 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
                 AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD,
                 AlertingSettings.ALERTING_MAX_MONITORS,
                 AlertingSettings.REQUEST_TIMEOUT,
-                AlertingSettings.MAX_ACTION_THROTTLE_VALUE)
+                AlertingSettings.MAX_ACTION_THROTTLE_VALUE,
+                AlertingSettings.FILTER_BY_BACKEND_ROLES,
+                DestinationSettings.EMAIL_USERNAME,
+                DestinationSettings.EMAIL_PASSWORD,
+                DestinationSettings.ALLOW_LIST
+            )
     }
 
     override fun onIndexModule(indexModule: IndexModule) {
@@ -177,5 +270,9 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, P
 
     override fun getContexts(): List<ScriptContext<*>> {
         return listOf(TriggerScript.CONTEXT)
+    }
+
+    override fun reload(settings: Settings) {
+        runner.reloadDestinationSettings(settings)
     }
 }

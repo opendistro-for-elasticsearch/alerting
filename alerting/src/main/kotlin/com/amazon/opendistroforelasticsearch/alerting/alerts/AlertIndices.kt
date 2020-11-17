@@ -158,7 +158,7 @@ class AlertIndices(
     override fun clusterChanged(event: ClusterChangedEvent) {
         // if the indexes have been deleted they need to be reinitalized
         alertIndexInitialized = event.state().routingTable().hasIndex(ALERT_INDEX)
-        historyIndexInitialized = event.state().metaData().hasAlias(HISTORY_WRITE_INDEX)
+        historyIndexInitialized = event.state().metadata().hasAlias(HISTORY_WRITE_INDEX)
     }
 
     private fun rescheduleRollover() {
@@ -205,7 +205,10 @@ class AlertIndices(
         }
         if (existsResponse.isExists) return true
 
-        val request = CreateIndexRequest(index).mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
+        val request = CreateIndexRequest(index)
+                .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
+                .settings(Settings.builder().put("index.hidden", true).build())
+
         if (alias != null) request.alias(Alias(alias))
         return try {
             val createIndexResponse: CreateIndexResponse = client.admin().indices().suspendUntil { create(request, it) }
@@ -259,9 +262,10 @@ class AlertIndices(
         val request = RolloverRequest(HISTORY_WRITE_INDEX, null)
         request.createIndexRequest.index(HISTORY_INDEX_PATTERN)
                 .mapping(MAPPING_TYPE, alertMapping(), XContentType.JSON)
+                .settings(Settings.builder().put("index.hidden", true).build())
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
-        val response = client.admin().indices().rolloversIndex(request).actionGet(requestTimeout)
+        val response = client.admin().indices().rolloverIndex(request).actionGet(requestTimeout)
         if (!response.isRolledOver) {
             logger.info("$HISTORY_WRITE_INDEX not rolled over. Conditions were: ${response.conditionStatus}")
         } else {
@@ -276,13 +280,13 @@ class AlertIndices(
         val clusterStateRequest = ClusterStateRequest()
                 .clear()
                 .indices(HISTORY_ALL)
-                .metaData(true)
+                .metadata(true)
                 .local(true)
                 .indicesOptions(IndicesOptions.strictExpand())
 
         val clusterStateResponse = client.admin().cluster().state(clusterStateRequest).actionGet()
 
-        for (entry in clusterStateResponse.state.metaData.indices) {
+        for (entry in clusterStateResponse.state.metadata.indices) {
             val indexMetaData = entry.value
             val creationTime = indexMetaData.creationDate
 

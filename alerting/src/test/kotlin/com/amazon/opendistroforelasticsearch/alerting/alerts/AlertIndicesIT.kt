@@ -44,18 +44,18 @@ class AlertIndicesIT : AlertingRestTestCase() {
         assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
 
         putAlertMappings(AlertIndices.alertMapping().trimStart('{').trimEnd('}')
-                .replace("\"schema_version\": 1", "\"schema_version\": 0"))
+                .replace("\"schema_version\": 2", "\"schema_version\": 0"))
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
         verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 0)
         verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 0)
-        client().makeRequest("DELETE", "*")
+        wipeAllODFEIndices()
         executeMonitor(createRandomMonitor())
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
-        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 1)
-        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 1)
-        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 1)
+        verifyIndexSchemaVersion(ScheduledJob.SCHEDULED_JOBS_INDEX, 3)
+        verifyIndexSchemaVersion(AlertIndices.ALERT_INDEX, 2)
+        verifyIndexSchemaVersion(AlertIndices.HISTORY_WRITE_INDEX, 2)
     }
 
     fun `test alert index gets recreated automatically if deleted`() {
@@ -65,8 +65,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         executeMonitor(trueMonitor)
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
-
-        client().makeRequest("DELETE", "*")
+        wipeAllODFEIndices()
         assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
         assertIndexDoesNotExist(AlertIndices.HISTORY_WRITE_INDEX)
 
@@ -174,12 +173,12 @@ class AlertIndicesIT : AlertingRestTestCase() {
     }
 
     private fun assertIndexExists(index: String) {
-        val response = client().makeRequest("HEAD", "$index")
+        val response = client().makeRequest("HEAD", index)
         assertEquals("Index $index does not exist.", RestStatus.OK, response.restStatus())
     }
 
     private fun assertIndexDoesNotExist(index: String) {
-        val response = client().makeRequest("HEAD", "$index")
+        val response = client().makeRequest("HEAD", index)
         assertEquals("Index $index does not exist.", RestStatus.NOT_FOUND, response.restStatus())
     }
 
@@ -207,9 +206,9 @@ class AlertIndicesIT : AlertingRestTestCase() {
                 }
             }
         """.trimIndent()
-        val response = client().makeRequest("POST", "${AlertIndices.HISTORY_ALL}/_search", emptyMap(),
+        val response = adminClient().makeRequest("POST", "${AlertIndices.HISTORY_ALL}/_search", emptyMap(),
                 StringEntity(request, APPLICATION_JSON))
         assertEquals("Request to get history failed", RestStatus.OK, response.restStatus())
-        return SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content)).hits.totalHits.value
+        return SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content)).hits.totalHits!!.value
     }
 }

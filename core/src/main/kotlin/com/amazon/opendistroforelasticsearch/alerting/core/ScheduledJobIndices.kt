@@ -22,6 +22,7 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.client.AdminClient
 import org.elasticsearch.cluster.health.ClusterIndexHealth
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 
 /**
@@ -48,6 +49,7 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
         if (!scheduledJobIndexExists()) {
             var indexRequest = CreateIndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
                     .mapping(ScheduledJob.SCHEDULED_JOB_TYPE, scheduledJobMappings(), XContentType.JSON)
+                    .settings(Settings.builder().put("index.hidden", true).build())
             client.indices().create(indexRequest, actionListener)
         }
     }
@@ -65,7 +67,7 @@ class ScheduledJobIndices(private val client: AdminClient, private val clusterSe
 
         if (scheduledJobIndexExists()) {
             val indexRoutingTable = clusterService.state().routingTable.index(ScheduledJob.SCHEDULED_JOBS_INDEX)
-            val indexMetaData = clusterService.state().metaData().index(ScheduledJob.SCHEDULED_JOBS_INDEX)
+            val indexMetaData = clusterService.state().metadata().index(ScheduledJob.SCHEDULED_JOBS_INDEX)
 
             indexHealth = ClusterIndexHealth(indexMetaData, indexRoutingTable)
         }

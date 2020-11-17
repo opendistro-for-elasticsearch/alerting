@@ -14,29 +14,30 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
+import com.amazon.opendistroforelasticsearch.alerting.ALERTING_BASE_URI
 import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert
-import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.randomAlert
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
-import com.amazon.opendistroforelasticsearch.alerting.ALERTING_BASE_URI
-import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
 import com.amazon.opendistroforelasticsearch.alerting.core.model.CronSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
+import com.amazon.opendistroforelasticsearch.alerting.model.Alert
+import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
+import com.amazon.opendistroforelasticsearch.alerting.randomAlert
+import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
+import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
 import org.apache.http.message.BasicHeader
 import org.apache.http.nio.entity.NStringEntity
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentType
@@ -49,7 +50,6 @@ import org.elasticsearch.test.junit.annotations.TestLogging
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import org.elasticsearch.common.unit.TimeValue
 
 @TestLogging("level:DEBUG", reason = "Debug for tests.")
 @Suppress("UNCHECKED_CAST")
@@ -142,6 +142,49 @@ class MonitorRestApiIT : AlertingRestTestCase() {
             assertEquals("Unexpected status", RestStatus.METHOD_NOT_ALLOWED, e.response.restStatus())
         }
     }
+
+    fun `test creating a monitor with illegal index name`() {
+        try {
+            val si = SearchInput(listOf("_#*IllegalIndexCharacters"), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
+            val monitor = randomMonitor()
+            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.copy(inputs = listOf(si)).toHttpEntity())
+        } catch (e: ResponseException) {
+            // When an index with invalid name is mentioned, instead of returning invalid_index_name_exception security plugin throws security_exception.
+            // Refer: https://github.com/opendistro-for-elasticsearch/security/issues/718
+            // Without security plugin we get BAD_REQUEST correctly. With security_plugin we get INTERNAL_SERVER_ERROR, till above issue is fixed.
+            assertTrue("Unexpected status",
+                    listOf<RestStatus>(RestStatus.BAD_REQUEST, RestStatus.FORBIDDEN).contains(e.response.restStatus()))
+        }
+    }
+
+    /* Enable this test case after issue issue#269 is fixed.
+    fun `test creating a monitor with a disallowed destination type fails`() {
+        try {
+            // Create a Chime Destination
+            val chime = Chime("http://abc.com")
+            val destination = Destination(
+                type = DestinationType.CHIME,
+                name = "test",
+                user = randomUser(),
+                lastUpdateTime = Instant.now(),
+                chime = chime,
+                slack = null,
+                customWebhook = null,
+                email = null)
+            val chimeDestination = createDestination(destination = destination)
+
+            // Remove Chime from the allow_list
+            val allowedDestinations = DestinationType.values().toList()
+                .filter { destinationType -> destinationType != DestinationType.CHIME }
+                .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+            client().updateSettings(DestinationSettings.ALLOW_LIST.key, allowedDestinations)
+
+            createMonitor(randomMonitor(triggers = listOf(randomTrigger(destinationId = chimeDestination.id))))
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
+    }*/
 
     @Throws(Exception::class)
     fun `test updating search for a monitor`() {
@@ -378,6 +421,121 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertFalse("Alert in state ${activeAlert.state} found in failed list", failedResponseList.contains(activeAlert.id))
     }
 
+    fun `test get all alerts in all states`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+        val monitor = createRandomMonitor(refresh = true)
+        val acknowledgedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACKNOWLEDGED))
+        val completedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.COMPLETED))
+        val errorAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ERROR))
+        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE))
+        val invalidAlert = randomAlert(monitor).copy(id = "foobar")
+
+        val inputMap = HashMap<String, Any>()
+        inputMap["missing"] = "_last"
+
+        val responseMap = getAlerts(inputMap).asMap()
+        val alerts = responseMap["alerts"].toString()
+
+        assertEquals(4, responseMap["totalAlerts"])
+        assertTrue("Acknowledged alert with id, ${acknowledgedAlert.id}, not found in alert list", alerts.contains(acknowledgedAlert.id))
+        assertTrue("Completed alert with id, ${completedAlert.id}, not found in alert list", alerts.contains(completedAlert.id))
+        assertTrue("Error alert with id, ${errorAlert.id}, not found in alert list", alerts.contains(errorAlert.id))
+        assertTrue("Active alert with id, ${activeAlert.id}, not found in alert list", alerts.contains(activeAlert.id))
+        assertFalse("Invalid alert with id, ${invalidAlert.id}, found in alert list", alerts.contains(invalidAlert.id))
+    }
+
+    fun `test get all alerts with active states`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+        val monitor = createRandomMonitor(refresh = true)
+        val acknowledgedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACKNOWLEDGED))
+        val completedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.COMPLETED))
+        val errorAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ERROR))
+        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE))
+        val invalidAlert = randomAlert(monitor).copy(id = "foobar")
+
+        val inputMap = HashMap<String, Any>()
+        inputMap["alertState"] = Alert.State.ACTIVE.name
+
+        val responseMap = getAlerts(inputMap).asMap()
+        val alerts = responseMap["alerts"].toString()
+
+        assertEquals(1, responseMap["totalAlerts"])
+        assertFalse("Acknowledged alert with id, ${acknowledgedAlert.id}, found in alert list", alerts.contains(acknowledgedAlert.id))
+        assertFalse("Completed alert with id, ${completedAlert.id}, found in alert list", alerts.contains(completedAlert.id))
+        assertFalse("Error alert with id, ${errorAlert.id}, found in alert list", alerts.contains(errorAlert.id))
+        assertTrue("Active alert with id, ${activeAlert.id}, not found in alert list", alerts.contains(activeAlert.id))
+        assertFalse("Invalid alert with id, ${invalidAlert.id}, found in alert list", alerts.contains(invalidAlert.id))
+    }
+
+    fun `test get all alerts with severity 1`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+        val monitor = createRandomMonitor(refresh = true)
+        val acknowledgedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACKNOWLEDGED, severity = "1"))
+        val completedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.COMPLETED, severity = "3"))
+        val errorAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ERROR, severity = "1"))
+        val activeAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACTIVE, severity = "2"))
+
+        val inputMap = HashMap<String, Any>()
+        inputMap["severityLevel"] = "1"
+
+        val responseMap = getAlerts(inputMap).asMap()
+        val alerts = responseMap["alerts"].toString()
+
+        assertEquals(2, responseMap["totalAlerts"])
+        assertTrue("Acknowledged sev 1 alert with id, ${acknowledgedAlert.id}, not found in alert list",
+                alerts.contains(acknowledgedAlert.id))
+        assertFalse("Completed sev 3 alert with id, ${completedAlert.id}, found in alert list", alerts.contains(completedAlert.id))
+        assertTrue("Error sev 1 alert with id, ${errorAlert.id}, not found in alert list", alerts.contains(errorAlert.id))
+        assertFalse("Active sev 2 alert with id, ${activeAlert.id}, found in alert list", alerts.contains(activeAlert.id))
+    }
+
+    fun `test get all alerts for a specific monitor by id`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+        val monitor = createRandomMonitor(refresh = true)
+        val monitor2 = createRandomMonitor(refresh = true)
+        val acknowledgedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACKNOWLEDGED))
+        val completedAlert = createAlert(randomAlert(monitor2).copy(state = Alert.State.COMPLETED))
+        val errorAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ERROR))
+        val activeAlert = createAlert(randomAlert(monitor2).copy(state = Alert.State.ACTIVE))
+
+        val inputMap = HashMap<String, Any>()
+        inputMap["monitorId"] = monitor.id
+
+        val responseMap = getAlerts(inputMap).asMap()
+        val alerts = responseMap["alerts"].toString()
+
+        assertEquals(2, responseMap["totalAlerts"])
+        assertTrue("Acknowledged alert for chosen monitor with id, ${acknowledgedAlert.id}, not found in alert list",
+                alerts.contains(acknowledgedAlert.id))
+        assertFalse("Completed sev 3 alert with id, ${completedAlert.id}, found in alert list", alerts.contains(completedAlert.id))
+        assertTrue("Error alert for chosen monitor with id, ${errorAlert.id}, not found in alert list", alerts.contains(errorAlert.id))
+        assertFalse("Active alert sev 2 with id, ${activeAlert.id}, found in alert list", alerts.contains(activeAlert.id))
+    }
+
+    fun `test get alerts by searching monitor name`() {
+        putAlertMappings() // Required as we do not have a create alert API.
+
+        val monitor = createRandomMonitor(refresh = true)
+        val monitor2 = createRandomMonitor(refresh = true)
+        val acknowledgedAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ACKNOWLEDGED))
+        val completedAlert = createAlert(randomAlert(monitor2).copy(state = Alert.State.COMPLETED))
+        val errorAlert = createAlert(randomAlert(monitor).copy(state = Alert.State.ERROR))
+        val activeAlert = createAlert(randomAlert(monitor2).copy(state = Alert.State.ACTIVE))
+
+        val inputMap = HashMap<String, Any>()
+        inputMap["searchString"] = monitor.name
+
+        val responseMap = getAlerts(inputMap).asMap()
+        val alerts = responseMap["alerts"].toString()
+
+        assertEquals(2, responseMap["totalAlerts"])
+        assertTrue("Acknowledged alert for matching monitor with id, ${acknowledgedAlert.id}, not found in alert list",
+                alerts.contains(acknowledgedAlert.id))
+        assertFalse("Completed sev 3 alert with id, ${completedAlert.id}, found in alert list", alerts.contains(completedAlert.id))
+        assertTrue("Error alert for matching monitor with id, ${errorAlert.id}, not found in alert list", alerts.contains(errorAlert.id))
+        assertFalse("Active alert sev 2 with id, ${activeAlert.id}, found in alert list", alerts.contains(activeAlert.id))
+    }
+
     fun `test mappings after monitor creation`() {
         createRandomMonitor(refresh = true)
 
@@ -483,9 +641,9 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", false, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index exists but there are no scheduled jobs.", false, responseMap["scheduled_job_index_exists"])
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     fun `test monitor stats no jobs`() {
@@ -497,9 +655,9 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", true, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index exists but there are no scheduled jobs.", false, responseMap["scheduled_job_index_exists"])
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     fun `test monitor stats jobs`() {
@@ -512,12 +670,12 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", true, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index does not exist", true, responseMap["scheduled_job_index_exists"])
         assertEquals("Scheduled job index is not yellow", "yellow", responseMap["scheduled_job_index_status"])
-        assertEquals("Node is not on schedule", 1, responseMap["nodes_on_schedule"])
+        assertEquals("Nodes are not on schedule", numberOfNodes, responseMap["nodes_on_schedule"])
 
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     @Throws(Exception::class)
@@ -543,12 +701,12 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         assertEquals("Scheduled job is not enabled", true, responseMap[ScheduledJobSettings.SWEEPER_ENABLED.key])
         assertEquals("Scheduled job index does not exist", true, responseMap["scheduled_job_index_exists"])
         assertEquals("Scheduled job index is not yellow", "yellow", responseMap["scheduled_job_index_status"])
-        assertEquals("Node is not on schedule", 1, responseMap["nodes_on_schedule"])
+        assertEquals("Nodes not on schedule", numberOfNodes, responseMap["nodes_on_schedule"])
 
         val _nodes = responseMap["_nodes"] as Map<String, Int>
-        assertEquals("Incorrect number of nodes", 1, _nodes["total"])
+        assertEquals("Incorrect number of nodes", numberOfNodes, _nodes["total"])
         assertEquals("Failed nodes found during monitor stats call", 0, _nodes["failed"])
-        assertEquals("More than one successful node", 1, _nodes["successful"])
+        assertEquals("More than $numberOfNodes successful node", numberOfNodes, _nodes["successful"])
     }
 
     fun `test monitor stats incorrect metric`() {

@@ -14,17 +14,25 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting
 
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert
-import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.Alert
+import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
+import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
@@ -32,6 +40,7 @@ import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.UUIDs
+import org.elasticsearch.common.settings.SecureString
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -53,6 +62,7 @@ import java.time.temporal.ChronoUnit
 
 fun randomMonitor(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
+    user: User = randomUser(),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
@@ -63,7 +73,23 @@ fun randomMonitor(
 ): Monitor {
     return Monitor(name = name, enabled = enabled, inputs = inputs, schedule = schedule, triggers = triggers,
             enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
-            uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+            user = user, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+}
+
+// Monitor of older versions without security.
+fun randomMonitorWithoutUser(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
+    schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
+    enabled: Boolean = ESTestCase.randomBoolean(),
+    triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
+    enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
+    lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+    withMetadata: Boolean = false
+): Monitor {
+    return Monitor(name = name, enabled = enabled, inputs = inputs, schedule = schedule, triggers = triggers,
+            enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
+            user = null, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
 fun randomTrigger(
@@ -82,6 +108,33 @@ fun randomTrigger(
         actions = if (actions.isEmpty()) (0..randomInt(10)).map { randomAction(destinationId = destinationId) } else actions)
 }
 
+fun randomEmailAccount(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    email: String = ESRestTestCase.randomAlphaOfLength(5) + "@email.com",
+    host: String = ESRestTestCase.randomAlphaOfLength(10),
+    port: Int = randomIntBetween(1, 100),
+    method: EmailAccount.MethodType = randomEmailAccountMethod(),
+    username: SecureString? = null,
+    password: SecureString? = null
+): EmailAccount {
+    return EmailAccount(
+        name = name,
+        email = email,
+        host = host,
+        port = port,
+        method = method,
+        username = username,
+        password = password
+    )
+}
+
+fun randomEmailGroup(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    emails: List<EmailEntry> = (1..randomInt(10)).map { EmailEntry(email = ESRestTestCase.randomAlphaOfLength(5) + "@email.com") }
+): EmailGroup {
+    return EmailGroup(name = name, emails = emails)
+}
+
 fun randomScript(source: String = "return " + ESRestTestCase.randomBoolean().toString()): Script = Script(source)
 
 val ALERTING_BASE_URI = "/_opendistro/_alerting/monitors"
@@ -98,7 +151,7 @@ fun randomTemplateScript(
 fun randomAction(
     name: String = ESRestTestCase.randomUnicodeOfLength(10),
     template: Script = randomTemplateScript("Hello World"),
-    destinationId: String = "123",
+    destinationId: String = "",
     throttleEnabled: Boolean = false,
     throttle: Throttle = randomThrottle()
 ) = Action(name, destinationId, template, template, throttleEnabled, throttle)
@@ -115,13 +168,72 @@ fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
             actionExecutionResults = actionExecutionResults)
 }
 
+fun randomEmailAccountMethod(): EmailAccount.MethodType {
+    val methodValues = EmailAccount.MethodType.values().map { it.value }
+    val randomValue = methodValues[randomInt(methodValues.size - 1)]
+    return EmailAccount.MethodType.getByValue(randomValue)!!
+}
+
 fun randomActionExecutionResult(
     actionId: String = UUIDs.base64UUID(),
     lastExecutionTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     throttledCount: Int = randomInt()
 ) = ActionExecutionResult(actionId, lastExecutionTime, throttledCount)
 
+fun randomMonitorRunResult(): MonitorRunResult {
+    val triggerResults = mutableMapOf<String, TriggerRunResult>()
+    val triggerRunResult = randomTriggerRunResult()
+    triggerResults.plus(Pair("test", triggerRunResult))
+
+    return MonitorRunResult(
+        "test-monitor",
+        Instant.now(),
+        Instant.now(),
+        null,
+        randomInputRunResults(),
+        triggerResults
+    )
+}
+
+fun randomInputRunResults(): InputRunResults {
+    return InputRunResults(listOf(), null)
+}
+
+fun randomTriggerRunResult(): TriggerRunResult {
+    val map = mutableMapOf<String, ActionRunResult>()
+    map.plus(Pair("key1", randomActionRunResult()))
+    map.plus(Pair("key2", randomActionRunResult()))
+    return TriggerRunResult("trigger-name", true, null, map)
+}
+
+fun randomActionRunResult(): ActionRunResult {
+    val map = mutableMapOf<String, String>()
+    map.plus(Pair("key1", "val1"))
+    map.plus(Pair("key2", "val2"))
+    return ActionRunResult("1234", "test-action", map,
+            false, Instant.now(), null)
+}
+
 fun Monitor.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder).string()
+}
+
+fun randomUser(): User {
+    return User(ESRestTestCase.randomAlphaOfLength(10), listOf(ESRestTestCase.randomAlphaOfLength(10),
+            ESRestTestCase.randomAlphaOfLength(10)), listOf(ESRestTestCase.randomAlphaOfLength(10), "all_access"), listOf("test_attr=test"))
+}
+
+fun randomUserEmpty(): User {
+    return User("", listOf(), listOf(), listOf())
+}
+
+fun EmailAccount.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder).string()
+}
+
+fun EmailGroup.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
 }

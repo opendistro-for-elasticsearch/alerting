@@ -20,8 +20,8 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Companion.SCHEDULED_JOBS_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
@@ -34,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.DELETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
+import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
@@ -43,20 +44,24 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
-import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
 import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
@@ -64,8 +69,6 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.delete.DeleteRequest
-import org.elasticsearch.action.get.GetRequest
-import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -95,7 +98,7 @@ import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 
 class MonitorRunner(
-    settings: Settings,
+    private val settings: Settings,
     private val client: Client,
     private val threadPool: ThreadPool,
     private val scriptService: ScriptService,
@@ -114,6 +117,10 @@ class MonitorRunner(
         BackoffPolicy.constantBackoff(ALERT_BACKOFF_MILLIS.get(settings), ALERT_BACKOFF_COUNT.get(settings))
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
+
+    @Volatile private var destinationSettings = loadDestinationSettings(settings)
+    @Volatile private var destinationContextFactory = DestinationContextFactory(client, xContentRegistry, destinationSettings)
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
@@ -122,6 +129,17 @@ class MonitorRunner(
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) {
+            allowList = it
+        }
+    }
+
+    /** Update destination settings when the reload API is called so that new keystore values are visible */
+    fun reloadDestinationSettings(settings: Settings) {
+        destinationSettings = loadDestinationSettings(settings)
+
+        // Update destinationContextFactory as well since destinationSettings has been updated
+        destinationContextFactory.updateDestinationSettings(destinationSettings)
     }
 
     override fun doStart() {
@@ -175,6 +193,22 @@ class MonitorRunner(
     }
 
     suspend fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
+        /*
+         * We need to handle 3 cases:
+         * 1. Monitors created by older versions and never updated. These monitors wont have User details in the
+         * monitor object. `monitor.user` will be null. Insert `all_access, AmazonES_all_access` role.
+         * 2. Monitors are created when security plugin is disabled, these will have empty User object.
+         * (`monitor.user.name`, `monitor.user.roles` are empty )
+         * 3. Monitors are created when security plugin is enabled, these will have an User object.
+         */
+        var roles = if (monitor.user == null) {
+            // fixme: discuss and remove hardcoded to settings?
+            settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
+        } else {
+            monitor.user.roles
+        }
+        logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
+
         if (periodStart == periodEnd) {
             logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
@@ -190,9 +224,9 @@ class MonitorRunner(
             logger.error("Error loading alerts for monitor: $id", e)
             return monitorResult.copy(error = e)
         }
-
-        monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
-
+        runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
+            monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
+        }
         val updatedAlerts = mutableListOf<Alert>()
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
@@ -432,8 +466,17 @@ class MonitorRunner(
             }
             if (!dryrun) {
                 withContext(Dispatchers.IO) {
-                    val destination = getDestinationInfo(action.destinationId)
-                    actionOutput[MESSAGE_ID] = destination.publish(actionOutput[SUBJECT], actionOutput[MESSAGE]!!)
+                    val destination = AlertingConfigAccessor.getDestinationInfo(client, xContentRegistry, action.destinationId)
+                    if (!destination.isAllowed(allowList)) {
+                        throw IllegalStateException("Monitor contains a Destination type that is not allowed: ${destination.type}")
+                    }
+
+                    val destinationCtx = destinationContextFactory.getDestinationContext(destination)
+                    actionOutput[MESSAGE_ID] = destination.publish(
+                        actionOutput[SUBJECT],
+                        actionOutput[MESSAGE]!!,
+                        destinationCtx
+                    )
                 }
             }
             ActionRunResult(action.id, action.name, actionOutput, false, currentTime(), null)
@@ -446,26 +489,6 @@ class MonitorRunner(
         return scriptService.compile(template, TemplateScript.CONTEXT)
                 .newInstance(template.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()
-    }
-
-    private suspend fun getDestinationInfo(destinationId: String): Destination {
-        val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId).routing(destinationId)
-        val getResponse: GetResponse = client.suspendUntil { client.get(getRequest, it) }
-        if (!getResponse.isExists || getResponse.isSourceEmpty) {
-            throw IllegalStateException("Destination document with id $destinationId not found or source is empty")
-        }
-
-        val jobSource = getResponse.sourceAsBytesRef
-        return withContext(Dispatchers.IO) {
-            val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                jobSource, XContentType.JSON)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val destination = Destination.parse(xcp)
-            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            destination
-        }
     }
 
     private fun List<AlertError>?.update(alertError: AlertError?): List<AlertError> {

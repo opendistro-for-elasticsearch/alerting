@@ -1,0 +1,108 @@
+name: Release workflow
+# This workflow is triggered on creating tags to master or a opendistro release branch
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        java: [14]
+    # Job name
+    name: Build Alerting with JDK ${{ matrix.java }}
+    # This job runs on Linux
+    runs-on: ubuntu-latest
+    steps:
+      # This step uses the checkout Github action: https://github.com/actions/checkout
+      - name: Checkout Branch
+        uses: actions/checkout@v2
+      # This step uses the setup-java Github action: https://github.com/actions/setup-java
+      - name: Set Up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+
+      # Building zip, deb and rpm files
+      - name: Build with Gradle
+        run: ./gradlew build buildDeb buildRpm --no-daemon -Dbuild.snapshot=false
+
+      # Creating artifact path as well as individual folders for rpm, zip and deb assets
+      - name: Create Artifact Path
+        run: |
+          mkdir -p alerting-artifacts
+          cp alerting/build/distributions/*.zip alerting-artifacts
+          cp alerting/build/distributions/*.zip alerting-artifacts_zip
+          cp alerting/build/distributions/*.deb alerting-artifacts
+          cp alerting/build/distributions/*.deb alerting-artifacts_deb
+          cp alerting/build/distributions/*.rpm alerting-artifacts
+          cp alerting/build/distributions/*.rpm alerting-artifacts_rpm
+          echo ::set-env name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
+
+      # AWS authentication
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
+      - name: Upload Artifacts to S3
+        run: |
+          s3_path=s3://artifacts.opendistroforelasticsearch.amazon.com/downloads
+          aws s3 cp alerting-artifacts/*.zip $s3_path/elasticsearch-plugins/opendistro-alerting/
+          aws s3 cp alerting-artifacts/*.deb $s3_path/debs/opendistro-alerting/
+          aws s3 cp alerting-artifacts/*.rpm $s3_path/rpms/opendistro-alerting/
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.DISTRIBUTION_ID }} --paths '/downloads/*'
+
+      - name: Create Github Draft Release
+        id: create_release
+        uses: actions/create-release@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ env.TAG_VERSION }}
+          draft: true
+          prerelease: false
+
+      # Upload the release with .zip as asset
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_name: alerting.zip
+          asset_path: alerting-artifacts_zip
+          asset_content_type: application/zip
+
+      # Upload the release with .rpm as asset
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_name: alerting.rpm
+          asset_path: alerting-artifacts_rpm
+          asset_content_type: application/zip
+
+      # Upload the release with .deb as asset
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_name: alerting.deb
+          asset_path: alerting-artifacts_deb
+          asset_content_type: application/zip
+
+      - name: Upload Workflow Artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: alerting-plugin
+          path: alerting-artifacts

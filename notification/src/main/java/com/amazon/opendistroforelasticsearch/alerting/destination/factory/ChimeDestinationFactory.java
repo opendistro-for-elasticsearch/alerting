@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.destination.factory;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationHttpClient;
 import com.amazon.opendistroforelasticsearch.alerting.destination.client.DestinationHttpClientPool;
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage;
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse;
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.rest.RestStatus;
@@ -37,10 +37,10 @@ public class ChimeDestinationFactory implements DestinationFactory<ChimeMessage,
     }
 
     @Override
-    public DestinationHttpResponse publish(ChimeMessage message) {
+    public DestinationResponse publish(ChimeMessage message) {
         try {
             String response = getClient(message).execute(message);
-             return new DestinationHttpResponse.Builder().withStatusCode(RestStatus.OK.getStatus()).withResponseContent(response).build();
+             return new DestinationResponse.Builder().withStatusCode(RestStatus.OK.getStatus()).withResponseContent(response).build();
         } catch (Exception ex) {
             logger.error("Exception publishing Message: " + message.toString(), ex);
             throw new IllegalStateException(ex);
