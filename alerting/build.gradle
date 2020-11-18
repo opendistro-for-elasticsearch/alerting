@@ -95,7 +95,7 @@ test {
 
 import org.elasticsearch.gradle.test.RestIntegTestTask
 task integTest(type: RestIntegTestTask) {
-    description = "Run tests against a cluster that has security enabled"
+    description = "Run integration tests against integTest cluster"
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 }

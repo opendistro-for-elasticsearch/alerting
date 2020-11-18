@@ -89,7 +89,7 @@ The Elasticsearch server JVM will launch suspended and wait for a debugger to at
 To debug code running in an integ test (which exercises the server from a separate JVM), run:
 
 ```
-./gradlew :alerting:integTest-Dtest.debug 
+./gradlew :alerting:integTest -Dtest.debug 
 ```
 
 The test runner JVM will start suspended and wait for a debugger to attach to `localhost:8000` before running the tests.
