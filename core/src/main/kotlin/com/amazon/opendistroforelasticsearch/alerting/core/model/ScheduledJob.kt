@@ -71,11 +71,11 @@ interface ScheduledJob : Writeable, ToXContentObject {
          */
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ScheduledJob {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
             val job = xcp.namedObject(ScheduledJob::class.java, xcp.currentName(), null)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return job.fromDocument(id, version)
         }
 
@@ -87,9 +87,9 @@ interface ScheduledJob : Writeable, ToXContentObject {
          */
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, type: String, id: String = NO_ID, version: Long = NO_VERSION): ScheduledJob {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
             val job = xcp.namedObject(ScheduledJob::class.java, type, null)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return job.fromDocument(id, version)
         }
     }

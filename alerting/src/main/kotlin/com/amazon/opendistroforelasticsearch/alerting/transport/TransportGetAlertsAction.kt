@@ -154,7 +154,7 @@ class TransportGetAlertsAction @Inject constructor(
                     val alerts = response.hits.map { hit ->
                         val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                                 hit.sourceRef, XContentType.JSON)
-                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
                         val alert = Alert.parse(xcp, hit.id, hit.version)
                         alert
                     }

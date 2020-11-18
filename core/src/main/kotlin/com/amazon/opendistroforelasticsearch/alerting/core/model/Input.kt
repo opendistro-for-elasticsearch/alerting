@@ -27,11 +27,11 @@ interface Input : Writeable, ToXContentObject {
 
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Input {
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
             val input = xcp.namedObject(Input::class.java, xcp.currentName(), null)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return input
         }
     }

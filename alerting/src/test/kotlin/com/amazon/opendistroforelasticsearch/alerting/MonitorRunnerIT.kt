@@ -433,7 +433,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         verifyAlert(errorAlert, monitor, ERROR)
         executeMonitor(monitor.id)
         assertEquals("Error does not match",
-                "Failed evaluating trigger:\nparam[0]; return true\n^---- HERE", errorAlert.errorMessage)
+                "Failed evaluating trigger:\nparam[0]; return true\n     ^---- HERE", errorAlert.errorMessage)
     }
 
     fun `test execute monitor limits alert error history to 10 error messages`() {

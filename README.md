@@ -63,9 +63,10 @@ When launching a cluster using one of the above commands, logs are placed in `al
 #### Run integration tests with Security enabled 
 
 1. Setup a local odfe cluster with security plugin.
-`./gradlew build`
-`./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin`
-`./gradlew :alerting:integTestRunner -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin --tests "com.amazon.opendistroforelasticsearch.alerting.MonitorRunnerIT.test execute monitor returns search result"`
+
+   - `./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin`
+
+   - `./gradlew :alerting:integTestRunner -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername=es-integrationtest -Dhttps=true -Duser=admin -Dpassword=admin --tests "com.amazon.opendistroforelasticsearch.alerting.MonitorRunnerIT.test execute monitor returns search result"`
 
 ### Debugging
 
@@ -75,7 +76,7 @@ You must start your debugger to listen for remote JVM before running the below c
 To debug code running in an actual server, run:
 
 ```
-./gradlew :alerting:integTest -Des.debug # to start a cluster and run integ tests
+./gradlew :alerting:integTest -Dcluster.debug # to start a cluster and run integ tests
 ```
 
 OR
@@ -84,18 +85,20 @@ OR
 ./gradlew :alerting:run --debug-jvm # to just start a cluster that can be debugged
 ```
 
-The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:5005` before starting the Elasticsearch server.
-The IDE needs to listen for the remote JVM. If using Intellij you must set your debug configuration to "Listen to remote JVM" and make sure "Auto Restart" is checked.
-You must start your debugger to listen for remote JVM before running the commands.
+The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:5005` before starting the Elasticsearch server. The IDE needs to listen for the remote JVM. If using Intellij you must set your debug configuration to "Listen to remote JVM" and make sure "Auto Restart" is checked. You must start your debugger to listen for remote JVM before running the commands.
 
 To debug code running in an integ test (which exercises the server from a separate JVM), run:
 
 ```
-./gradlew -Dtest.debug :alerting:integTest 
+./gradlew :alerting:integTest -Dtest.debug 
 ```
 
-The test runner JVM will start suspended and wait for a debugger to attach to `localhost:5005` before running the tests.
+The test runner JVM will start suspended and wait for a debugger to attach to `localhost:8000` before running the tests.
 
+Additionally, it is possible to attach one debugger to the cluster JVM and another debugger to the test runner. First, make sure one debugger is listening on port `5005` and the other is listening on port `8000`. Then, run:
+```
+./gradlew :alerting:integTest -Dtest.debug -Dcluster.debug
+```
 
 ### Advanced: Launching multi-node clusters locally
 

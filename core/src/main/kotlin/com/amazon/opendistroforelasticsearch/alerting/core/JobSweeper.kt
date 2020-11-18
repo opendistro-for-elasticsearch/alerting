@@ -420,8 +420,8 @@ class JobSweeper(
     }
 
     private fun isSweepableJobType(xcp: XContentParser): Boolean {
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp)
         val jobType = xcp.currentName()
         return sweepableJobTypes.contains(jobType)
     }

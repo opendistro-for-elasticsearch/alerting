@@ -72,7 +72,7 @@ class RestIndexMonitorAction : BaseRestHandler() {
 
         // Validate request by parsing JSON to Monitor
         val xcp = request.contentParser()
-        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
         val monitor = Monitor.parse(xcp, id).copy(lastUpdateTime = Instant.now())
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)

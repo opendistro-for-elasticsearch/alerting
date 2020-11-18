@@ -67,7 +67,7 @@ class RestIndexEmailGroupAction : BaseRestHandler() {
 
         // Validate request by parsing JSON to EmailGroup
         val xcp = request.contentParser()
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
         val emailGroup = EmailGroup.parse(xcp, id)
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)

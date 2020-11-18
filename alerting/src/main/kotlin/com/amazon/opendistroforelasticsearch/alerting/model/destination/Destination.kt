@@ -147,7 +147,7 @@ data class Destination(
             var lastUpdateTime: Instant? = null
             var schemaVersion = NO_SCHEMA_VERSION
 
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -204,11 +204,11 @@ data class Destination(
         @JvmStatic
         @Throws(IOException::class)
         fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Destination {
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
+            ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
             val destination = parse(xcp, id, version)
-            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.END_OBJECT, xcp.nextToken(), xcp)
             return destination
         }
 

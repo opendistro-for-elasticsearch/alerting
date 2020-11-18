@@ -74,13 +74,13 @@ class RestAcknowledgeAlertAction : BaseRestHandler() {
      */
     private fun getAlertIds(xcp: XContentParser): List<String> {
         val ids = mutableListOf<String>()
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
         while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
             val fieldName = xcp.currentName()
             xcp.nextToken()
             when (fieldName) {
                 "alerts" -> {
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp)
                     while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
                         ids.add(xcp.text())
                     }

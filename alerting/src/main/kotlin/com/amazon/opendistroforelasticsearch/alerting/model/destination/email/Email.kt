@@ -65,7 +65,7 @@ data class Email(
             lateinit var emailAccountID: String
             val recipients: MutableList<Recipient> = mutableListOf()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -73,7 +73,7 @@ data class Email(
                 when (fieldName) {
                     EMAIL_ACCOUNT_ID_FIELD -> emailAccountID = xcp.text()
                     RECIPIENTS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             recipients.add(Recipient.parse(xcp))
                         }
@@ -164,7 +164,7 @@ data class Recipient(
             var emailGroupID: String? = null
             var email: String? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

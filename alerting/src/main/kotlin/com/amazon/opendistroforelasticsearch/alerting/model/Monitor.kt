@@ -183,7 +183,7 @@ data class Monitor(
             val triggers: MutableList<Trigger> = mutableListOf()
             val inputs: MutableList<Input> = mutableListOf()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -195,13 +195,13 @@ data class Monitor(
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
                     INPUTS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             inputs.add(Input.parse(xcp))
                         }
                     }
                     TRIGGERS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             triggers.add(Trigger.parse(xcp))
                         }

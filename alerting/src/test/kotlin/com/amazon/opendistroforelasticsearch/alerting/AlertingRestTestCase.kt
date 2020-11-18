@@ -128,7 +128,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         assertEquals("Unable to get email account $emailAccountID", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser)
 
         lateinit var id: String
         var version: Long = 0
@@ -185,7 +185,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         assertEquals("Unable to get email group $emailGroupID", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser)
 
         lateinit var id: String
         var version: Long = 0
@@ -348,7 +348,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         assertEquals("Unable to get monitor $monitorId", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser)
 
         lateinit var id: String
         var version: Long = 0

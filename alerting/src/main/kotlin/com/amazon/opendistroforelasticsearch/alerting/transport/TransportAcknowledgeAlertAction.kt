@@ -81,7 +81,7 @@ class TransportAcknowledgeAlertAction @Inject constructor(
             val updateRequests = response.hits.flatMap { hit ->
                 val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                         hit.sourceRef, XContentType.JSON)
-                XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+                XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
                 val alert = Alert.parse(xcp, hit.id, hit.version)
                 alerts[alert.id] = alert
                 if (alert.state == Alert.State.ACTIVE) {
