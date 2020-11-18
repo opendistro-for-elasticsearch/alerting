@@ -13,6 +13,8 @@
  *   permissions and limitations under the License.
  */
 
+import org.elasticsearch.gradle.test.RestIntegTestTask
+
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'org.jetbrains.kotlin.jvm'
@@ -92,8 +94,6 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
-
-import org.elasticsearch.gradle.test.RestIntegTestTask
 task integTest(type: RestIntegTestTask) {
     description = "Run integration tests against integTest cluster"
     testClassesDirs = sourceSets.test.output.classesDirs
