@@ -172,7 +172,7 @@ data class Alert(
             val errorHistory: MutableList<AlertError> = mutableListOf()
             var actionExecutionResults: MutableList<ActionExecutionResult> = mutableListOf()
 
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -192,14 +192,14 @@ data class Alert(
                     ACKNOWLEDGED_TIME_FIELD -> acknowledgedTime = xcp.instant()
                     ERROR_MESSAGE_FIELD -> errorMessage = xcp.textOrNull()
                     ALERT_HISTORY_FIELD -> {
-                        ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
                             errorHistory.add(AlertError.parse(xcp))
                         }
                     }
                     SEVERITY_FIELD -> severity = xcp.text()
                     ACTION_EXECUTION_RESULTS_FIELD -> {
-                        ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
                             actionExecutionResults.add(ActionExecutionResult.parse(xcp))
                         }

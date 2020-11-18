@@ -51,7 +51,7 @@ task dummyIntegTest(type: Test) {
     }
 }
 
-integTest.runner {
+integTest {
     systemProperty 'jacoco.dir', "${jacocoDir}"
 }
 
@@ -77,5 +77,5 @@ jacocoTestReport {
 }
 
 project.gradle.projectsEvaluated {
-    jacocoTestReport.dependsOn integTest.runner
+    jacocoTestReport.dependsOn integTest
 }

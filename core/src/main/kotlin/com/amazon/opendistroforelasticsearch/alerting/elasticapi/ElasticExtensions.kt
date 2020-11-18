@@ -134,7 +134,8 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
     if (instant == null) {
         return nullField(name)
     }
-    return this.timeField(name, name, instant.toEpochMilli())
+    // second name as readableName should be different than first name
+    return this.timeField(name, "${name}_in_millis", instant.toEpochMilli())
 }
 
 fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilder {

@@ -90,7 +90,7 @@ data class EmailGroup(
             lateinit var name: String
             val emails: MutableList<EmailEntry> = mutableListOf()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -99,7 +99,7 @@ data class EmailGroup(
                     SCHEMA_VERSION -> schemaVersion = xcp.intValue()
                     NAME_FIELD -> name = xcp.text()
                     EMAILS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             emails.add(EmailEntry.parse(xcp))
                         }
@@ -121,11 +121,11 @@ data class EmailGroup(
         @JvmStatic
         @Throws(IOException::class)
         fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): EmailGroup {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
             val emailGroup = parse(xcp, id, version)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return emailGroup
         }
 
@@ -174,7 +174,7 @@ data class EmailEntry(val email: String) : Writeable, ToXContent {
         fun parse(xcp: XContentParser): EmailEntry {
             lateinit var email: String
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

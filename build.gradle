@@ -17,7 +17,7 @@ buildscript {
     apply from: 'build-tools/repositories.gradle'
 
     ext {
-        es_version = '7.9.1'
+        es_version = '7.10.0'
         kotlin_version = '1.3.72'
     }
 
@@ -50,7 +50,7 @@ allprojects {
     group = "com.amazon.opendistroforelasticsearch"
     // Increment the final digit when there's a new plugin versions for the same opendistro version
     // Reset the final digit to 0 when upgrading to a new opendistro version
-    version = "${opendistroVersion}.1"
+    version = "${opendistroVersion}.0"
 
     apply from: "$rootDir/build-tools/repositories.gradle"
 
@@ -79,7 +79,6 @@ task ktlint(type: JavaExec, group: "verification") {
     main = "com.github.shyiko.ktlint.Main"
     classpath = configurations.ktlint
     args "alerting/**/*.kt", "elastic-api/**/*.kt", "core/**/*.kt"
-
 }
 
 task ktlintFormat(type: JavaExec, group: "formatting") {

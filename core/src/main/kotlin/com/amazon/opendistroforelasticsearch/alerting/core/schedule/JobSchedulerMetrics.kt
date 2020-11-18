@@ -48,7 +48,7 @@ class JobSchedulerMetrics : ToXContentFragment, Writeable {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         if (lastExecutionTime != null)
-            builder.timeField("last_execution_time", "last_execution_time", Instant.ofEpochMilli(lastExecutionTime).toEpochMilli())
+            builder.timeField("last_execution_time", "last_execution_time_in_millis", Instant.ofEpochMilli(lastExecutionTime).toEpochMilli())
         builder.field("running_on_time", runningOnTime)
         return builder
     }

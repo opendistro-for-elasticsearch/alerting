@@ -42,7 +42,6 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterStateListener
-import org.elasticsearch.cluster.LocalNodeMasterListener
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -66,11 +65,10 @@ class AlertIndices(
     private val client: Client,
     private val threadPool: ThreadPool,
     private val clusterService: ClusterService
-) : LocalNodeMasterListener, ClusterStateListener {
+) : ClusterStateListener {
 
     init {
         clusterService.addListener(this)
-        clusterService.addLocalNodeMasterListener(this)
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_ENABLED) { historyEnabled = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_MAX_DOCS) { historyMaxDocs = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_HISTORY_INDEX_MAX_AGE) { historyMaxAge = it }
@@ -123,6 +121,8 @@ class AlertIndices(
 
     @Volatile private var requestTimeout = AlertingSettings.REQUEST_TIMEOUT.get(settings)
 
+    @Volatile private var isMaster = false
+
     // for JobsMonitor to report
     var lastRolloverTime: TimeValue? = null
 
@@ -132,7 +132,7 @@ class AlertIndices(
 
     private var scheduledRollover: Cancellable? = null
 
-    override fun onMaster() {
+    fun onMaster() {
         try {
             // TODO: Change current actionGet requests within rolloverHistoryIndex() rolloverAndDeleteHistoryIndices() to use suspendUntil
             // try to rollover immediately as we might be restarting the cluster
@@ -147,16 +147,28 @@ class AlertIndices(
         }
     }
 
-    override fun offMaster() {
+    fun offMaster() {
         scheduledRollover?.cancel()
     }
 
-    override fun executorName(): String {
+    private fun executorName(): String {
         return ThreadPool.Names.MANAGEMENT
     }
 
     override fun clusterChanged(event: ClusterChangedEvent) {
-        // if the indexes have been deleted they need to be reinitalized
+        // Instead of using a LocalNodeMasterListener to track master changes, this service will
+        // track them here to avoid conditions where master listener events run after other
+        // listeners that depend on what happened in the master listener
+        if (this.isMaster != event.localNodeMaster()) {
+            this.isMaster = event.localNodeMaster()
+            if (this.isMaster) {
+                onMaster()
+            } else {
+                offMaster()
+            }
+        }
+
+        // if the indexes have been deleted they need to be reinitialized
         alertIndexInitialized = event.state().routingTable().hasIndex(ALERT_INDEX)
         historyIndexInitialized = event.state().metadata().hasAlias(HISTORY_WRITE_INDEX)
     }

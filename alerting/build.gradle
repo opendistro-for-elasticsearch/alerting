@@ -1,6 +1,3 @@
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-
 /*
  *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
@@ -15,19 +12,18 @@ import java.nio.file.Files
  *   express or implied. See the License for the specific language governing
  *   permissions and limitations under the License.
  */
+
+import org.elasticsearch.gradle.test.RestIntegTestTask
+
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'elasticsearch.esplugin'
-apply plugin: 'elasticsearch.testclusters'
 apply plugin: 'jacoco'
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
-// Only apply jacoco test coverage if we are running a local single node cluster
-if (!usingRemoteCluster && !usingMultiNode) {
-    apply from: '../build-tools/esplugin-coverage.gradle'
-}
+
 
 ext {
     projectSubstitutions = [:]
@@ -88,6 +84,9 @@ dependencyLicenses.enabled = false
 validateNebulaPom.enabled = false
 thirdPartyAudit.enabled = false
 
+loggerUsageCheck.enabled = false
+licenseHeaders.enabled = false
+
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
 
@@ -95,38 +94,17 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
-def _numNodes = findProperty('numNodes') as Integer ?: 1
-integTest {
-    runner {
-        systemProperty 'tests.security.manager', 'false'
-        systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
-
-        systemProperty "https", System.getProperty("https")
-        systemProperty "user", System.getProperty("user")
-        systemProperty "password", System.getProperty("password")
-
-        // The 'doFirst' delays till execution time.
-        doFirst {
-            // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
-            // use longer timeouts for requests.
-            def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
-            systemProperty 'cluster.debug', isDebuggingCluster
-            // Set number of nodes system property to be used in tests
-            systemProperty 'cluster.number_of_nodes', "${_numNodes}"
-            // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-            // not being written, the waitForAllConditions ensures it's written
-            getClusters().forEach { cluster ->
-                cluster.waitForAllConditions()
-            }
-        }
-
-        // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-        if (System.getProperty("test.debug") != null) {
-            jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-        }
-    }
+task integTest(type: RestIntegTestTask) {
+    description = "Run integration tests against integTest cluster"
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
 }
+tasks.named("check").configure { dependsOn(integTest) }
+Zip bundle = (Zip) project.getTasks().getByName("bundlePlugin");
+integTest.dependsOn(bundle)
+integTest.getClusters().forEach{c -> c.plugin(project.getObjects().fileProperty().value(bundle.getArchiveFile()))}
 
+def _numNodes = findProperty('numNodes') as Integer ?: 1
 testClusters.integTest {
     testDistribution = "OSS"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
@@ -134,12 +112,41 @@ testClusters.integTest {
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
     // since we also support multi node integration tests we increase debugPort per node
-    if (System.getProperty("es.debug") != null) {
+    if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
         nodes.forEach { node ->
-            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
             debugPort += 1
         }
+    }
+}
+
+integTest {
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
+
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+
+    // The 'doFirst' delays till execution time.
+    doFirst {
+        // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+        // use longer timeouts for requests.
+        def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+        systemProperty 'cluster.debug', isDebuggingCluster
+        // Set number of nodes system property to be used in tests
+        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
+        }
+    }
+
+    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
 }
 
@@ -151,6 +158,12 @@ run {
             cluster.waitForAllConditions()
         }
     }
+    // useCluster testClusters.integTest
+}
+
+// Only apply jacoco test coverage if we are running a local single node cluster
+if (!usingRemoteCluster && !usingMultiNode) {
+    apply from: '../build-tools/esplugin-coverage.gradle'
 }
 
 apply from: '../build-tools/pkgbuild.gradle'
