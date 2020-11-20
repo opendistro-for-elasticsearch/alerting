@@ -38,7 +38,7 @@ jobs:
           cp alerting/build/distributions/*.deb alerting-artifacts_deb
           cp alerting/build/distributions/*.rpm alerting-artifacts
           cp alerting/build/distributions/*.rpm alerting-artifacts_rpm
-          echo ::set-env name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
+          echo "TAG_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
 
       # AWS authentication
       - name: Configure AWS Credentials
