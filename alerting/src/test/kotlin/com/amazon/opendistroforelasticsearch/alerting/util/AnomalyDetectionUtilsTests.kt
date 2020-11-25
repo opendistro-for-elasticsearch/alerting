@@ -87,6 +87,14 @@ class AnomalyDetectionUtilsTests : ESTestCase() {
                 "\"boost\":1.0}}}", searchSourceBuilder.toString())
     }
 
+    fun `test add user role filter with user with empty name`() {
+        val searchSourceBuilder = SearchSourceBuilder()
+        addUserBackendRolesFilter(User("", mutableListOf<String>(), mutableListOf<String>(), mutableListOf<String>()), searchSourceBuilder)
+        assertEquals("{\"query\":{\"bool\":{\"must_not\":[{\"nested\":{\"query\":{\"exists\":{\"field\":\"user\",\"boost\":1.0}}," +
+                "\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],\"adjust_pure_negative\":true," +
+                "\"boost\":1.0}}}", searchSourceBuilder.toString())
+    }
+
     fun `test add user role filter with null user backend role`() {
         val searchSourceBuilder = SearchSourceBuilder()
         addUserBackendRolesFilter(User(randomAlphaOfLength(5), null, listOf(randomAlphaOfLength(5)),

@@ -23,6 +23,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.NestedQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.common.Strings
 
 /**
  * AD monitor is search input monitor on top of anomaly result index. This method will return
@@ -45,8 +46,8 @@ fun addUserBackendRolesFilter(user: User?, searchSourceBuilder: SearchSourceBuil
     var boolQueryBuilder = BoolQueryBuilder()
     val userFieldName = "user"
     val userBackendRoleFieldName = "user.backend_roles.keyword"
-    if (user == null) {
-        // For old monitor and detector, they have no user field
+    if (user == null || Strings.isEmpty(user.name)) {
+        // For 1) old monitor and detector 2) security disabled or superadmin access, they have no/empty user field
         val userRolesFilterQuery = QueryBuilders.existsQuery(userFieldName)
         val nestedQueryBuilder = NestedQueryBuilder(userFieldName, userRolesFilterQuery, ScoreMode.None)
         boolQueryBuilder.mustNot(nestedQueryBuilder)
