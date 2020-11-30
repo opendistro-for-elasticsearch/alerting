@@ -15,6 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.destination.message;
 
+import org.apache.http.client.methods.HttpPatch;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.elasticsearch.common.Strings;
 
 import java.util.Map;
@@ -28,6 +31,7 @@ public class CustomWebhookMessage extends BaseMessage {
     private String url;
     private String scheme;
     private String host;
+    private String method;
     private int port;
     private String path;
     private Map<String, String> queryParams;
@@ -42,6 +46,7 @@ public class CustomWebhookMessage extends BaseMessage {
                                  final String host,
                                  final Integer port,
                                  final String path,
+                                 final String method,
                                  final Map<String, String> queryParams,
                                  final Map<String, String> headerParams,
                                  final String userName,
@@ -75,6 +80,17 @@ public class CustomWebhookMessage extends BaseMessage {
             throw new IllegalArgumentException("Either fully qualified URL or host name should be provided");
         }
 
+        if (Strings.isNullOrEmpty(method)){
+            // Default to POST for backwards compatibility
+            this.method = "POST";
+        } else if (!HttpPost.METHOD_NAME.equals(method) && !HttpPut.METHOD_NAME.equals(method)
+                && !HttpPatch.METHOD_NAME.equals(method)) {
+            throw new IllegalArgumentException("Invalid method supplied. Only POST, PUT and PATCH are allowed");
+        } else {
+            this.method = method;
+        }
+
+
         this.message = message;
         this.url = url;
         this.host = host;
@@ -88,7 +104,7 @@ public class CustomWebhookMessage extends BaseMessage {
     public String toString() {
         return "DestinationType: " + destinationType + ", DestinationName:" +  destinationName +
                 ", Url: " + url + ", scheme: " + scheme + ", Host: " + host + ", Port: " +
-                port + ", Path: " + path + ", Message: " + message;
+                port + ", Path: " + path + ", Method: " + method + ", Message: " + message;
     }
 
     public static class Builder {
@@ -100,6 +116,7 @@ public class CustomWebhookMessage extends BaseMessage {
         private String host;
         private Integer port;
         private String path;
+        private String method;
         private Map<String, String> queryParams;
         private Map<String, String> headerParams;
         private String userName;
@@ -127,6 +144,11 @@ public class CustomWebhookMessage extends BaseMessage {
 
         public CustomWebhookMessage.Builder withPath(String path) {
             this.path = path;
+            return this;
+        }
+
+        public CustomWebhookMessage.Builder withMethod(String method) {
+            this.method = method;
             return this;
         }
 
@@ -163,7 +185,7 @@ public class CustomWebhookMessage extends BaseMessage {
         public CustomWebhookMessage build() {
             CustomWebhookMessage customWebhookMessage = new CustomWebhookMessage(
                     this.destinationType, this.destinationName, this.url,
-                    this.scheme, this.host, this.port, this.path, this.queryParams,
+                    this.scheme, this.host, this.port, this.path, this.method, this.queryParams,
                     this.headerParams, this.userName, this.password, this.message);
             return customWebhookMessage;
         }
@@ -184,6 +206,8 @@ public class CustomWebhookMessage extends BaseMessage {
     public String getPath() {
         return path;
     }
+
+    public String getMethod() { return method; }
 
     public Map<String, String> getQueryParams() {
         return queryParams;

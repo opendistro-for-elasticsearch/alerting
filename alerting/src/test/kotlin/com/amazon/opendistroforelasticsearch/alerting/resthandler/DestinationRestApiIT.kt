@@ -102,7 +102,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
     }
 
     fun `test creating a custom webhook destination with url`() {
-        val customWebhook = CustomWebhook("http://abc.com", null, null, 80, null, emptyMap(), emptyMap(), null, null)
+        val customWebhook = CustomWebhook("http://abc.com", null, null, 80, null, "PUT", emptyMap(), emptyMap(), null, null)
         val destination = Destination(
                 type = DestinationType.CUSTOM_WEBHOOK,
                 name = "test",
@@ -119,7 +119,7 @@ class DestinationRestApiIT : AlertingRestTestCase() {
     }
 
     fun `test creating a custom webhook destination with host`() {
-        val customWebhook = CustomWebhook("", "http", "abc.com", 80, "a/b/c",
+        val customWebhook = CustomWebhook("", "http", "abc.com", 80, "a/b/c", "PATCH",
                 mapOf("foo" to "1", "bar" to "2"), mapOf("h1" to "1", "h2" to "2"), null, null)
         val destination = Destination(
                 type = DestinationType.CUSTOM_WEBHOOK,
@@ -137,12 +137,13 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         assertEquals("Incorrect destination port", createdDestination.customWebhook?.port, 80)
         assertEquals("Incorrect destination path", createdDestination.customWebhook?.path, "a/b/c")
         assertEquals("Incorrect destination scheme", createdDestination.customWebhook?.scheme, "http")
+        assertEquals("Incorrect destination method", createdDestination.customWebhook?.method, "PATCH")
         Assert.assertNotNull("custom webhook object should not be null", createdDestination.customWebhook)
     }
 
     fun `test updating a custom webhook destination`() {
         val destination = createDestination()
-        val customWebhook = CustomWebhook("http://update1.com", "http", "abc.com", 80, null, emptyMap(), emptyMap(), null, null)
+        val customWebhook = CustomWebhook("http://update1.com", "http", "abc.com", 80, null, null, emptyMap(), emptyMap(), null, null)
         var updatedDestination = updateDestination(
                 destination.copy(name = "updatedName", customWebhook = customWebhook,
                         type = DestinationType.CUSTOM_WEBHOOK))
@@ -150,12 +151,14 @@ class DestinationRestApiIT : AlertingRestTestCase() {
         assertEquals("Incorrect destination ID after update", updatedDestination.id, destination.id)
         assertEquals("Incorrect destination type after update", updatedDestination.type, DestinationType.CUSTOM_WEBHOOK)
         assertEquals("Incorrect destination url after update", "http://update1.com", updatedDestination.customWebhook?.url)
-        var updatedCustomWebhook = CustomWebhook("http://update2.com", "http", "abc.com", 80, null, emptyMap(), emptyMap(), null, null)
+        var updatedCustomWebhook = CustomWebhook("http://update2.com", "http", "abc.com", 80,
+                null, "PUT", emptyMap(), emptyMap(), null, null)
         updatedDestination = updateDestination(
                 destination.copy(name = "updatedName", customWebhook = updatedCustomWebhook,
                         type = DestinationType.CUSTOM_WEBHOOK))
         assertEquals("Incorrect destination url after update", "http://update2.com", updatedDestination.customWebhook?.url)
-        updatedCustomWebhook = CustomWebhook("", "http", "abc.com", 80, null, emptyMap(), emptyMap(), null, null)
+        assertEquals("Incorrect method after update", "PUT", updatedDestination.customWebhook?.method)
+        updatedCustomWebhook = CustomWebhook("", "http", "abc.com", 80, null, null, emptyMap(), emptyMap(), null, null)
         updatedDestination = updateDestination(
                 destination.copy(name = "updatedName", customWebhook = updatedCustomWebhook,
                         type = DestinationType.CUSTOM_WEBHOOK))

@@ -262,6 +262,7 @@ data class Destination(
                         .withHost(customWebhook?.host)
                         .withPort(customWebhook?.port)
                         .withPath(customWebhook?.path)
+                        .withMethod(customWebhook?.method)
                         .withQueryParams(customWebhook?.queryParams)
                         .withHeaderParams(customWebhook?.headerParams)
                         .withMessage(compiledMessage).build()
