@@ -42,22 +42,22 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 
 
-    @RunWith(Parameterized.class)
+@RunWith(Parameterized.class)
 public class CustomWebhookMessageTest {
-        @Parameterized.Parameters(name = "Param: {0}={1}")
-        public static Object[][] params() {
-            return new Object[][]{
-                    {"POST", HttpPost.class},
-                    {"PUT", HttpPut.class},
-                    {"PATCH", HttpPatch.class},
-            };
-        }
+    @Parameterized.Parameters(name = "Param: {0}={1}")
+    public static Object[][] params() {
+        return new Object[][]{
+                {"POST", HttpPost.class},
+                {"PUT", HttpPut.class},
+                {"PATCH", HttpPatch.class},
+        };
+    }
 
-        @Parameterized.Parameter(0)
-        public String method;
+    @Parameterized.Parameter(0)
+    public String method;
 
-        @Parameterized.Parameter(1)
-        public Class<HttpUriRequest> expectedHttpClass;
+    @Parameterized.Parameter(1)
+    public Class<HttpUriRequest> expectedHttpClass;
 
     @Test
     public void testCustomWebhookMessage_NullEntityResponse() throws Exception {
