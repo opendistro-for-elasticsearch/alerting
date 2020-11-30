@@ -21,7 +21,11 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -103,30 +107,46 @@ public class DestinationHttpClient {
 
     private CloseableHttpResponse getHttpResponse(BaseMessage message) throws Exception {
         URI uri = null;
-        HttpPost httpPostRequest = new HttpPost();
+        HttpRequestBase httpRequest;
         if (message instanceof CustomWebhookMessage) {
             CustomWebhookMessage customWebhookMessage = (CustomWebhookMessage) message;
             uri = buildUri(customWebhookMessage.getUrl(), customWebhookMessage.getScheme(), customWebhookMessage.getHost(),
                     customWebhookMessage.getPort(), customWebhookMessage.getPath(), customWebhookMessage.getQueryParams());
-
+            httpRequest = constructHttpRequest(((CustomWebhookMessage) message).getMethod());
             // set headers
             Map<String, String> headerParams = customWebhookMessage.getHeaderParams();
             if(headerParams == null || headerParams.isEmpty()) {
                 // set default header
-                httpPostRequest.setHeader("Content-Type", "application/json");
+                httpRequest.setHeader("Content-Type", "application/json");
             } else {
                 for (Map.Entry<String, String> e : customWebhookMessage.getHeaderParams().entrySet())
-                    httpPostRequest.setHeader(e.getKey(), e.getValue());
+                    httpRequest.setHeader(e.getKey(), e.getValue());
             }
         } else {
-            uri = buildUri(message.getUrl().trim(), null, null, -1, null, null);
+             httpRequest = new HttpPost();
+             uri = buildUri(message.getUrl().trim(), null, null, -1, null, null);
         }
 
-        httpPostRequest.setURI(uri);
-        StringEntity entity = new StringEntity(extractBody(message), StandardCharsets.UTF_8);
-        httpPostRequest.setEntity(entity);
+        httpRequest.setURI(uri);
+        if (httpRequest instanceof HttpEntityEnclosingRequestBase){
+            StringEntity entity = new StringEntity(extractBody(message), StandardCharsets.UTF_8);
+            ((HttpEntityEnclosingRequestBase) httpRequest).setEntity(entity);
+        }
 
-        return HTTP_CLIENT.execute(httpPostRequest);
+        return HTTP_CLIENT.execute(httpRequest);
+    }
+
+    private HttpRequestBase constructHttpRequest(String method) {
+        switch (method){
+            case "POST":
+                return new HttpPost();
+            case "PUT":
+                return new HttpPut();
+            case "PATCH":
+                return new HttpPatch();
+            default:
+                throw new IllegalArgumentException("Invalid method supplied");
+        }
     }
 
     private URI buildUri(String endpoint, String scheme, String host,
