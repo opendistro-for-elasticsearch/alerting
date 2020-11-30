@@ -170,15 +170,15 @@ public class CustomWebhookMessageTest {
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
 
-            DestinationHttpClient httpClient = new DestinationHttpClient();
-            httpClient.setHttpClient(mockHttpClient);
-            CustomWebhookDestinationFactory customDestinationFactory = new CustomWebhookDestinationFactory();
-            customDestinationFactory.setClient(httpClient);
+        DestinationHttpClient httpClient = new DestinationHttpClient();
+        httpClient.setHttpClient(mockHttpClient);
+        CustomWebhookDestinationFactory customDestinationFactory = new CustomWebhookDestinationFactory();
+        customDestinationFactory.setClient(httpClient);
 
-            DestinationFactoryProvider.setFactory(DestinationType.CUSTOMWEBHOOK, customDestinationFactory);
+        DestinationFactoryProvider.setFactory(DestinationType.CUSTOMWEBHOOK, customDestinationFactory);
 
-            Map<String, String> queryParams = new HashMap<String, String>();
-            queryParams.put("token", "R2x1UlN4ZHF8MXxxVFJpelJNVDgzdGNwMnVRenJwRFBHUkR0NlhROWhXOVVTZXpiTWx2azVr");
+        Map<String, String> queryParams = new HashMap<String, String>();
+        queryParams.put("token", "R2x1UlN4ZHF8MXxxVFJpelJNVDgzdGNwMnVRenJwRFBHUkR0NlhROWhXOVVTZXpiTWx2azVr");
 
         String message = "{\"Content\":\"Message gughjhjlkh Body emoji test: :) :+1: " +
                 "link test: http://sample.com email test: marymajor@example.com " +
@@ -189,8 +189,8 @@ public class CustomWebhookMessageTest {
                 withQueryParams(queryParams).build();
         DestinationResponse actualCustomResponse = (DestinationResponse) Notification.publish(bm);
 
-            assertEquals(expectedCustomWebhookResponse.getResponseContent(), actualCustomResponse.getResponseContent());
-            assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
+        assertEquals(expectedCustomWebhookResponse.getResponseContent(), actualCustomResponse.getResponseContent());
+        assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
         }
 
     @Test(expected = IllegalArgumentException.class)
