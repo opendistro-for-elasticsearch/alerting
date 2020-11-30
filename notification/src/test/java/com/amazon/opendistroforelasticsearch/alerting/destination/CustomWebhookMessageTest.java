@@ -147,7 +147,6 @@ public class CustomWebhookMessageTest {
         assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
     }
 
-
     @Test
     public void testCustomWebhookMessage_NonemptyEntityResponse() throws Exception {
         String responseContent = "It worked!";
@@ -191,7 +190,7 @@ public class CustomWebhookMessageTest {
 
         assertEquals(expectedCustomWebhookResponse.getResponseContent(), actualCustomResponse.getResponseContent());
         assertEquals(expectedCustomWebhookResponse.getStatusCode(), actualCustomResponse.getStatusCode());
-        }
+    }
 
     @Test(expected = IllegalArgumentException.class)
     public void testUrlMissingMessage() {
