@@ -379,7 +379,15 @@ class TransportIndexMonitorAction @Inject constructor(
             val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, request.monitorId)
             client.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {
-                    onGetResponse(response)
+                    if (!response.isExists) {
+                        actionListener.onFailure(AlertingException.wrap(
+                            ElasticsearchStatusException("Monitor with ${request.monitorId} is not found", RestStatus.NOT_FOUND)))
+                        return
+                    }
+                    val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                        response.sourceAsBytesRef, XContentType.JSON)
+                    val monitor = ScheduledJob.parse(xcp, response.id, response.version) as Monitor
+                    onGetResponse(monitor)
                 }
                 override fun onFailure(t: Exception) {
                     actionListener.onFailure(AlertingException.wrap(t))
@@ -387,16 +395,15 @@ class TransportIndexMonitorAction @Inject constructor(
             })
         }
 
-        private fun onGetResponse(response: GetResponse) {
-            if (!response.isExists) {
+        private fun onGetResponse(currentMonitor: Monitor) {
+            val backendRoles = currentMonitor.user?.backendRoles
+            if (filterByEnabled &&
+                (backendRoles == null || user?.backendRoles == null || backendRoles.intersect(user.backendRoles).isEmpty())) {
                 actionListener.onFailure(AlertingException.wrap(
-                        ElasticsearchStatusException("Monitor with ${request.monitorId} is not found", RestStatus.NOT_FOUND)))
-                return
+                    ElasticsearchStatusException("Do not have backend roles to delete monitor with ${request.monitorId}",
+                        RestStatus.FORBIDDEN)))
             }
 
-            val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                    response.sourceAsBytesRef, XContentType.JSON)
-            val currentMonitor = ScheduledJob.parse(xcp, request.monitorId) as Monitor
             // If both are enabled, use the current existing monitor enabled time, otherwise the next execution will be
             // incorrect.
             if (request.monitor.enabled && currentMonitor.enabled)
@@ -440,39 +447,5 @@ class TransportIndexMonitorAction @Inject constructor(
             }
             return null
         }
-
-        /*private fun checkForDisallowedDestinations(allowList: List<String>) {
-            this.request.monitor.triggers.forEach { trigger ->
-                trigger.actions.forEach { action ->
-                    // Check for empty destinationId for test cases, otherwise we get test failures
-                    if (action.destinationId.isNotEmpty()) checkIfDestinationIsAllowed(action.destinationId, allowList)
-                }
-            }
-        }
-
-        private fun checkIfDestinationIsAllowed(destinationId: String, allowList: List<String>) {
-            val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, destinationId)
-            client.threadPool().threadContext.stashContext().use {
-                client.get(getRequest, object : ActionListener<GetResponse> {
-                    override fun onResponse(response: GetResponse) {
-                        val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                            response.sourceAsBytesRef, XContentType.JSON)
-                        val destination = Destination.parseWithType(xcp)
-                        if (!allowList.contains(destination.type.value)) {
-                            actionListener.onFailure(
-                                AlertingException.wrap(ElasticsearchStatusException(
-                                    "Monitor contains a destination type that is not allowed: ${destination.type.value}",
-                                    RestStatus.FORBIDDEN
-                                ))
-                            )
-                        }
-                    }
-
-                    override fun onFailure(e: Exception) {
-                        actionListener.onFailure(e)
-                    }
-                })
-            }
-        }*/
     }
 }

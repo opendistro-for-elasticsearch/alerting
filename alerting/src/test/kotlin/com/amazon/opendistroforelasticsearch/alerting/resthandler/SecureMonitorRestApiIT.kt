@@ -49,6 +49,96 @@ class SecureMonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
+    fun `test update monitor with disable filter by`() {
+        disableFilterBy()
+        val monitor = randomMonitor(enabled = true)
+
+        val createdMonitor = createMonitor(monitor = monitor)
+
+        assertNotNull("The monitor was not created", createdMonitor)
+        assertTrue("The monitor was not enabled", createdMonitor.enabled)
+
+        val monitorV2 = createdMonitor.copy(enabled = false, enabledTime = null)
+        val updatedMonitor = updateMonitor(monitor = monitorV2)
+
+        assertFalse("The monitor was not disabled", updatedMonitor.enabled)
+    }
+
+    fun `test update monitor with enable filter by`() {
+        enableFilterBy()
+        if (!isHttps()) {
+            // if security is disabled and filter by is enabled, we can't create monitor
+            // refer: `test create monitor with enable filter by`
+            return
+        }
+        val monitor = randomMonitor(enabled = true)
+
+        val createdMonitor = createMonitor(monitor = monitor)
+
+        assertNotNull("The monitor was not created", createdMonitor)
+        assertTrue("The monitor was not enabled", createdMonitor.enabled)
+
+        val monitorV2 = createdMonitor.copy(enabled = false, enabledTime = null)
+        val updatedMonitor = updateMonitor(monitor = monitorV2)
+
+        assertFalse("The monitor was not disabled", updatedMonitor.enabled)
+    }
+
+    fun `test delete monitor with disable filter by`() {
+        disableFilterBy()
+        val monitor = randomMonitor(enabled = true)
+
+        val createdMonitor = createMonitor(monitor = monitor)
+
+        assertNotNull("The monitor was not created", createdMonitor)
+        assertTrue("The monitor was not enabled", createdMonitor.enabled)
+
+        deleteMonitor(monitor = createdMonitor)
+
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", createdMonitor.id)).toString()
+        // search as "admin" - must get 0 docs
+        val adminSearchResponse = client().makeRequest("POST",
+            "$ALERTING_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search monitor failed", RestStatus.OK, adminSearchResponse.restStatus())
+
+        val adminHits = createParser(XContentType.JSON.xContent(),
+            adminSearchResponse.entity.content).map()["hits"]!! as Map<String, Map<String, Any>>
+        val adminDocsFound = adminHits["total"]?.get("value")
+        assertEquals("Monitor found during search", 0, adminDocsFound)
+    }
+
+    fun `test delete monitor with enable filter by`() {
+        enableFilterBy()
+        if (!isHttps()) {
+            // if security is disabled and filter by is enabled, we can't create monitor
+            // refer: `test create monitor with enable filter by`
+            return
+        }
+        val monitor = randomMonitor(enabled = true)
+
+        val createdMonitor = createMonitor(monitor = monitor)
+
+        assertNotNull("The monitor was not created", createdMonitor)
+        assertTrue("The monitor was not enabled", createdMonitor.enabled)
+
+        deleteMonitor(monitor = createdMonitor)
+
+        val search = SearchSourceBuilder().query(QueryBuilders.termQuery("_id", createdMonitor.id)).toString()
+        // search as "admin" - must get 0 docs
+        val adminSearchResponse = client().makeRequest("POST",
+            "$ALERTING_BASE_URI/_search",
+            emptyMap(),
+            NStringEntity(search, ContentType.APPLICATION_JSON))
+        assertEquals("Search monitor failed", RestStatus.OK, adminSearchResponse.restStatus())
+
+        val adminHits = createParser(XContentType.JSON.xContent(),
+            adminSearchResponse.entity.content).map()["hits"]!! as Map<String, Map<String, Any>>
+        val adminDocsFound = adminHits["total"]?.get("value")
+        assertEquals("Monitor found during search", 0, adminDocsFound)
+    }
+
     fun `test query monitors with disable filter by`() {
         disableFilterBy()
         // creates monitor as "admin" user.

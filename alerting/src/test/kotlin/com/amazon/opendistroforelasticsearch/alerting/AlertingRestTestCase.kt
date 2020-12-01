@@ -92,6 +92,14 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return monitor.copy(id = monitorJson["_id"] as String, version = (monitorJson["_version"] as Int).toLong())
     }
 
+    protected fun deleteMonitor(monitor: Monitor, refresh: Boolean = true): Response {
+        val response = client().makeRequest("DELETE", "$ALERTING_BASE_URI/${monitor.id}?refresh=$refresh", emptyMap(),
+            monitor.toHttpEntity())
+        assertEquals("Unable to delete a monitor", RestStatus.OK, response.restStatus())
+
+        return response
+    }
+
     protected fun createDestination(destination: Destination = getTestDestination(), refresh: Boolean = true): Destination {
         val response = client().makeRequest(
                 "POST",
@@ -106,6 +114,17 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
                 version = (destinationJson["_version"] as Int).toLong(),
                 primaryTerm = destinationJson["_primary_term"] as Int
         )
+    }
+
+    protected fun deleteDestination(destination: Destination = getTestDestination(), refresh: Boolean = true): Response {
+        val response = client().makeRequest(
+            "DELETE",
+            "$DESTINATION_BASE_URI/${destination.id}?refresh=$refresh",
+            emptyMap(),
+            destination.toHttpEntity())
+        assertEquals("Unable to create a new destination", RestStatus.OK, response.restStatus())
+
+        return response
     }
 
     protected fun updateDestination(destination: Destination, refresh: Boolean = true): Destination {
