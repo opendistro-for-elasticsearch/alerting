@@ -72,3 +72,27 @@ fun <T : Any> checkFilterByUserBackendRoles(filterByEnabled: Boolean, user: User
     }
     return true
 }
+
+fun <T : Any> checkUserFilterByPermissions(
+    filterByEnabled: Boolean,
+    requesterUser: User?,
+    resourceUser: User?,
+    actionListener: ActionListener<T>,
+    resourceType: String,
+    resourceId: String
+): Boolean {
+
+    if (!filterByEnabled) return true
+
+    val resourceBackendRoles = resourceUser?.backendRoles
+    val requesterBackendRoles = requesterUser?.backendRoles
+
+    if (resourceBackendRoles == null || requesterBackendRoles == null || resourceBackendRoles.intersect(requesterBackendRoles).isEmpty()) {
+        actionListener.onFailure(AlertingException.wrap(
+            ElasticsearchStatusException("Do not have permissions to delete resource, $resourceType, with id, $resourceId",
+                RestStatus.FORBIDDEN)
+        ))
+        return false
+    }
+    return true
+}

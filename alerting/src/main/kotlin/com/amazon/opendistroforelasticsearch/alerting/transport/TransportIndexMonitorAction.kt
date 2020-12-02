@@ -35,6 +35,7 @@ import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
 import com.amazon.opendistroforelasticsearch.alerting.util.checkFilterByUserBackendRoles
+import com.amazon.opendistroforelasticsearch.alerting.util.checkUserFilterByPermissions
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -396,12 +397,8 @@ class TransportIndexMonitorAction @Inject constructor(
         }
 
         private fun onGetResponse(currentMonitor: Monitor) {
-            val backendRoles = currentMonitor.user?.backendRoles
-            if (filterByEnabled &&
-                (backendRoles == null || user?.backendRoles == null || backendRoles.intersect(user.backendRoles).isEmpty())) {
-                actionListener.onFailure(AlertingException.wrap(
-                    ElasticsearchStatusException("Do not have backend roles to delete monitor with ${request.monitorId}",
-                        RestStatus.FORBIDDEN)))
+            if (!checkUserFilterByPermissions(filterByEnabled, user, currentMonitor.user, actionListener, "monitor", request.monitorId)) {
+                return
             }
 
             // If both are enabled, use the current existing monitor enabled time, otherwise the next execution will be

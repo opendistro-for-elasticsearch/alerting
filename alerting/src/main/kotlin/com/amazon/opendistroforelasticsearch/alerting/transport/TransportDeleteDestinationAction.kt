@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destinat
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.checkFilterByUserBackendRoles
+import com.amazon.opendistroforelasticsearch.alerting.util.checkUserFilterByPermissions
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
@@ -136,13 +137,10 @@ class TransportDeleteDestinationAction @Inject constructor(
         }
 
         private fun onGetResponse(destination: Destination) {
-            val backendRoles = destination.user?.backendRoles
-            if (backendRoles != null && user?.backendRoles != null && backendRoles.intersect(user.backendRoles).isNotEmpty()) {
-                deleteDestination()
+            if (!checkUserFilterByPermissions(filterByEnabled, user, destination.user, actionListener, "destination", destinationId)) {
+                return
             } else {
-                actionListener.onFailure(AlertingException.wrap(
-                    ElasticsearchStatusException("Do not have backend roles to delete destination with $destinationId",
-                        RestStatus.FORBIDDEN)))
+                deleteDestination()
             }
         }
 

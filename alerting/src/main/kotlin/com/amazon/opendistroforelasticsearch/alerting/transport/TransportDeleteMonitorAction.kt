@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.checkFilterByUserBackendRoles
+import com.amazon.opendistroforelasticsearch.alerting.util.checkUserFilterByPermissions
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
@@ -126,13 +127,10 @@ class TransportDeleteMonitorAction @Inject constructor(
         }
 
         private fun onGetResponse(monitor: Monitor) {
-            val backendRoles = monitor.user?.backendRoles
-            if (backendRoles != null && user?.backendRoles != null && backendRoles.intersect(user.backendRoles).isNotEmpty()) {
-                deleteMonitor()
+            if (!checkUserFilterByPermissions(filterByEnabled, user, monitor.user, actionListener, "monitor", monitorId)) {
+                return
             } else {
-                actionListener.onFailure(AlertingException.wrap(
-                    ElasticsearchStatusException("Do not have backend roles to delete monitor with $monitorId",
-                        RestStatus.FORBIDDEN)))
+                deleteMonitor()
             }
         }
 
