@@ -73,6 +73,12 @@ fun <T : Any> checkFilterByUserBackendRoles(filterByEnabled: Boolean, user: User
     return true
 }
 
+/**
+ * If FilterBy is enabled, this function verifies that the requester user has FilterBy permissions to access
+ * the resource. If FilterBy is disabled, we will assume the user has permissions and return true.
+ *
+ * This check will later to moved to the security plugin.
+ */
 fun <T : Any> checkUserFilterByPermissions(
     filterByEnabled: Boolean,
     requesterUser: User?,
