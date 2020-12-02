@@ -103,7 +103,7 @@ class GetAlertsResponseTests : ESTestCase() {
         val expectedXContentString = "{\"alerts\":[{\"id\":\"id\",\"version\":0,\"monitor_id\":\"monitorId\"," +
                 "\"schema_version\":0,\"monitor_version\":0,\"monitor_name\":\"monitorName\"," +
                 "\"monitor_user\":{\"name\":\"admin\",\"backend_roles\":[],\"roles\":[]," +
-                "\"custom_attribute_names\":[]},\"trigger_id\":\"triggerId\"," +
+                "\"custom_attribute_names\":[],\"user_requested_tenant\":null},\"trigger_id\":\"triggerId\"," +
                 "\"trigger_name\":\"triggerName\",\"state\":\"ACKNOWLEDGED\",\"error_message\":null,\"alert_history\":[]," +
                 "\"severity\":\"severity\",\"action_execution_results\":[],\"start_time\":" + now.toEpochMilli() +
                 ",\"last_notification_time\":null,\"end_time\":null,\"acknowledged_time\":null}],\"totalAlerts\":1}"
