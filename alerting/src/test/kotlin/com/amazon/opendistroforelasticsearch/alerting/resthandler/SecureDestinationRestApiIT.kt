@@ -63,7 +63,7 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
                 customWebhook = null,
                 email = null)
 
-        if (isHttps()) {
+        if (securityEnabled()) {
             // when security is enabled. No errors, must succeed.
             val response = client().makeRequest(
                     "POST",
@@ -237,7 +237,7 @@ class SecureDestinationRestApiIT : AlertingRestTestCase() {
 
     fun `test get destinations with a destination type and filter by`() {
         enableFilterBy()
-        if (!isHttps()) {
+        if (!securityEnabled()) {
             // if security is disabled and filter by is enabled, we can't create monitor
             // refer: `test create destination with enable filter by`
             return
