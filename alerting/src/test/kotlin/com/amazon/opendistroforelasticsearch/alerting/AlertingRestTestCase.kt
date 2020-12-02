@@ -37,6 +37,7 @@ import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.WarningFailureException
@@ -453,11 +454,19 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     }
 
     protected fun executeMonitor(monitorId: String, params: Map<String, String> = mutableMapOf()): Response {
-        return client().makeRequest("POST", "$ALERTING_BASE_URI/$monitorId/_execute", params)
+        return executeMonitor(client(), monitorId, params)
     }
 
-    protected fun executeMonitor(monitor: Monitor, params: Map<String, String> = mapOf()): Response =
-            client().makeRequest("POST", "$ALERTING_BASE_URI/_execute", params, monitor.toHttpEntity())
+    protected fun executeMonitor(client: RestClient, monitorId: String, params: Map<String, String> = mutableMapOf()): Response {
+        return client.makeRequest("POST", "$ALERTING_BASE_URI/$monitorId/_execute", params)
+    }
+
+    protected fun executeMonitor(monitor: Monitor, params: Map<String, String> = mapOf()): Response {
+        return executeMonitor(client(), monitor, params)
+    }
+
+    protected fun executeMonitor(client: RestClient, monitor: Monitor, params: Map<String, String> = mapOf()): Response =
+            client.makeRequest("POST", "$ALERTING_BASE_URI/_execute", params, monitor.toHttpEntity())
 
     protected fun indexDoc(index: String, id: String, doc: String, refresh: Boolean = true): Response {
         val requestBody = StringEntity(doc, APPLICATION_JSON)
@@ -660,6 +669,73 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
             .filter { destinationType -> destinationType != DestinationType.EMAIL }
             .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
         client().updateSettings(DestinationSettings.ALLOW_LIST.key, allowedDestinations)
+    }
+
+    fun createUser(name: String, passwd: String, backendRoles: Array<String>) {
+        val request = Request("PUT", "/_opendistro/_security/api/internalusers/$name")
+        val broles = backendRoles.joinToString { it -> "\"$it\"" }
+        var entity = " {\n" +
+                "\"password\": \"$passwd\",\n" +
+                "\"backend_roles\": [$broles],\n" +
+                "\"attributes\": {\n" +
+                "}} "
+        request.setJsonEntity(entity)
+        client().performRequest(request)
+    }
+
+    fun createIndexRole(name: String, index: String) {
+        val request = Request("PUT", "/_opendistro/_security/api/roles/$name")
+        var entity = "{\n" +
+                "\"cluster_permissions\": [\n" +
+                "],\n" +
+                "\"index_permissions\": [\n" +
+                "{\n" +
+                "\"index_patterns\": [\n" +
+                "\"$index\"\n" +
+                "],\n" +
+                "\"dls\": \"\",\n" +
+                "\"fls\": [],\n" +
+                "\"masked_fields\": [],\n" +
+                "\"allowed_actions\": [\n" +
+                "\"crud\"\n" +
+                "]\n" +
+                "}\n" +
+                "],\n" +
+                "\"tenant_permissions\": []\n" +
+                "}"
+        request.setJsonEntity(entity)
+        client().performRequest(request)
+    }
+
+    fun createUserRolesMapping(role: String, users: Array<String>) {
+        val request = Request("PUT", "/_opendistro/_security/api/rolesmapping/$role")
+        val usersStr = users.joinToString { it -> "\"$it\"" }
+        var entity = "{                                  \n" +
+                "  \"backend_roles\" : [  ],\n" +
+                "  \"hosts\" : [  ],\n" +
+                "  \"users\" : [$usersStr]\n" +
+                "}"
+        request.setJsonEntity(entity)
+        client().performRequest(request)
+    }
+
+    fun deleteUser(name: String) {
+        client().makeRequest("DELETE", "/_opendistro/_security/api/internalusers/$name")
+    }
+
+    fun deleteRole(name: String) {
+        client().makeRequest("DELETE", "/_opendistro/_security/api/roles/$name")
+    }
+
+    fun deleteRoleMapping(name: String) {
+        client().makeRequest("DELETE", "/_opendistro/_security/api/rolesmapping/$name")
+    }
+
+    fun createUserWithTestData(user: String, index: String, role: String, backendRole: String) {
+        createUser(user, user, arrayOf(backendRole))
+        createTestIndex(index)
+        createIndexRole(role, index)
+        createUserRolesMapping(role, arrayOf(user))
     }
 
     companion object {
