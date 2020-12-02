@@ -89,7 +89,7 @@ fun <T : Any> checkUserFilterByPermissions(
 
     if (resourceBackendRoles == null || requesterBackendRoles == null || resourceBackendRoles.intersect(requesterBackendRoles).isEmpty()) {
         actionListener.onFailure(AlertingException.wrap(
-            ElasticsearchStatusException("Do not have permissions to delete resource, $resourceType, with id, $resourceId",
+            ElasticsearchStatusException("Do not have permissions to resource, $resourceType, with id, $resourceId",
                 RestStatus.FORBIDDEN)
         ))
         return false
