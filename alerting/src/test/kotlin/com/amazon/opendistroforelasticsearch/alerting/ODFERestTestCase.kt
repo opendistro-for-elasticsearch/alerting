@@ -39,7 +39,6 @@ import java.io.IOException
  * 2. With Security plugin and https
  * 3. With Security plugin and http
  *    Its possible to have security enabled with http transport.
- *
  * client() - > admin user
  * adminClient() -> adminDN/super-admin user
  */

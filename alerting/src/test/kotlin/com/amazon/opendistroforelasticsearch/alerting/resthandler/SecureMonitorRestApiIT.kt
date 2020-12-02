@@ -86,7 +86,7 @@ class SecureMonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
-    fun `test create monitor with an user with out alerting role`() {
+    fun `test create monitor with an user without alerting role`() {
         if (!securityEnabled()) return
 
         createUserWithTestData(user, "hr_data", "hr_role", "HR")
@@ -104,7 +104,7 @@ class SecureMonitorRestApiIT : AlertingRestTestCase() {
         }
     }
 
-    fun `test create monitor with an user with out index read role`() {
+    fun `test create monitor with an user without index read role`() {
         if (!securityEnabled()) return
 
         createUserWithTestData(user, "hr_data", "hr_role", "HR")
