@@ -20,7 +20,12 @@ import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorRequest
 import com.amazon.opendistroforelasticsearch.alerting.action.GetMonitorResponse
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.alerting.util.checkFilterByUserBackendRoles
+import com.amazon.opendistroforelasticsearch.alerting.util.checkUserFilterByPermissions
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -29,7 +34,9 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -44,16 +51,32 @@ class TransportGetMonitorAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
     actionFilters: ActionFilters,
-    val xContentRegistry: NamedXContentRegistry
+    val xContentRegistry: NamedXContentRegistry,
+    val clusterService: ClusterService,
+    settings: Settings
 ) : HandledTransportAction<GetMonitorRequest, GetMonitorResponse> (
         GetMonitorAction.NAME, transportService, actionFilters, ::GetMonitorRequest
 ) {
 
+    @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+    private var user: User? = null
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
+    }
+
     override fun doExecute(task: Task, getMonitorRequest: GetMonitorRequest, actionListener: ActionListener<GetMonitorResponse>) {
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES)
+        log.debug("User and roles string from thread context: $userStr")
+        user = User.parse(userStr)
 
         val getRequest = GetRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, getMonitorRequest.monitorId)
                 .version(getMonitorRequest.version)
                 .fetchSourceContext(getMonitorRequest.srcContext)
+
+        if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
+            return
+        }
 
         /*
          * Remove security context before you call elasticsearch api's. By this time, permissions required
@@ -66,20 +89,31 @@ class TransportGetMonitorAction @Inject constructor(
                 override fun onResponse(response: GetResponse) {
                     if (!response.isExists) {
                         actionListener.onFailure(
-                                AlertingException.wrap(ElasticsearchStatusException("Monitor not found.", RestStatus.NOT_FOUND)))
+                            AlertingException.wrap(ElasticsearchStatusException("Monitor not found.", RestStatus.NOT_FOUND)))
                         return
                     }
 
                     var monitor: Monitor? = null
                     if (!response.isSourceEmpty) {
                         XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                                response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
+                            response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
                             monitor = ScheduledJob.parse(xcp, response.id, response.version) as Monitor
+
+                            // security is enabled and filterby is enabled
+                            if (!checkUserFilterByPermissions(
+                                    filterByEnabled,
+                                    user,
+                                    monitor?.user,
+                                    actionListener,
+                                    "monitor",
+                                    getMonitorRequest.monitorId)) {
+                                return
+                            }
                         }
                     }
 
                     actionListener.onResponse(
-                            GetMonitorResponse(response.id, response.version, response.seqNo, response.primaryTerm, RestStatus.OK, monitor)
+                        GetMonitorResponse(response.id, response.version, response.seqNo, response.primaryTerm, RestStatus.OK, monitor)
                     )
                 }
 

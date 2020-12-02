@@ -5,11 +5,13 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationReq
 import com.amazon.opendistroforelasticsearch.alerting.action.IndexDestinationResponse
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.checkFilterByUserBackendRoles
+import com.amazon.opendistroforelasticsearch.alerting.util.checkUserFilterByPermissions
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
@@ -27,8 +29,14 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
@@ -43,7 +51,8 @@ class TransportIndexDestinationAction @Inject constructor(
     actionFilters: ActionFilters,
     val scheduledJobIndices: ScheduledJobIndices,
     val clusterService: ClusterService,
-    settings: Settings
+    settings: Settings,
+    val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<IndexDestinationRequest, IndexDestinationResponse>(
         IndexDestinationAction.NAME, transportService, actionFilters, ::IndexDestinationRequest
 ) {
@@ -198,7 +207,22 @@ class TransportIndexDestinationAction @Inject constructor(
             val getRequest = GetRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.destinationId)
             client.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {
-                    onGetResponse(response)
+                    if (!response.isExists) {
+                        actionListener.onFailure(AlertingException.wrap(
+                            ElasticsearchStatusException("Destination with ${request.destinationId} is not found", RestStatus.NOT_FOUND)))
+                        return
+                    }
+                    val id = response.id
+                    val version = response.version
+                    val seqNo = response.seqNo.toInt()
+                    val primaryTerm = response.primaryTerm.toInt()
+                    val xcp = XContentFactory.xContent(XContentType.JSON)
+                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, response.sourceAsString)
+                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
+                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp)
+                    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
+                    val dest = Destination.parse(xcp, id, version, seqNo, primaryTerm)
+                    onGetResponse(dest)
                 }
                 override fun onFailure(t: Exception) {
                     actionListener.onFailure(AlertingException.wrap(t))
@@ -206,17 +230,21 @@ class TransportIndexDestinationAction @Inject constructor(
             })
         }
 
-        private fun onGetResponse(response: GetResponse) {
-            if (!response.isExists) {
-                actionListener.onFailure(AlertingException.wrap(
-                        ElasticsearchStatusException("Destination with ${request.destinationId} is not found", RestStatus.NOT_FOUND)))
+        private fun onGetResponse(destination: Destination) {
+            if (!checkUserFilterByPermissions(
+                    filterByEnabled,
+                    user,
+                    destination.user,
+                    actionListener,
+                    "destination",
+                    request.destinationId)) {
                 return
             }
 
-            val destination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
+            val indexDestination = request.destination.copy(schemaVersion = IndexUtils.scheduledJobIndexSchemaVersion)
             val indexRequest = IndexRequest(ScheduledJob.SCHEDULED_JOBS_INDEX)
                     .setRefreshPolicy(request.refreshPolicy)
-                    .source(destination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
+                    .source(indexDestination.toXContent(jsonBuilder(), ToXContent.MapParams(mapOf("with_type" to "true"))))
                     .id(request.destinationId)
                     .setIfSeqNo(request.seqNo)
                     .setIfPrimaryTerm(request.primaryTerm)
@@ -231,7 +259,7 @@ class TransportIndexDestinationAction @Inject constructor(
                         return
                     }
                     actionListener.onResponse(IndexDestinationResponse(response.id, response.version, response.seqNo,
-                            response.primaryTerm, RestStatus.CREATED, destination))
+                            response.primaryTerm, RestStatus.CREATED, indexDestination))
                 }
                 override fun onFailure(t: Exception) {
                     actionListener.onFailure(AlertingException.wrap(t))
