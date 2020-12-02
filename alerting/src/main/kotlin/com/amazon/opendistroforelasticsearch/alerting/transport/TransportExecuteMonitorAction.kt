@@ -7,6 +7,8 @@ import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorRespo
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,7 +41,13 @@ class TransportExecuteMonitorAction @Inject constructor(
 ) : HandledTransportAction<ExecuteMonitorRequest, ExecuteMonitorResponse> (
         ExecuteMonitorAction.NAME, transportService, actionFilters, ::ExecuteMonitorRequest) {
 
+    private var user: User? = null
+
     override fun doExecute(task: Task, execMonitorRequest: ExecuteMonitorRequest, actionListener: ActionListener<ExecuteMonitorResponse>) {
+
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES)
+        log.debug("User and roles string from thread context: $userStr")
+        user = User.parse(userStr)
 
         client.threadPool().threadContext.stashContext().use {
             val executeMonitor = fun(monitor: Monitor) {
@@ -87,7 +95,10 @@ class TransportExecuteMonitorAction @Inject constructor(
                     }
                 })
             } else {
-                val monitor = execMonitorRequest.monitor as Monitor
+                val monitor = when (user == null || user?.name.isNullOrEmpty()) {
+                    true -> execMonitorRequest.monitor as Monitor
+                    false -> (execMonitorRequest.monitor as Monitor).copy(user = user)
+                }
                 executeMonitor(monitor)
             }
         }
