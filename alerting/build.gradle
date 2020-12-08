@@ -126,6 +126,7 @@ integTest {
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
 
     systemProperty "https", System.getProperty("https")
+    systemProperty "security", System.getProperty("security")
     systemProperty "user", System.getProperty("user")
     systemProperty "password", System.getProperty("password")
 
