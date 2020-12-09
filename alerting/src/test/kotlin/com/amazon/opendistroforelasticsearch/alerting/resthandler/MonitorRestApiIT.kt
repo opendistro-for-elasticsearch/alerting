@@ -187,17 +187,20 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     }
 
     fun `test creating an AD monitor with no detector has monitor backend role`() {
-        createAnomalyDetectorIndex()
-        indexDoc(ANOMALY_DETECTOR_INDEX, "1", randomAnomalyDetector())
-        indexDoc(ANOMALY_DETECTOR_INDEX, "2", randomAnomalyDetectorWithUser(randomAlphaOfLength(5)))
-        try {
-            val monitor = randomADMonitor()
-            client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
-        } catch (e: ResponseException) {
-            // When user create AD monitor with no detector has backend role, will throw exception
-            assertTrue("Unexpected error", e.message!!.contains("User has no available detectors"))
-            assertTrue("Unexpected status",
-                    listOf<RestStatus>(RestStatus.NOT_FOUND).contains(e.response.restStatus()))
+        if (!securityEnabled()) {
+            createAnomalyDetectorIndex()
+            // TODO: change to REST API call to test security enabled case
+            indexDoc(ANOMALY_DETECTOR_INDEX, "1", randomAnomalyDetector())
+            indexDoc(ANOMALY_DETECTOR_INDEX, "2", randomAnomalyDetectorWithUser(randomAlphaOfLength(5)))
+            try {
+                val monitor = randomADMonitor()
+                client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
+            } catch (e: ResponseException) {
+                // When user create AD monitor with no detector has backend role, will throw exception
+                assertTrue("Unexpected error", e.message!!.contains("User has no available detectors"))
+                assertTrue("Unexpected status",
+                        listOf<RestStatus>(RestStatus.NOT_FOUND).contains(e.response.restStatus()))
+            }
         }
     }
 
