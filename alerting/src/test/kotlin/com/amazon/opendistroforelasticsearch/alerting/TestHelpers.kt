@@ -39,6 +39,7 @@ import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.client.WarningsHandler
 import org.elasticsearch.common.UUIDs
 import org.elasticsearch.common.settings.SecureString
 import org.elasticsearch.common.settings.Settings
@@ -252,7 +253,9 @@ fun RestClient.makeRequest(
     vararg headers: Header
 ): Response {
     val request = Request(method, endpoint)
+    // TODO: remove PERMISSIVE option after moving system index access to REST API call
     val options = RequestOptions.DEFAULT.toBuilder()
+    options.setWarningsHandler(WarningsHandler.PERMISSIVE)
     headers.forEach { options.addHeader(it.name, it.value) }
     request.options = options.build()
     params.forEach { request.addParameter(it.key, it.value) }
@@ -276,6 +279,8 @@ fun RestClient.makeRequest(
 ): Response {
     val request = Request(method, endpoint)
     val options = RequestOptions.DEFAULT.toBuilder()
+    // TODO: remove PERMISSIVE option after moving system index access to REST API call
+    options.setWarningsHandler(WarningsHandler.PERMISSIVE)
     headers.forEach { options.addHeader(it.name, it.value) }
     request.options = options.build()
     if (entity != null) {
