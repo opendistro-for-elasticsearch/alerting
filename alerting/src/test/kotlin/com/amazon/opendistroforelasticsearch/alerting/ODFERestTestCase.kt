@@ -23,7 +23,9 @@ import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_
 import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
 import org.apache.http.HttpHost
 import org.elasticsearch.client.Request
+import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.client.WarningsHandler
 import org.elasticsearch.common.io.PathUtils
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.DeprecationHandler
@@ -79,9 +81,15 @@ abstract class ODFERestTestCase : ESRestTestCase() {
                 val indexName: String = jsonObject["index"] as String
                 // .opendistro_security isn't allowed to delete from cluster
                 if (".opendistro_security" != indexName) {
-                    adminClient().performRequest(Request("DELETE", "/$indexName"))
+                    var request = Request("DELETE", "/$indexName")
+                    // TODO: remove PERMISSIVE option after moving system index access to REST API call
+                    val options = RequestOptions.DEFAULT.toBuilder()
+                    options.setWarningsHandler(WarningsHandler.PERMISSIVE)
+                    request.options = options.build()
+                    adminClient().performRequest(request)
                 }
-            } }
+            }
+        }
     }
 
     /**
