@@ -21,9 +21,9 @@ apply plugin: 'signing'
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compile group: 'commons-net', name: 'commons-net', version: '3.6'
     compile "org.apache.httpcomponents:httpcore:4.4.5"
     compile "org.apache.httpcomponents:httpclient:4.5.10"
+    compile "commons-net:commons-net:3.6"
     compile "com.sun.mail:javax.mail:1.6.2"
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
