@@ -70,7 +70,7 @@ public class DestinationHttpClient {
             Arrays.asList(
                 //Loopback
                 "127.0.0.0/8",
-                //AWS internal IP range
+                //Link-local address
                 "169.254.0.0/16",
                 //Reserved IP address
                 "0.0.0.0/8",
