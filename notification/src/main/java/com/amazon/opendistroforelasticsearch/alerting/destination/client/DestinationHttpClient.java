@@ -66,7 +66,7 @@ public class DestinationHttpClient {
     private static final int TIMEOUT_MILLISECONDS = (int) TimeValue.timeValueSeconds(5).millis();
     private static final int SOCKET_TIMEOUT_MILLISECONDS = (int)TimeValue.timeValueSeconds(50).millis();
 
-    private static final List<String> blacklistRanges = new ArrayList<>(
+    private static final List<String> blocklistRanges = new ArrayList<>(
             Arrays.asList(
                 //Loopback
                 "127.0.0.0/8",
@@ -150,10 +150,10 @@ public class DestinationHttpClient {
         }
 
         SubnetUtils utils;
-        for (String range : blacklistRanges) {
+        for (String range : blocklistRanges) {
             utils = new SubnetUtils(range);
             if (utils.getInfo().isInRange(InetAddress.getByName(uri.getHost()).getHostAddress())) {
-                logger.error("Host: {} resolves to: {} which is in blacklist: {}.", uri.getHost(), InetAddress.getByName(uri.getHost()), range);
+                logger.error("Host: {} resolves to: {} which is in blocklist: {}.", uri.getHost(), InetAddress.getByName(uri.getHost()), range);
                 throw new IllegalArgumentException("The destination address is invalid.");
             }
         }
