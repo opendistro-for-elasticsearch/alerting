@@ -29,6 +29,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicStatusLine;
 import org.easymock.EasyMock;
 import org.elasticsearch.rest.RestStatus;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -51,6 +52,14 @@ public class SlackDestinationTest {
     @Mock
     InetAddress inetAddress;
 
+    @Before
+    public void start() throws Exception {
+        mockStatic(InetAddress.class);
+        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
+        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
+        replayAll();
+    }
+
     @Test
     public void testSlackMessage_NullEntityResponse() throws Exception {
         CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
@@ -71,11 +80,6 @@ public class SlackDestinationTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
-
-        mockStatic(InetAddress.class);
-        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
-        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
-        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -115,11 +119,6 @@ public class SlackDestinationTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
-
-        mockStatic(InetAddress.class);
-        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
-        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
-        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
@@ -161,11 +160,6 @@ public class SlackDestinationTest {
         EasyMock.replay(mockHttpClient);
         EasyMock.replay(httpResponse);
         EasyMock.replay(mockStatusLine);
-
-        mockStatic(InetAddress.class);
-        expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
-        expect(inetAddress.getHostAddress()).andReturn("13.224.126.43").anyTimes(); // hooks.chime.aws IP
-        replayAll();
 
         DestinationHttpClient httpClient = new DestinationHttpClient();
         httpClient.setHttpClient(mockHttpClient);
