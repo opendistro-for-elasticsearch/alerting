@@ -223,7 +223,7 @@ public class CustomWebhookMessageTest {
     }
 
     @Test
-    public void testCustomWebhookMessageBlackList() throws Exception {
+    public void testCustomWebhookMessageBlockList() throws Exception {
         CloseableHttpClient mockHttpClient = EasyMock.createMock(CloseableHttpClient.class);
 
         CloseableHttpResponse httpResponse = EasyMock.createMock(CloseableHttpResponse.class);
@@ -253,7 +253,7 @@ public class CustomWebhookMessageTest {
                 "All member callout: @All All Present member callout: @Present\"}";
         BaseMessage bm;
 
-        final List<String> blacklistIps = new ArrayList<>(
+        final List<String> blocklistIps = new ArrayList<>(
                 Arrays.asList(
                         "127.0.0.1", // 127.0.0.0/8
                         "169.254.0.1", // 169.254.0.0/16
@@ -269,7 +269,7 @@ public class CustomWebhookMessageTest {
                         "240.0.0.1") // 240.0.0.0/4
                 );
 
-        for (String ip : blacklistIps) {
+        for (String ip : blocklistIps) {
             mockStatic(InetAddress.class);
             expect(InetAddress.getByName(EasyMock.anyString())).andReturn(inetAddress).anyTimes();
             expect(inetAddress.getHostAddress()).andReturn(ip).anyTimes();
