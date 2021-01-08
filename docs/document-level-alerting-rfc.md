@@ -4,7 +4,11 @@ The purpose of this request for comments (RFC) is to introduce our plans to enha
 
 ## Problem Statement
 
-As monitoring use cases grow in complexity, it is necessary to be able to easily configure fields and parameters on which to generate alerts. These alerts should be easily aggregated and suppressed if necessary, all while ensuring that no significant events are missed by the user.
+Currently, the Alerting plugin does not support a simple way to create Monitors that alert on each event grouped by some dimension (or document field in Elasticsearch’s case).
+
+A common alerting use case is monitoring an index that is ingesting logs that represent the health of hosts. In this case, a Monitor would be set up to alert when any hosts exceeded a certain threshold on various metrics (CPU, JVM memory, etc.) and the expectation is that each event (host meeting conditions) is notified to the user.
+
+This use case can somewhat be accomplished today through custom extraction queries during the Monitor definition but it is not intuitive and only a single alert is created for a group of events. Due to only having a single alert in these scenarios, individual events can be missed if an alert is already active for a Trigger.
 
 ## Proposed Solution
 
