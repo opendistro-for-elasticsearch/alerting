@@ -30,7 +30,7 @@ data class Table(
 ) : Writeable {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
             sortOrder = sin.readString(),
             sortString = sin.readString(),
             missing = sin.readOptionalString(),

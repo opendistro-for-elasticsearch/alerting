@@ -79,7 +79,7 @@ data class Alert(
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
             id = sin.readString(),
             version = sin.readLong(),
             schemaVersion = sin.readInt(),

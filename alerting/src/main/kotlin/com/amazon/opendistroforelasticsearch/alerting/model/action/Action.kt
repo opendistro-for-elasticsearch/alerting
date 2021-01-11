@@ -48,7 +48,7 @@ data class Action(
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readString(), // name
         sin.readString(), // destinationId
         sin.readOptionalWriteable(::Script), // subjectTemplate
