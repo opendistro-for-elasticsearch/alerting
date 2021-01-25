@@ -36,7 +36,7 @@ if (isSnapshot) {
 }
 
 esplugin {
-    name 'opendistro_alerting'
+    name 'opendistro-alerting'
     description 'Amazon OpenDistro alerting plugin'
     classname 'com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin'
     extendedPlugins = ['lang-painless']
