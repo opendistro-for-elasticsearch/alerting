@@ -44,18 +44,32 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_STAGING_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_STAGING_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
 
       # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
       - name: Upload Artifacts to S3
         run: |
-          s3_path=s3://artifacts.opendistroforelasticsearch.amazon.com/downloads
-          aws s3 cp alerting-artifacts/*.zip $s3_path/elasticsearch-plugins/opendistro-alerting/
-          aws s3 cp alerting-artifacts/*.deb $s3_path/debs/opendistro-alerting/
-          aws s3 cp alerting-artifacts/*.rpm $s3_path/rpms/opendistro-alerting/
-          aws cloudfront create-invalidation --distribution-id ${{ secrets.DISTRIBUTION_ID }} --paths '/downloads/*'
+          zip=`ls alerting-artifacts/*.zip`
+          rpm=`ls alerting-artifacts/*.rpm`
+          deb=`ls alerting-artifacts/*.deb`
+
+          # Inject the build number before the suffix
+          zip_outfile=`basename ${zip%.zip}-build-${GITHUB_RUN_NUMBER}.zip`
+          rpm_outfile=`basename ${rpm%.rpm}-build-${GITHUB_RUN_NUMBER}.rpm`
+          deb_outfile=`basename ${deb%.deb}-build-${GITHUB_RUN_NUMBER}.deb`
+
+          s3_prefix="s3://staging.artifacts.opendistroforelasticsearch.amazon.com/snapshots/elasticsearch-plugins/alerting/"
+
+          echo "Copying ${zip} to ${s3_prefix}${zip_outfile}"
+          aws s3 cp --quiet $zip ${s3_prefix}${zip_outfile}
+
+          echo "Copying ${rpm} to ${s3_prefix}${rpm_outfile}"
+          aws s3 cp --quiet $rpm ${s3_prefix}${rpm_outfile}
+
+          echo "Copying ${deb} to ${s3_prefix}${deb_outfile}"
+          aws s3 cp --quiet $deb ${s3_prefix}${deb_outfile}
 
       - name: Create Github Draft Release
         id: create_release
