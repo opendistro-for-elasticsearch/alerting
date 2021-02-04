@@ -61,7 +61,6 @@ class TransportDeleteMonitorAction @Inject constructor(
 ) {
 
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-    private var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
@@ -70,7 +69,7 @@ class TransportDeleteMonitorAction @Inject constructor(
     override fun doExecute(task: Task, request: DeleteMonitorRequest, actionListener: ActionListener<DeleteResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
-        user = User.parse(userStr)
+        val user: User? = User.parse(userStr)
         val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.monitorId)
                 .setRefreshPolicy(request.refreshPolicy)
 
