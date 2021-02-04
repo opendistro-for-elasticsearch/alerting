@@ -47,7 +47,6 @@ class TransportSearchMonitorAction @Inject constructor(
         SearchMonitorAction.NAME, transportService, actionFilters, ::SearchMonitorRequest
 ) {
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-    private var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
@@ -56,14 +55,14 @@ class TransportSearchMonitorAction @Inject constructor(
     override fun doExecute(task: Task, searchMonitorRequest: SearchMonitorRequest, actionListener: ActionListener<SearchResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
-        user = User.parse(userStr)
+        val user: User? = User.parse(userStr)
 
         client.threadPool().threadContext.stashContext().use {
-            resolve(searchMonitorRequest, actionListener)
+            resolve(searchMonitorRequest, actionListener, user)
         }
     }
 
-    fun resolve(searchMonitorRequest: SearchMonitorRequest, actionListener: ActionListener<SearchResponse>) {
+    fun resolve(searchMonitorRequest: SearchMonitorRequest, actionListener: ActionListener<SearchResponse>, user: User?) {
         if (user == null) {
             // user header is null when: 1/ security is disabled. 2/when user is super-admin.
             search(searchMonitorRequest.searchRequest, actionListener)

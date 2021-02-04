@@ -41,13 +41,11 @@ class TransportExecuteMonitorAction @Inject constructor(
 ) : HandledTransportAction<ExecuteMonitorRequest, ExecuteMonitorResponse> (
         ExecuteMonitorAction.NAME, transportService, actionFilters, ::ExecuteMonitorRequest) {
 
-    private var user: User? = null
-
     override fun doExecute(task: Task, execMonitorRequest: ExecuteMonitorRequest, actionListener: ActionListener<ExecuteMonitorResponse>) {
 
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
-        user = User.parse(userStr)
+        val user: User? = User.parse(userStr)
 
         client.threadPool().threadContext.stashContext().use {
             val executeMonitor = fun(monitor: Monitor) {

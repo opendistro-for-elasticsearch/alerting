@@ -93,7 +93,6 @@ class TransportIndexMonitorAction @Inject constructor(
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
     @Volatile private var allowList = ALLOW_LIST.get(settings)
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-    var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
@@ -108,7 +107,7 @@ class TransportIndexMonitorAction @Inject constructor(
 
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
-        user = User.parse(userStr)
+        val user: User? = User.parse(userStr)
 
         if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
             return

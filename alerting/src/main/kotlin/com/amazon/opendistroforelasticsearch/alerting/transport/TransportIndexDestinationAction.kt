@@ -60,7 +60,6 @@ class TransportIndexDestinationAction @Inject constructor(
     @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
     @Volatile private var allowList = DestinationSettings.ALLOW_LIST.get(settings)
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-    private var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
@@ -71,7 +70,7 @@ class TransportIndexDestinationAction @Inject constructor(
     override fun doExecute(task: Task, request: IndexDestinationRequest, actionListener: ActionListener<IndexDestinationResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
-        user = User.parse(userStr)
+        val user: User? = User.parse(userStr)
 
         if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
             return
