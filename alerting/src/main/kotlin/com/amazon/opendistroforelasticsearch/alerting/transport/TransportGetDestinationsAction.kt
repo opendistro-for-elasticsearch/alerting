@@ -67,7 +67,6 @@ class TransportGetDestinationsAction @Inject constructor(
 ) {
 
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-    private var user: User? = null
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
@@ -82,7 +81,7 @@ class TransportGetDestinationsAction @Inject constructor(
                     ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT
             )
             log.debug("User and roles string from thread context: $userStr")
-            user = User.parse(userStr)
+            val user: User? = User.parse(userStr)
 
             val tableProp = getDestinationsRequest.table
 
@@ -120,13 +119,14 @@ class TransportGetDestinationsAction @Inject constructor(
             searchSourceBuilder.query(queryBuilder)
 
             client.threadPool().threadContext.stashContext().use {
-                resolve(searchSourceBuilder, actionListener)
+                resolve(searchSourceBuilder, actionListener, user)
             }
     }
 
     fun resolve(
         searchSourceBuilder: SearchSourceBuilder,
-        actionListener: ActionListener<GetDestinationsResponse>
+        actionListener: ActionListener<GetDestinationsResponse>,
+        user: User?
     ) {
         if (user == null) {
             // user is null when: 1/ security is disabled. 2/when user is super-admin.
