@@ -43,7 +43,7 @@ data class HttpInput(
 
     // Verify parameters are valid during creation
     init {
-        require(validateFields()) {
+        require(areFieldsValid()) {
             "Either one of url or scheme + host + port + path + params can be set."
         }
         require(connection_timeout in 1..5) {
@@ -144,7 +144,7 @@ data class HttpInput(
     /**
      * Helper function to check whether one of url or scheme+host+port+path+params is defined.
      */
-    private fun validateFields(): Boolean {
+    private fun areFieldsValid(): Boolean {
         if (url.isNotEmpty()) {
             return (host.isEmpty() && (port == -1) && path.isEmpty() && params.isEmpty())
         }
