@@ -14,7 +14,6 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting.resthandler
 
-import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.httpapi.toConstructedUrl
 import com.amazon.opendistroforelasticsearch.alerting.core.model.HttpInput
@@ -23,16 +22,17 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob.Co
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERTING_MAX_MONITORS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.INDEX_TIMEOUT
-import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.REQUEST_TIMEOUT
+import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
+import com.amazon.opendistroforelasticsearch.alerting.util._ID
+import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
+import com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin
+import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MAX_ACTION_THROTTLE_VALUE
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
-import com.amazon.opendistroforelasticsearch.alerting.util.REFRESH
-import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.alerting.util._SEQ_NO
-import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse

@@ -18,14 +18,14 @@ package com.amazon.opendistroforelasticsearch.alerting
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
-import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACKNOWLEDGED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders

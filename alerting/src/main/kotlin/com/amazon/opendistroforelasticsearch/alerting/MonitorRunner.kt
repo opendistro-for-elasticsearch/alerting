@@ -56,6 +56,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import org.apache.logging.log4j.LogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -63,7 +64,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.http.HttpResponse
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -111,10 +111,11 @@ class MonitorRunner(
 ) : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
     private val logger = LogManager.getLogger(MonitorRunner::class.java)
-    private var httpClient: HttpInputClient
+
     private lateinit var runnerSupervisor: Job
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + runnerSupervisor
+    private var httpClient: HttpInputClient
 
     @Volatile private var retryPolicy =
         BackoffPolicy.constantBackoff(ALERT_BACKOFF_MILLIS.get(settings), ALERT_BACKOFF_COUNT.get(settings))
