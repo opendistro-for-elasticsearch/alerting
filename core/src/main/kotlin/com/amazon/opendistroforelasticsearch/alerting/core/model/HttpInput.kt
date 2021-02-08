@@ -44,7 +44,7 @@ data class HttpInput(
     // Verify parameters are valid during creation
     init {
         require(validateFields()) {
-            "Either one of url or scheme + host + port+ + path + params can be set."
+            "Either one of url or scheme + host + port + path + params can be set."
         }
         require(connection_timeout in 1..5) {
             "Connection timeout: $connection_timeout is not in the range of 1 - 5"

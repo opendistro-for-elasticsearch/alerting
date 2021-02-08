@@ -72,7 +72,7 @@ class HttpInputTest {
             HttpInput("http", "localhost", 9200, "_cluster/health", mapOf(), "http://localhost:9200/_cluster/health", 5, 5)
             fail("Setting url and other fields at the same time should fail.")
         } catch (e: IllegalArgumentException) {
-            assertEquals("Either one of url or scheme + host + port+ + path + params can be set.", e.message)
+            assertEquals("Either one of url or scheme + host + port + path + params can be set.", e.message)
         }
     }
 
