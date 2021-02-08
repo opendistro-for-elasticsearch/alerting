@@ -18,11 +18,16 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 enum class DestinationType(val value: String) {
     CHIME("chime"),
     SLACK("slack"),
+    SNS("sns"),
     CUSTOM_WEBHOOK("custom_webhook"),
     EMAIL("email"),
     TEST_ACTION("test_action");
 
     override fun toString(): String {
         return value
+    }
+
+    companion object {
+        var snsUseIamRole = false
     }
 }

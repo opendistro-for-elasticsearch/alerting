@@ -47,6 +47,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Compan
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
+import com.amazon.opendistroforelasticsearch.alerting.settings.AWSSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
@@ -123,6 +124,7 @@ class MonitorRunner(
 
     @Volatile private var destinationSettings = loadDestinationSettings(settings)
     @Volatile private var destinationContextFactory = DestinationContextFactory(client, xContentRegistry, destinationSettings)
+    @Volatile private var awsSettings = AWSSettings.parse(settings)
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
@@ -535,6 +537,7 @@ class MonitorRunner(
 
                     val destinationCtx = destinationContextFactory.getDestinationContext(destination)
                     actionOutput[MESSAGE_ID] = destination.publish(
+                        awsSettings,
                         actionOutput[SUBJECT],
                         actionOutput[MESSAGE]!!,
                         destinationCtx

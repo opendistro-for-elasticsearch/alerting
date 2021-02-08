@@ -34,6 +34,7 @@ public class DestinationFactoryProvider {
         destinationFactoryMap.put(DestinationType.SLACK, new SlackDestinationFactory());
         destinationFactoryMap.put(DestinationType.CUSTOMWEBHOOK, new CustomWebhookDestinationFactory());
         destinationFactoryMap.put(DestinationType.EMAIL, new EmailDestinationFactory());
+        destinationFactoryMap.put(DestinationType.SNS, new SNSDestinationFactory());
     }
 
     /**

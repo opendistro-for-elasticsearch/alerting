@@ -62,6 +62,7 @@ import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchEmai
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestSearchMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
+import com.amazon.opendistroforelasticsearch.alerting.settings.AWSSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.transport.TransportAcknowledgeAlertAction
@@ -254,7 +255,9 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 AlertingSettings.FILTER_BY_BACKEND_ROLES,
                 DestinationSettings.EMAIL_USERNAME,
                 DestinationSettings.EMAIL_PASSWORD,
-                DestinationSettings.ALLOW_LIST
+                DestinationSettings.ALLOW_LIST,
+                AWSSettings.SNS_IAM_USER_ACCESS_KEY,
+                AWSSettings.SNS_IAM_USER_SECRET_KEY
             )
     }
 

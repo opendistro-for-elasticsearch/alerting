@@ -55,6 +55,7 @@ class GetDestinationsResponseTests : ESTestCase() {
                 null,
                 slack,
                 null,
+                null,
                 null)
 
         val req = GetDestinationsResponse(RestStatus.OK, 1, listOf(destination))

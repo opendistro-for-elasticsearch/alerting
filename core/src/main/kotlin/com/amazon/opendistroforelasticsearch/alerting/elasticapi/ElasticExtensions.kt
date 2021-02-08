@@ -145,6 +145,13 @@ fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilde
     return this.field(name, user)
 }
 
+fun XContentBuilder.optionalStringField(name: String, content: String?): XContentBuilder {
+    if (content == null) {
+        return nullField(name)
+    }
+    return this.field(name, content)
+}
+
 fun addFilter(user: User, searchSourceBuilder: SearchSourceBuilder, fieldName: String) {
     val filterBackendRoles = QueryBuilders.termsQuery(fieldName, user.backendRoles)
     val queryBuilder = searchSourceBuilder.query() as BoolQueryBuilder

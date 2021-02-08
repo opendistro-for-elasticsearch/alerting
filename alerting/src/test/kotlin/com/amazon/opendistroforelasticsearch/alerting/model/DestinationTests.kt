@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Chime
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.SNS
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.alerting.parser
@@ -114,7 +115,7 @@ class DestinationTests : ESTestCase() {
 
     fun `test chime destination create using stream`() {
         val chimeDest = Destination("1234", 0L, 1, 1, 1, DestinationType.CHIME, "TestChimeDest",
-        randomUser(), Instant.now(), Chime("test.com"), null, null, null)
+        randomUser(), Instant.now(), Chime("test.com"), null, null, null, null)
 
         val out = BytesStreamOutput()
         chimeDest.writeTo(out)
@@ -130,13 +131,14 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.lastUpdateTime)
         assertNotNull(newDest.chime)
         assertNull(newDest.slack)
+        assertNull(newDest.sns)
         assertNull(newDest.customWebhook)
         assertNull(newDest.email)
     }
 
     fun `test slack destination create using stream`() {
         val slackDest = Destination("2345", 1L, 2, 1, 1, DestinationType.SLACK, "TestSlackDest",
-                randomUser(), Instant.now(), null, Slack("mytest.com"), null, null)
+                randomUser(), Instant.now(), null, Slack("mytest.com"), null, null, null)
 
         val out = BytesStreamOutput()
         slackDest.writeTo(out)
@@ -152,6 +154,31 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.lastUpdateTime)
         assertNull(newDest.chime)
         assertNotNull(newDest.slack)
+        assertNull(newDest.sns)
+        assertNull(newDest.customWebhook)
+        assertNull(newDest.email)
+    }
+
+    fun `test sns destination create using stream`() {
+        val sns = SNS("arn:aws:sns:us-west-2:475347751589:test-notification", null)
+        val snsDest = Destination("2345", 1L, 2, 1, 1, DestinationType.SNS, "TestSnsDest",
+            randomUser(), Instant.now(), null, null, sns, null, null)
+
+        val out = BytesStreamOutput()
+        snsDest.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newDest = Destination.readFrom(sin)
+
+        assertNotNull(newDest)
+        assertEquals("2345", newDest.id)
+        assertEquals(1, newDest.version)
+        assertEquals(2, newDest.schemaVersion)
+        assertEquals(DestinationType.SNS, newDest.type)
+        assertEquals("TestSnsDest", newDest.name)
+        assertNotNull(newDest.lastUpdateTime)
+        assertNull(newDest.chime)
+        assertNull(newDest.slack)
+        assertNotNull(newDest.sns)
         assertNull(newDest.customWebhook)
         assertNull(newDest.email)
     }
@@ -167,6 +194,7 @@ class DestinationTests : ESTestCase() {
                 "TestSlackDest",
                 randomUser(),
                 Instant.now(),
+                null,
                 null,
                 null,
                 CustomWebhook(
@@ -197,6 +225,7 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.lastUpdateTime)
         assertNull(newDest.chime)
         assertNull(newDest.slack)
+        assertNull(newDest.sns)
         assertNotNull(newDest.customWebhook)
         assertNull(newDest.email)
     }
@@ -212,6 +241,7 @@ class DestinationTests : ESTestCase() {
                 "TestSlackDest",
                 randomUser(),
                 Instant.now(),
+                null,
                 null,
                 null,
                 CustomWebhook(
@@ -242,6 +272,7 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.lastUpdateTime)
         assertNull(newDest.chime)
         assertNull(newDest.slack)
+        assertNull(newDest.sns)
         assertNotNull(newDest.customWebhook)
         assertNull(newDest.email)
     }
@@ -267,6 +298,7 @@ class DestinationTests : ESTestCase() {
                 null,
                 null,
                 null,
+                null,
                 Email("3456", recipients)
         )
 
@@ -284,6 +316,7 @@ class DestinationTests : ESTestCase() {
         assertNotNull(newDest.lastUpdateTime)
         assertNull(newDest.chime)
         assertNull(newDest.slack)
+        assertNull(newDest.sns)
         assertNull(newDest.customWebhook)
         assertNotNull(newDest.email)
 
@@ -311,5 +344,35 @@ class DestinationTests : ESTestCase() {
             "\"last_update_time\":1600063313658,\"chime\":{\"url\":\"test.com\"}}"
         val parsedDest = Destination.parse(parser(userString))
         assertNull(parsedDest.user)
+    }
+
+    fun `test sns destination`() {
+        DestinationType.snsUseIamRole = true
+        val sns = SNS("arn:aws:sns:us-west-2:475347751589:test-notification", "arn:aws:iam::853806060000:role/domain/abc")
+        assertEquals("topic arn is manipulated", sns.topicARN, "arn:aws:sns:us-west-2:475347751589:test-notification")
+        assertEquals("role arn is manipulated", sns.roleARN, "arn:aws:iam::853806060000:role/domain/abc")
+    }
+
+    fun `test sns destination without role support`() {
+        val sns = SNS("arn:aws:sns:us-west-2:475347751589:test-notification", null)
+        assertEquals("topic arn is manipulated", sns.topicARN, "arn:aws:sns:us-west-2:475347751589:test-notification")
+        assertNull("role arn is manipulated", sns.roleARN)
+    }
+
+    fun `test sns destination with invalid topic arn`() {
+        try {
+            SNS("arn:asdas:sns:475347751589:test-notification", null)
+            fail("Creating a sns destination with invalid topic arn did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
+    fun `test sns destination with invalid role arn`() {
+        try {
+            DestinationType.snsUseIamRole = true
+            SNS("arn:aws:sns:us-west-2:475347751589:test-notification", "arn:aws:iamiam::853806060000:role/domain/abc")
+            fail("Creating a sns destination with invalid role arn did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
     }
 }
