@@ -1,5 +1,5 @@
 [![Test Workflow](https://github.com/opendistro-for-elasticsearch/alerting/workflows/Test%20Workflow/badge.svg)](https://github.com/opendistro-for-elasticsearch/alerting/actions)
-[![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/alerting/branch/master/graph/badge.svg)](https://codecov.io/gh/opendistro-for-elasticsearch/alerting)
+[![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/alerting/branch/main/graph/badge.svg)](https://codecov.io/gh/opendistro-for-elasticsearch/alerting)
 [![Documentation](https://img.shields.io/badge/api-reference-blue.svg)](https://opendistro.github.io/for-elasticsearch-docs/docs/alerting/api/)
 [![Chat](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/alerting/)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
@@ -43,7 +43,7 @@ This package is organized into subprojects, most of which contribute JARs to the
 
 All subprojects in this package use the [Gradle](https://docs.gradle.org/current/userguide/userguide.html) build system. Gradle comes with excellent documentation that should be your first stop when trying to figure out how to operate or modify the build.
 
-However, to build the `alerting` plugin subproject, we also use the Elastic build tools for Gradle.  These tools are idiosyncratic and don't always follow the conventions and instructions for building regular Java code using Gradle. Not everything in `alerting` will work the way it's described in the Gradle documentation. If you encounter such a situation, the Elastic build tools [source code](https://github.com/elastic/elasticsearch/tree/master/buildSrc/src/main/groovy/org/elasticsearch/gradle) is your best bet for figuring out what's going on.
+However, to build the `alerting` plugin subproject, we also use the Elastic build tools for Gradle.  These tools are idiosyncratic and don't always follow the conventions and instructions for building regular Java code using Gradle. Not everything in `alerting` will work the way it's described in the Gradle documentation. If you encounter such a situation, the Elastic build tools [source code](https://github.com/elastic/elasticsearch/tree/main/buildSrc/src/main/groovy/org/elasticsearch/gradle) is your best bet for figuring out what's going on.
 
 
 ### Building from the command line

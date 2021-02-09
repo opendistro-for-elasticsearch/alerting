@@ -1,5 +1,5 @@
 name: Release workflow
-# This workflow is triggered on creating tags to master or a opendistro release branch
+# This workflow is triggered on creating tags to main or a opendistro release branch
 on:
   push:
     tags:
