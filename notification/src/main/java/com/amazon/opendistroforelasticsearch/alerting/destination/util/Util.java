@@ -24,8 +24,8 @@ public class Util {
 
     private Util() {}
 
-    public static final Pattern SNS_ARN_REGEX = Pattern.compile("^arn:aws(-[^:]+)?:sns:([a-zA-Z0-9-]+):([0-9]{12}):([a-zA-Z0-9-_]+)$");
-    public static final Pattern IAM_ARN_REGEX = Pattern.compile("^arn:aws(-[^:]+)?:iam::([0-9]{12}):([a-zA-Z0-9-/_]+)$");
+    public static final Pattern SNS_ARN_REGEX = Pattern.compile("^arn:aws(-[^:]+)?:sns:([a-zA-Z0-9-]+):([0-9]{12}):([a-zA-Z_0-9+=,.@\\-_/]+)$");
+    public static final Pattern IAM_ARN_REGEX = Pattern.compile("^arn:aws(-[^:]+)?:iam::([0-9]{12}):([a-zA-Z_0-9+=,.@\\-_/]+)$");
 
     public static String getRegion(String arn) {
         // sample topic arn arn:aws:sns:us-west-2:075315751589:test-notification
