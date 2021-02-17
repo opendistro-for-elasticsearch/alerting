@@ -15,7 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.destination.message;
 
+import org.apache.http.client.utils.URIBuilder;
 import org.elasticsearch.common.Strings;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Map;
 
 /**
  * This class holds the generic parameters required for a
@@ -66,6 +71,30 @@ public abstract class BaseMessage {
 
     public String getUrl() {
         return url;
+    }
+
+    public URI getUri() {
+        return buildUri(getUrl().trim(), null, null, -1, null, null);
+    }
+
+    protected URI buildUri(String endpoint, String scheme, String host,
+                         int port, String path, Map<String, String> queryParams) {
+        try {
+            if(Strings.isNullOrEmpty(endpoint)) {
+                if (Strings.isNullOrEmpty(scheme)) {
+                    scheme = "https";
+                }
+                URIBuilder uriBuilder = new URIBuilder();
+                if(queryParams != null) {
+                    for (Map.Entry<String, String> e : queryParams.entrySet())
+                        uriBuilder.addParameter(e.getKey(), e.getValue());
+                }
+                return uriBuilder.setScheme(scheme).setHost(host).setPort(port).setPath(path).build();
+            }
+            return new URIBuilder(endpoint).build();
+        } catch (URISyntaxException exception) {
+            throw new IllegalStateException("Error creating URI");
+        }
     }
 
 }

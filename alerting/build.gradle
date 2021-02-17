@@ -73,6 +73,7 @@ dependencies {
 
     compile project(":alerting-core")
     compile project(":alerting-notification")
+    implementation "com.github.seancfoley:ipaddress:5.3.3"
 
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
 }
