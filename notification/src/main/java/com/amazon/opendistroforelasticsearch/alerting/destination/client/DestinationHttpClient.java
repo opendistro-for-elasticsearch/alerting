@@ -110,8 +110,7 @@ public class DestinationHttpClient {
         HttpRequestBase httpRequest;
         if (message instanceof CustomWebhookMessage) {
             CustomWebhookMessage customWebhookMessage = (CustomWebhookMessage) message;
-            uri = buildUri(customWebhookMessage.getUrl(), customWebhookMessage.getScheme(), customWebhookMessage.getHost(),
-                    customWebhookMessage.getPort(), customWebhookMessage.getPath(), customWebhookMessage.getQueryParams());
+            uri = customWebhookMessage.getUri();
             httpRequest = constructHttpRequest(((CustomWebhookMessage) message).getMethod());
             // set headers
             Map<String, String> headerParams = customWebhookMessage.getHeaderParams();
@@ -124,7 +123,7 @@ public class DestinationHttpClient {
             }
         } else {
              httpRequest = new HttpPost();
-             uri = buildUri(message.getUrl().trim(), null, null, -1, null, null);
+             uri = message.getUri();
         }
 
         httpRequest.setURI(uri);
@@ -146,29 +145,6 @@ public class DestinationHttpClient {
                 return new HttpPatch();
             default:
                 throw new IllegalArgumentException("Invalid method supplied");
-        }
-    }
-
-    private URI buildUri(String endpoint, String scheme, String host,
-                         int port, String path, Map<String, String> queryParams)
-            throws Exception {
-        try {
-            if(Strings.isNullOrEmpty(endpoint)) {
-                logger.info("endpoint empty. Fall back to host:port/path");
-                if (Strings.isNullOrEmpty(scheme)) {
-                    scheme = "https";
-                }
-                URIBuilder uriBuilder = new URIBuilder();
-                if(queryParams != null) {
-                    for (Map.Entry<String, String> e : queryParams.entrySet())
-                        uriBuilder.addParameter(e.getKey(), e.getValue());
-                }
-                return uriBuilder.setScheme(scheme).setHost(host).setPort(port).setPath(path).build();
-            }
-            return new URIBuilder(endpoint).build();
-        } catch (URISyntaxException exception) {
-            logger.error("Error occured while building Uri");
-            throw new IllegalStateException("Error creating URI");
         }
     }
 
