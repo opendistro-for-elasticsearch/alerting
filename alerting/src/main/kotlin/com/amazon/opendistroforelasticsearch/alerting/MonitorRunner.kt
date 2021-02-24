@@ -142,6 +142,9 @@ class MonitorRunner(
     fun reloadDestinationSettings(settings: Settings) {
         destinationSettings = loadDestinationSettings(settings)
 
+        // Update awsSettings for SNS destination type
+        awsSettings = AWSSettings.parse(settings)
+
         // Update destinationContextFactory as well since destinationSettings has been updated
         destinationContextFactory.updateDestinationSettings(destinationSettings)
     }

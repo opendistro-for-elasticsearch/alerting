@@ -248,7 +248,7 @@ data class Destination(
     }
 
     @Throws(IOException::class)
-    fun publish(AWSSettings: AWSSettings, compiledSubject: String?, compiledMessage: String, destinationCtx: DestinationContext): String {
+    fun publish(awsSettings: AWSSettings, compiledSubject: String?, compiledMessage: String, destinationCtx: DestinationContext): String {
         val destinationMessage: BaseMessage
         val responseContent: String
         val responseStatusCode: Int
@@ -271,8 +271,8 @@ data class Destination(
                 destinationMessage = SNSMessage.Builder(name)
                         .withRoleArn(sns?.roleARN)
                         .withTopicArn(sns?.topicARN)
-                        .withIAMAccessKey(AWSSettings.iamUserAccessKey)
-                        .withIAMSecretKey(AWSSettings.iamUserSecretKey)
+                        .withIAMAccessKey(awsSettings.iamUserAccessKey)
+                        .withIAMSecretKey(awsSettings.iamUserSecretKey)
                         .withSubject(compiledSubject)
                         .withMessage(compiledMessage)
                         .build()

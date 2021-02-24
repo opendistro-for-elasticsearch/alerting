@@ -21,6 +21,10 @@ import org.elasticsearch.common.settings.SecureString
 import org.elasticsearch.common.settings.Settings
 import java.io.IOException
 
+/**
+ * Settings specific to AWS resources. This class is separated from the other settings classes to store anything specific to
+ * AWS resources.
+ */
 data class AWSSettings(
     val iamUserAccessKey: SecureString,
     val iamUserSecretKey: SecureString
@@ -39,9 +43,7 @@ data class AWSSettings(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(settings: Settings): AWSSettings {
-            if (SNS_IAM_USER_ACCESS_KEY.get(settings) == null) {
-                DestinationType.snsUseIamRole = true
-            }
+            DestinationType.snsUseIamRole = SNS_IAM_USER_ACCESS_KEY.get(settings) == null
             return AWSSettings(
                     SNS_IAM_USER_ACCESS_KEY.get(settings),
                     SNS_IAM_USER_SECRET_KEY.get(settings)
