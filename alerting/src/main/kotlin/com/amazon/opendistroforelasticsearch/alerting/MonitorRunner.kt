@@ -535,7 +535,6 @@ class MonitorRunner(
                     if (!destination.isAllowed(allowList)) {
                         throw IllegalStateException("Monitor contains a Destination type that is not allowed: ${destination.type}")
                     }
-                    println("SRIRAM : $hostDenyList")
 
                     val destinationCtx = destinationContextFactory.getDestinationContext(destination)
                     actionOutput[MESSAGE_ID] = destination.publish(

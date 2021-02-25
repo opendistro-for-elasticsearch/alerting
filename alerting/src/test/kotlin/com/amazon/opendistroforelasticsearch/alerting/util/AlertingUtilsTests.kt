@@ -7,12 +7,13 @@ import java.util.HashMap
 
 class AlertingUtilsTests : ESTestCase() {
 
-    private val DENY_LIST_RANGES = listOf(
+    private val HOST_DENY_LIST = listOf(
             "127.0.0.0/8",
             "10.0.0.0/8",
             "172.16.0.0/12",
             "192.168.0.0/16",
-            "0.0.0.0/8"
+            "0.0.0.0/8",
+            "9.9.9.9" // ip
     )
 
     fun `test ips in denylist`() {
@@ -22,11 +23,12 @@ class AlertingUtilsTests : ESTestCase() {
                 "10.11.12.13", // 10.0.0.0/8
                 "172.16.0.1", // "172.16.0.0/12"
                 "192.168.0.1", // 192.168.0.0/16"
-                "0.0.0.1" // 0.0.0.0/8
+                "0.0.0.1", // 0.0.0.0/8
+                "9.9.9.9"
         )
         for (ip in ips) {
             val bm = createMessageWithHost(ip)
-            assertEquals(true, bm.isHostInDenylist(DENY_LIST_RANGES))
+            assertEquals(true, bm.isHostInDenylist(HOST_DENY_LIST))
         }
     }
 
@@ -34,7 +36,7 @@ class AlertingUtilsTests : ESTestCase() {
         val urls = listOf("https://www.amazon.com", "https://mytest.com", "https://mytest.com")
         for (url in urls) {
             val bm = createMessageWithURl(url)
-            assertEquals(false, bm.isHostInDenylist(DENY_LIST_RANGES))
+            assertEquals(false, bm.isHostInDenylist(HOST_DENY_LIST))
         }
     }
 
