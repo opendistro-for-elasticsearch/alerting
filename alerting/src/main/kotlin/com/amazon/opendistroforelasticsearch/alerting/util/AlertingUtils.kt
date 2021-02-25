@@ -46,9 +46,9 @@ fun isValidEmail(email: String): Boolean {
 fun Destination.isAllowed(allowList: List<String>): Boolean = allowList.contains(this.type.value)
 
 fun BaseMessage.isHostInDenylist(networks: List<String>): Boolean {
+    val ipStr = IPAddressString(this.uri.host)
     for (network in networks) {
         val netStr = IPAddressString(network)
-        val ipStr = IPAddressString(this.uri.host)
         if (netStr.contains(ipStr)) {
             logger.error("Host: {} resolves to: {} which is in denylist: {}.", uri.getHost(), InetAddress.getByName(uri.getHost()), netStr)
             return true
