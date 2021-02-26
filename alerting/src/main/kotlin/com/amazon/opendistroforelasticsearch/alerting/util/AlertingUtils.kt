@@ -15,12 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.util
 
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.rest.RestStatus
+import inet.ipaddr.IPAddressString
+import java.net.InetAddress
+import org.elasticsearch.transport.TransportChannel.logger
 
 /**
  * RFC 5322 compliant pattern matching: https://www.ietf.org/rfc/rfc5322.txt
@@ -40,6 +44,18 @@ fun isValidEmail(email: String): Boolean {
 
 /** Allowed Destinations are ones that are specified in the [DestinationSettings.ALLOW_LIST] setting. */
 fun Destination.isAllowed(allowList: List<String>): Boolean = allowList.contains(this.type.value)
+
+fun BaseMessage.isHostInDenylist(networks: List<String>): Boolean {
+    val ipStr = IPAddressString(this.uri.host)
+    for (network in networks) {
+        val netStr = IPAddressString(network)
+        if (netStr.contains(ipStr)) {
+            logger.error("Host: {} resolves to: {} which is in denylist: {}.", uri.getHost(), InetAddress.getByName(uri.getHost()), netStr)
+            return true
+        }
+    }
+    return false
+}
 
 /**
   1. If filterBy is enabled

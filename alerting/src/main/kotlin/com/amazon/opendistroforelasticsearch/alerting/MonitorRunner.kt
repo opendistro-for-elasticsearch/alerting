@@ -52,6 +52,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
@@ -120,6 +121,8 @@ class MonitorRunner(
     @Volatile private var moveAlertsRetryPolicy =
         BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
     @Volatile private var allowList = ALLOW_LIST.get(settings)
+
+    @Volatile private var hostDenyList = HOST_DENY_LIST.get(settings)
 
     @Volatile private var destinationSettings = loadDestinationSettings(settings)
     @Volatile private var destinationContextFactory = DestinationContextFactory(client, xContentRegistry, destinationSettings)
@@ -537,7 +540,8 @@ class MonitorRunner(
                     actionOutput[MESSAGE_ID] = destination.publish(
                         actionOutput[SUBJECT],
                         actionOutput[MESSAGE]!!,
-                        destinationCtx
+                        destinationCtx,
+                        hostDenyList
                     )
                 }
             }

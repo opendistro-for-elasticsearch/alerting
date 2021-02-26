@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
+import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
@@ -651,6 +652,58 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val alerts = searchAlerts(monitor)
         assertEquals("Alert not saved", 1, alerts.size)
         verifyAlert(alerts.single(), monitor, ACTIVE)
+    }
+
+    fun `test execute monitor with custom webhook destination`() {
+        val customWebhook = CustomWebhook("http://15.16.17.18", null, null, 80, null, "PUT", emptyMap(), emptyMap(), null, null)
+        val destination = createDestination(
+                Destination(
+                        type = DestinationType.CUSTOM_WEBHOOK,
+                        name = "testDesination",
+                        user = randomUser(),
+                        lastUpdateTime = Instant.now(),
+                        chime = null,
+                        slack = null,
+                        customWebhook = customWebhook,
+                        email = null
+                ))
+        val action = randomAction(destinationId = destination.id)
+        val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
+        executeMonitor(adminClient(), monitor.id)
+
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alert not saved", 1, alerts.size)
+        verifyAlert(alerts.single(), monitor, ERROR)
+        Assert.assertTrue(alerts.single().errorMessage?.contains("Connect timed out") as Boolean)
+    }
+
+    fun `test execute monitor with custom webhook destination and denied host`() {
+
+        listOf("http://10.1.1.1", "127.0.0.1").forEach {
+            val customWebhook = CustomWebhook(it, null, null, 80, null, "PUT", emptyMap(), emptyMap(), null, null)
+            val destination = createDestination(
+                    Destination(
+                            type = DestinationType.CUSTOM_WEBHOOK,
+                            name = "testDesination",
+                            user = randomUser(),
+                            lastUpdateTime = Instant.now(),
+                            chime = null,
+                            slack = null,
+                            customWebhook = customWebhook,
+                            email = null
+                    ))
+            val action = randomAction(destinationId = destination.id)
+            val trigger = randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+            val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
+            executeMonitor(adminClient(), monitor.id)
+
+            val alerts = searchAlerts(monitor)
+            assertEquals("Alert not saved", 1, alerts.size)
+            verifyAlert(alerts.single(), monitor, ERROR)
+
+            Assert.assertTrue(alerts.single().errorMessage?.contains("The destination address is invalid") as Boolean)
+        }
     }
 
     fun `test execute AD monitor doesn't return search result without user`() {

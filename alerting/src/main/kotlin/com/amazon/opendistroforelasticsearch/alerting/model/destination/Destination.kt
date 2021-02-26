@@ -29,6 +29,7 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserFie
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Email
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
+import com.amazon.opendistroforelasticsearch.alerting.util.isHostInDenylist
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.io.stream.StreamInput
@@ -236,7 +237,13 @@ data class Destination(
     }
 
     @Throws(IOException::class)
-    fun publish(compiledSubject: String?, compiledMessage: String, destinationCtx: DestinationContext): String {
+    fun publish(
+        compiledSubject: String?,
+        compiledMessage: String,
+        destinationCtx: DestinationContext,
+        denyHostRanges: List<String>
+    ): String {
+
         val destinationMessage: BaseMessage
         val responseContent: String
         val responseStatusCode: Int
@@ -285,6 +292,7 @@ data class Destination(
             }
         }
 
+        validateDestinationUri(destinationMessage, denyHostRanges)
         val response = Notification.publish(destinationMessage) as DestinationResponse
         responseContent = response.responseContent
         responseStatusCode = response.statusCode
@@ -306,5 +314,11 @@ data class Destination(
             throw IllegalArgumentException("Content is NULL for destination type ${type.value}")
         }
         return content
+    }
+
+    private fun validateDestinationUri(destinationMessage: BaseMessage, denyHostRanges: List<String>) {
+        if (destinationMessage.isHostInDenylist(denyHostRanges)) {
+            throw IOException("The destination address is invalid.")
+        }
     }
 }
