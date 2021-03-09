@@ -39,6 +39,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
+import java.net.InetAddress
 import java.time.Instant
 import java.util.Locale
 
@@ -318,6 +319,8 @@ data class Destination(
 
     private fun validateDestinationUri(destinationMessage: BaseMessage, denyHostRanges: List<String>) {
         if (destinationMessage.isHostInDenylist(denyHostRanges)) {
+            logger.error("Host: {} resolves to: {} which is in denylist: {}.", destinationMessage.uri.host,
+                    InetAddress.getByName(destinationMessage.uri.host), denyHostRanges)
             throw IOException("The destination address is invalid.")
         }
     }

@@ -93,7 +93,7 @@ class TransportExecuteMonitorAction @Inject constructor(
                     }
                 })
             } else {
-                val monitor = when (user == null || user?.name.isNullOrEmpty()) {
+                val monitor = when (user?.name.isNullOrEmpty()) {
                     true -> execMonitorRequest.monitor as Monitor
                     false -> (execMonitorRequest.monitor as Monitor).copy(user = user)
                 }
