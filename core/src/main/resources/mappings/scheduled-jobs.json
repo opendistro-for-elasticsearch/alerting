@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 3
+    "schema_version": 4
   },
   "properties": {
     "monitor": {
@@ -112,6 +112,15 @@
                   "enabled": false
                 }
               }
+            }
+          }
+        },
+        "group_by_fields": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
             }
           }
         },
