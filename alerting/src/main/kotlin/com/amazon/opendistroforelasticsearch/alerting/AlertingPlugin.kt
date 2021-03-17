@@ -257,7 +257,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 DestinationSettings.EMAIL_PASSWORD,
                 DestinationSettings.ALLOW_LIST,
                 AWSSettings.SNS_IAM_USER_ACCESS_KEY,
-                AWSSettings.SNS_IAM_USER_SECRET_KEY
+                AWSSettings.SNS_IAM_USER_SECRET_KEY,
+                DestinationSettings.HOST_DENY_LIST
             )
     }
 

@@ -20,6 +20,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.elasticsearch.common.Strings;
 
+import java.net.URI;
 import java.util.Map;
 
 /**
@@ -217,4 +218,7 @@ public class CustomWebhookMessage extends BaseMessage {
         return headerParams;
     }
 
+    public URI getUri() {
+        return buildUri(getUrl(), getScheme(), getHost(), getPort(), getPath(), getQueryParams());
+    }
 }

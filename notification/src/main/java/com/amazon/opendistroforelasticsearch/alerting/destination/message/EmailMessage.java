@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.destination.message;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.SecureString;
 
+import java.net.URI;
 import java.util.List;
 
 /**
@@ -186,5 +187,9 @@ public class EmailMessage extends BaseMessage {
 
     public SecureString getPassword() {
         return password;
+    }
+
+    public URI getUri() {
+        return buildUri(null, null, host, port, null, null);
     }
 }

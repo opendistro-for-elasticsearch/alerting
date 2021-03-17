@@ -73,6 +73,7 @@ dependencies {
 
     compile project(":alerting-core")
     compile project(":alerting-notification")
+    implementation "com.github.seancfoley:ipaddress:5.3.3"
 
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
 }
@@ -119,6 +120,10 @@ testClusters.integTest {
             debugPort += 1
         }
     }
+}
+
+testClusters.integTest.nodes.each { node ->
+    node.setting("opendistro.destination.host.deny_list", "[\"10.0.0.0/8\", \"127.0.0.1\"]")
 }
 
 integTest {
