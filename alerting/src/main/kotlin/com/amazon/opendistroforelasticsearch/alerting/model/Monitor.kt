@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
+import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalStringList
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MONITOR_MAX_INPUTS
@@ -57,6 +58,9 @@ data class Monitor(
     val user: User?,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val inputs: List<Input>,
+    // TODO: Check how this behaves during rolling upgrade/multi-version cluster
+    //  Can read/write and parsing break if it's done from an old -> new version of the plugin?
+    val groupByFields: List<String>?,
     val triggers: List<Trigger>,
     val uiMetadata: Map<String, Any>
 ) : ScheduledJob {
@@ -92,9 +96,11 @@ data class Monitor(
         } else null,
         schemaVersion = sin.readInt(),
         inputs = sin.readList(::SearchInput),
+        groupByFields = sin.readOptionalStringList(),
         triggers = sin.readList(::Trigger),
         uiMetadata = suppressWarning(sin.readMap())
     )
+
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
     }
@@ -115,6 +121,7 @@ data class Monitor(
                 .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
                 .field(SCHEDULE_FIELD, schedule)
                 .field(INPUTS_FIELD, inputs.toTypedArray())
+                .optionalStringList(GROUP_BY_FIELD, groupByFields)
                 .field(TRIGGERS_FIELD, triggers.toTypedArray())
                 .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
         if (uiMetadata.isNotEmpty()) builder.field(UI_METADATA_FIELD, uiMetadata)
@@ -142,6 +149,7 @@ data class Monitor(
         user?.writeTo(out)
         out.writeInt(schemaVersion)
         out.writeCollection(inputs)
+        out.writeOptionalStringCollection(groupByFields)
         out.writeCollection(triggers)
         out.writeMap(uiMetadata)
     }
@@ -158,6 +166,7 @@ data class Monitor(
         const val NO_ID = ""
         const val NO_VERSION = 1L
         const val INPUTS_FIELD = "inputs"
+        const val GROUP_BY_FIELD = "group_by_fields"
         const val LAST_UPDATE_TIME_FIELD = "last_update_time"
         const val UI_METADATA_FIELD = "ui_metadata"
         const val ENABLED_TIME_FIELD = "enabled_time"
@@ -182,6 +191,7 @@ data class Monitor(
             var schemaVersion = NO_SCHEMA_VERSION
             val triggers: MutableList<Trigger> = mutableListOf()
             val inputs: MutableList<Input> = mutableListOf()
+            var groupByFields: MutableList<String>? = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -198,6 +208,16 @@ data class Monitor(
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             inputs.add(Input.parse(xcp))
+                        }
+                    }
+                    GROUP_BY_FIELD -> {
+                        if (xcp.currentToken() == Token.VALUE_NULL) {
+                            groupByFields = null
+                        } else {
+                            ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
+                            while (xcp.nextToken() != Token.END_ARRAY) {
+                                groupByFields?.add(xcp.text())
+                            }
                         }
                     }
                     TRIGGERS_FIELD -> {
@@ -230,6 +250,7 @@ data class Monitor(
                     user,
                     schemaVersion,
                     inputs.toList(),
+                    groupByFields?.toList(),
                     triggers.toList(),
                     uiMetadata)
         }
