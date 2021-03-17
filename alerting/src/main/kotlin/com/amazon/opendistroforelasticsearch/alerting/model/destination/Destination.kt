@@ -256,7 +256,6 @@ data class Destination(
         destinationCtx: DestinationContext,
         denyHostRanges: List<String>
     ): String {
-
         val destinationMessage: BaseMessage
         val responseContent: String
         val responseStatusCode: Int
@@ -315,7 +314,9 @@ data class Destination(
             }
         }
 
-        validateDestinationUri(destinationMessage, denyHostRanges)
+        if (type !== DestinationType.SNS) {
+            validateDestinationUri(destinationMessage, denyHostRanges)
+        }
         val response = Notification.publish(destinationMessage) as DestinationResponse
         responseContent = response.responseContent
         responseStatusCode = response.statusCode

@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.destination.factory;
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.DestinationType;
+import com.amazon.opendistroforelasticsearch.alerting.destination.util.PropertyHelper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,15 +28,7 @@ import java.util.Map;
  */
 public class DestinationFactoryProvider {
 
-    private static Map<DestinationType, DestinationFactory> destinationFactoryMap = new HashMap<>();
-
-    static {
-        destinationFactoryMap.put(DestinationType.CHIME, new ChimeDestinationFactory());
-        destinationFactoryMap.put(DestinationType.SLACK, new SlackDestinationFactory());
-        destinationFactoryMap.put(DestinationType.CUSTOMWEBHOOK, new CustomWebhookDestinationFactory());
-        destinationFactoryMap.put(DestinationType.EMAIL, new EmailDestinationFactory());
-        destinationFactoryMap.put(DestinationType.SNS, new SNSDestinationFactory());
-    }
+    private static final Map<DestinationType, DestinationFactory> destinationFactoryMap = PropertyHelper.getDestinationFactoryMap();
 
     /**
      * Fetches the right channel factory based on the type of the channel
@@ -45,7 +38,7 @@ public class DestinationFactoryProvider {
      */
     public static DestinationFactory getFactory(DestinationType destinationType) {
         if (!destinationFactoryMap.containsKey(destinationType)) {
-            throw new IllegalArgumentException("Invalid channel type");
+            throw new IllegalArgumentException("Invalid channel type: " + destinationType.name());
         }
         return destinationFactoryMap.get(destinationType);
     }
@@ -53,7 +46,7 @@ public class DestinationFactoryProvider {
     /*
      *  This function is to mock hooks for the unit test
      */
-     public static void setFactory(DestinationType type, DestinationFactory factory) {
+    public static void setFactory(DestinationType type, DestinationFactory factory) {
         destinationFactoryMap.put(type, factory);
     }
 }
