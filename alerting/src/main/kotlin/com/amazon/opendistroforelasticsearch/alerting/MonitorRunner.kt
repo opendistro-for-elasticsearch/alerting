@@ -51,8 +51,11 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.ALLOW_LIST_NONE
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST
+import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST_NONE
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
@@ -100,46 +103,104 @@ import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 
-class MonitorRunner(
-    private val settings: Settings,
-    private val client: Client,
-    private val threadPool: ThreadPool,
-    private val scriptService: ScriptService,
-    private val xContentRegistry: NamedXContentRegistry,
-    private val alertIndices: AlertIndices,
-    clusterService: ClusterService
-) : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
+object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
-    private val logger = LogManager.getLogger(MonitorRunner::class.java)
+    private val logger = LogManager.getLogger(javaClass)
+
+    private lateinit var clusterService: ClusterService
+    private lateinit var client: Client
+    private lateinit var xContentRegistry: NamedXContentRegistry
+    private lateinit var scriptService: ScriptService
+    private lateinit var settings: Settings
+    private lateinit var threadPool: ThreadPool
+    private lateinit var alertIndices: AlertIndices
+    private lateinit var inputService: InputService
+
+    @Volatile private lateinit var retryPolicy: BackoffPolicy
+    @Volatile private lateinit var moveAlertsRetryPolicy: BackoffPolicy
+
+    @Volatile private var allowList = ALLOW_LIST_NONE
+    @Volatile private var hostDenyList = HOST_DENY_LIST_NONE
+
+    @Volatile private lateinit var destinationSettings: Map<String, DestinationSettings.Companion.SecureDestinationSettings>
+    @Volatile private lateinit var destinationContextFactory: DestinationContextFactory
 
     private lateinit var runnerSupervisor: Job
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + runnerSupervisor
 
-    @Volatile private var retryPolicy =
-        BackoffPolicy.constantBackoff(ALERT_BACKOFF_MILLIS.get(settings), ALERT_BACKOFF_COUNT.get(settings))
-    @Volatile private var moveAlertsRetryPolicy =
-        BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
-    @Volatile private var allowList = ALLOW_LIST.get(settings)
+    fun registerClusterService(clusterService: ClusterService): MonitorRunner {
+        this.clusterService = clusterService
+        return this
+    }
 
-    @Volatile private var hostDenyList = HOST_DENY_LIST.get(settings)
+    fun registerClient(client: Client): MonitorRunner {
+        this.client = client
+        return this
+    }
 
-    @Volatile private var destinationSettings = loadDestinationSettings(settings)
-    @Volatile private var destinationContextFactory = DestinationContextFactory(client, xContentRegistry, destinationSettings)
+    fun registerNamedXContentRegistry(xContentRegistry: NamedXContentRegistry): MonitorRunner {
+        this.xContentRegistry = xContentRegistry
+        return this
+    }
 
-    init {
+    fun registerScriptService(scriptService: ScriptService): MonitorRunner {
+        this.scriptService = scriptService
+        return this
+    }
+
+    fun registerSettings(settings: Settings): MonitorRunner {
+        this.settings = settings
+        return this
+    }
+
+    fun registerThreadPool(threadPool: ThreadPool): MonitorRunner {
+        this.threadPool = threadPool
+        return this
+    }
+
+    fun registerAlertIndices(alertIndices: AlertIndices): MonitorRunner {
+        this.alertIndices = alertIndices
+        return this
+    }
+
+    fun registerInputService(inputService: InputService): MonitorRunner {
+        this.inputService = inputService
+        return this
+    }
+
+    // Must be called after registerClusterService and registerSettings in AlertingPlugin
+    fun registerConsumers(): MonitorRunner {
+        retryPolicy = BackoffPolicy.constantBackoff(ALERT_BACKOFF_MILLIS.get(settings), ALERT_BACKOFF_COUNT.get(settings))
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
         }
+
+        moveAlertsRetryPolicy =
+            BackoffPolicy.exponentialBackoff(MOVE_ALERTS_BACKOFF_MILLIS.get(settings), MOVE_ALERTS_BACKOFF_COUNT.get(settings))
         clusterService.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
             millis, count -> moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
+
+        allowList = ALLOW_LIST.get(settings)
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) {
             allowList = it
         }
+
+        // Host deny list is not a dynamic setting so no consumer is registered but the variable is set here
+        hostDenyList = HOST_DENY_LIST.get(settings)
+
+        return this
     }
 
-    /** Update destination settings when the reload API is called so that new keystore values are visible */
+    // To be safe, call this last as it depends on a number of other components being registered beforehand (client, settings, etc.)
+    fun registerDestinationSettings(): MonitorRunner {
+        destinationSettings = loadDestinationSettings(settings)
+        destinationContextFactory = DestinationContextFactory(client, xContentRegistry, destinationSettings)
+        return this
+    }
+
+    // Updates destination settings when the reload API is called so that new keystore values are visible
     fun reloadDestinationSettings(settings: Settings) {
         destinationSettings = loadDestinationSettings(settings)
 
@@ -263,6 +324,8 @@ class MonitorRunner(
         return monitorResult.copy(triggerResults = triggerResults)
     }
 
+    // TODO: Can this be updated to just use 'Instant.now()'?
+    //  'threadPool.absoluteTimeInMillis()' is referring to a cached value of System.currentTimeMillis() that by default updates every 200ms
     private fun currentTime() = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
 
     private fun composeAlert(ctx: TriggerExecutionContext, result: TriggerRunResult, alertError: AlertError?): Alert? {
