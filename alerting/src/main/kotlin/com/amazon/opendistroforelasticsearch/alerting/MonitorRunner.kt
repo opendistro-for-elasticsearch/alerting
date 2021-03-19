@@ -43,7 +43,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Compan
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
-import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
@@ -110,6 +109,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
     private lateinit var threadPool: ThreadPool
     private lateinit var alertIndices: AlertIndices
     private lateinit var inputService: InputService
+    private lateinit var triggerService: TriggerService
 
     @Volatile private lateinit var retryPolicy: BackoffPolicy
     @Volatile private lateinit var moveAlertsRetryPolicy: BackoffPolicy
@@ -161,6 +161,11 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
     fun registerInputService(inputService: InputService): MonitorRunner {
         this.inputService = inputService
+        return this
+    }
+
+    fun registerTriggerService(triggerService: TriggerService): MonitorRunner {
+        this.triggerService = triggerService
         return this
     }
 
@@ -298,10 +303,10 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         for (trigger in monitor.triggers) {
             val currentAlert = currentAlerts[trigger]
             val triggerCtx = TriggerExecutionContext(monitor, trigger, monitorResult, currentAlert)
-            val triggerResult = runTrigger(monitor, trigger, triggerCtx)
+            val triggerResult = triggerService.runTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
-            if (isTriggerActionable(triggerCtx, triggerResult)) {
+            if (triggerService.isTriggerActionable(triggerCtx, triggerResult)) {
                 val actionCtx = triggerCtx.copy(error = monitorResult.error ?: triggerResult.error)
                 for (action in trigger.actions) {
                     triggerResult.actionResults[action.id] = runAction(action, actionCtx, dryrun)
@@ -370,19 +375,6 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                     lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
                     errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
                     schemaVersion = IndexUtils.alertIndexSchemaVersion)
-        }
-    }
-
-    private fun runTrigger(monitor: Monitor, trigger: Trigger, ctx: TriggerExecutionContext): TriggerRunResult {
-        return try {
-            val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
-                    .newInstance(trigger.condition.params)
-                    .execute(ctx)
-            TriggerRunResult(trigger.name, triggered, null)
-        } catch (e: Exception) {
-            logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
-            // if the script fails we need to send an alert so set triggered = true
-            TriggerRunResult(trigger.name, true, e)
         }
     }
 
@@ -467,12 +459,6 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                 throw ExceptionsHelper.convertToElastic(retryCause)
             }
         }
-    }
-
-    private fun isTriggerActionable(ctx: TriggerExecutionContext, result: TriggerRunResult): Boolean {
-        // Suppress actions if the current alert is acknowledged and there are no errors.
-        val suppress = ctx.alert?.state == ACKNOWLEDGED && result.error == null && ctx.error == null
-        return result.triggered && !suppress
     }
 
     private fun isActionActionable(action: Action, alert: Alert?): Boolean {
