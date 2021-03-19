@@ -20,9 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
@@ -35,7 +33,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETE
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.DELETED
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
-import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
@@ -58,7 +55,6 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST_NONE
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
-import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
 import kotlinx.coroutines.CoroutineScope
@@ -96,7 +92,6 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
-import org.elasticsearch.script.ScriptType
 import org.elasticsearch.script.TemplateScript
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.threadpool.ThreadPool
@@ -292,10 +287,10 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
         if (!isADMonitor(monitor)) {
             runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
-                monitorResult = monitorResult.copy(inputResults = collectInputResults(monitor, periodStart, periodEnd))
+                monitorResult = monitorResult.copy(inputResults = inputService.collectInputResults(monitor, periodStart, periodEnd))
             }
         } else {
-            monitorResult = monitorResult.copy(inputResults = collectInputResultsForADMonitor(monitor, periodStart, periodEnd))
+            monitorResult = monitorResult.copy(inputResults = inputService.collectInputResultsForADMonitor(monitor, periodStart, periodEnd))
         }
 
         val updatedAlerts = mutableListOf<Alert>()
@@ -375,94 +370,6 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                     lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
                     errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
                     schemaVersion = IndexUtils.alertIndexSchemaVersion)
-        }
-    }
-
-    private suspend fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
-        return try {
-            val results = mutableListOf<Map<String, Any>>()
-            monitor.inputs.forEach { input ->
-                when (input) {
-                    is SearchInput -> {
-                        // TODO: Figure out a way to use SearchTemplateRequest without bringing in the entire TransportClient
-                        val searchParams = mapOf("period_start" to periodStart.toEpochMilli(),
-                                "period_end" to periodEnd.toEpochMilli())
-                        val searchSource = scriptService.compile(Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG,
-                                input.query.toString(), searchParams), TemplateScript.CONTEXT)
-                                .newInstance(searchParams)
-                                .execute()
-
-                        val searchRequest = SearchRequest().indices(*input.indices.toTypedArray())
-                        XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
-                            searchRequest.source(SearchSourceBuilder.fromXContent(it))
-                        }
-                        val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
-                        results += searchResponse.convertToMap()
-                    }
-                    else -> {
-                        throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
-                    }
-                }
-            }
-            InputRunResults(results.toList())
-        } catch (e: Exception) {
-            logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
-            InputRunResults(emptyList(), e)
-        }
-    }
-
-    /**
-     * We moved anomaly result index to system index list. So common user could not directly query
-     * this index any more. This method will stash current thread context to pass security check.
-     * So monitor job can access anomaly result index. We will add monitor user roles filter in
-     * search query to only return documents the monitor user can access.
-     *
-     * On alerting Kibana, monitor users can only see detectors that they have read access. So they
-     * can't create monitor on other user's detector which they have no read access. Even they know
-     * other user's detector id and use it to create monitor, this method will only return anomaly
-     * results they can read.
-     */
-    private suspend fun collectInputResultsForADMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
-        return try {
-            val results = mutableListOf<Map<String, Any>>()
-            val input = monitor.inputs[0] as SearchInput
-
-            val searchParams = mapOf("period_start" to periodStart.toEpochMilli(), "period_end" to periodEnd.toEpochMilli())
-            val searchSource = scriptService.compile(Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG,
-                    input.query.toString(), searchParams), TemplateScript.CONTEXT)
-                    .newInstance(searchParams)
-                    .execute()
-
-            val searchRequest = SearchRequest().indices(*input.indices.toTypedArray())
-            XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, searchSource).use {
-                searchRequest.source(SearchSourceBuilder.fromXContent(it))
-            }
-
-            // Add user role filter for AD result
-            client.threadPool().threadContext.stashContext().use {
-                // Currently we have no way to verify if user has AD read permission or not. So we always add user
-                // role filter here no matter AD backend role filter enabled or not. If we don't add user role filter
-                // when AD backend filter disabled, user can run monitor on any detector and get anomaly data even
-                // they have no AD read permission. So if domain disabled AD backend role filter, monitor runner
-                // still can't get AD result with different user backend role, even the monitor user has permission
-                // to read AD result. This is a short term solution to trade off between user experience and security.
-                //
-                // Possible long term solution:
-                // 1.Use secure rest client to send request to AD search result API. If no permission exception,
-                // that mean user has read access on AD result. Then don't need to add user role filter when query
-                // AD result if AD backend role filter is disabled.
-                // 2.Security provide some transport action to verify if user has permission to search AD result.
-                // Monitor runner will send transport request to check permission first. If security plugin response
-                // is yes, user has permission to query AD result. If AD role filter enabled, we will add user role
-                // filter to protect data at user role level; otherwise, user can query any AD result.
-                addUserBackendRolesFilter(monitor.user, searchRequest.source())
-                val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
-                results += searchResponse.convertToMap()
-            }
-            InputRunResults(results.toList())
-        } catch (e: Exception) {
-            logger.info("Error collecting anomaly result inputs for monitor: ${monitor.id}", e)
-            InputRunResults(emptyList(), e)
         }
     }
 

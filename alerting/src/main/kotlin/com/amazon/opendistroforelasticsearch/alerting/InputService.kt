@@ -88,7 +88,7 @@ class InputService(
      * other user's detector id and use it to create monitor, this method will only return anomaly
      * results they can read.
      */
-    private suspend fun collectInputResultsForADMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
+    suspend fun collectInputResultsForADMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
         return try {
             val results = mutableListOf<Map<String, Any>>()
             val input = monitor.inputs[0] as SearchInput
