@@ -15,27 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
-import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrNull
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACKNOWLEDGED
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ACTIVE
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.COMPLETED
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.DELETED
-import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
@@ -53,7 +43,6 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST_NONE
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
-import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
 import kotlinx.coroutines.CoroutineScope
@@ -64,35 +53,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.ExceptionsHelper
-import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
-import org.elasticsearch.action.bulk.BulkRequest
-import org.elasticsearch.action.bulk.BulkResponse
-import org.elasticsearch.action.delete.DeleteRequest
-import org.elasticsearch.action.index.IndexRequest
-import org.elasticsearch.action.search.SearchRequest
-import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.AbstractLifecycleComponent
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
-import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.index.query.QueryBuilders
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.TemplateScript
-import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
@@ -110,6 +80,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
     private lateinit var alertIndices: AlertIndices
     private lateinit var inputService: InputService
     private lateinit var triggerService: TriggerService
+    private lateinit var alertService: AlertService
 
     @Volatile private lateinit var retryPolicy: BackoffPolicy
     @Volatile private lateinit var moveAlertsRetryPolicy: BackoffPolicy
@@ -166,6 +137,11 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
     fun registerTriggerService(triggerService: TriggerService): MonitorRunner {
         this.triggerService = triggerService
+        return this
+    }
+
+    fun registerAlertService(alertService: AlertService): MonitorRunner {
+        this.alertService = alertService
         return this
     }
 
@@ -267,7 +243,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
          * (`monitor.user.name`, `monitor.user.roles` are empty )
          * 3. Monitors are created when security plugin is enabled, these will have an User object.
          */
-        var roles = if (monitor.user == null) {
+        val roles = if (monitor.user == null) {
             // fixme: discuss and remove hardcoded to settings?
             settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
         } else {
@@ -283,7 +259,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
             alertIndices.createOrUpdateInitialHistoryIndex()
-            loadCurrentAlerts(monitor)
+            alertService.loadCurrentAlerts(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
             val id = if (monitor.id.trim().isEmpty()) "_na_" else monitor.id
@@ -313,13 +289,14 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                 }
             }
 
-            val updatedAlert = composeAlert(triggerCtx, triggerResult, monitorResult.alertError() ?: triggerResult.alertError())
+            val updatedAlert = alertService.composeAlert(triggerCtx, triggerResult,
+                monitorResult.alertError() ?: triggerResult.alertError())
             if (updatedAlert != null) updatedAlerts += updatedAlert
         }
 
         // Don't save alerts if this is a test monitor
         if (!dryrun && monitor.id != Monitor.NO_ID) {
-            saveAlerts(updatedAlerts)
+            alertService.saveAlerts(updatedAlerts, retryPolicy)
         }
         return monitorResult.copy(triggerResults = triggerResults)
     }
@@ -327,139 +304,6 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
     // TODO: Can this be updated to just use 'Instant.now()'?
     //  'threadPool.absoluteTimeInMillis()' is referring to a cached value of System.currentTimeMillis() that by default updates every 200ms
     private fun currentTime() = Instant.ofEpochMilli(threadPool.absoluteTimeInMillis())
-
-    private fun composeAlert(ctx: TriggerExecutionContext, result: TriggerRunResult, alertError: AlertError?): Alert? {
-        val currentTime = currentTime()
-        val currentAlert = ctx.alert
-
-        val updatedActionExecutionResults = mutableListOf<ActionExecutionResult>()
-        val currentActionIds = mutableSetOf<String>()
-        if (currentAlert != null) {
-            // update current alert's action execution results
-            for (actionExecutionResult in currentAlert.actionExecutionResults) {
-                val actionId = actionExecutionResult.actionId
-                currentActionIds.add(actionId)
-                val actionRunResult = result.actionResults[actionId]
-                when {
-                    actionRunResult == null -> updatedActionExecutionResults.add(actionExecutionResult)
-                    actionRunResult.throttled ->
-                        updatedActionExecutionResults.add(actionExecutionResult.copy(
-                                throttledCount = actionExecutionResult.throttledCount + 1))
-                    else -> updatedActionExecutionResults.add(actionExecutionResult.copy(lastExecutionTime = actionRunResult.executionTime))
-                }
-            }
-            // add action execution results which not exist in current alert
-            updatedActionExecutionResults.addAll(result.actionResults.filter { it -> !currentActionIds.contains(it.key) }
-                    .map { it -> ActionExecutionResult(it.key, it.value.executionTime, if (it.value.throttled) 1 else 0) })
-        } else {
-            updatedActionExecutionResults.addAll(result.actionResults.map { it -> ActionExecutionResult(it.key, it.value.executionTime,
-                    if (it.value.throttled) 1 else 0) })
-        }
-
-        // Merge the alert's error message to the current alert's history
-        val updatedHistory = currentAlert?.errorHistory.update(alertError)
-        return if (alertError == null && !result.triggered) {
-            currentAlert?.copy(state = COMPLETED, endTime = currentTime, errorMessage = null,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
-                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
-        } else if (alertError == null && currentAlert?.isAcknowledged() == true) {
-            null
-        } else if (currentAlert != null) {
-            val alertState = if (alertError == null) ACTIVE else ERROR
-            currentAlert.copy(state = alertState, lastNotificationTime = currentTime, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
-                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
-        } else {
-            val alertState = if (alertError == null) ACTIVE else ERROR
-            Alert(monitor = ctx.monitor, trigger = ctx.trigger, startTime = currentTime,
-                    lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
-                    errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
-                    schemaVersion = IndexUtils.alertIndexSchemaVersion)
-        }
-    }
-
-    private suspend fun loadCurrentAlerts(monitor: Monitor): Map<Trigger, Alert?> {
-        val request = SearchRequest(AlertIndices.ALERT_INDEX)
-                .routing(monitor.id)
-                .source(alertQuery(monitor))
-        val response: SearchResponse = client.suspendUntil { client.search(request, it) }
-        if (response.status() != RestStatus.OK) {
-            throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
-        }
-
-        val foundAlerts = response.hits.map { Alert.parse(contentParser(it.sourceRef), it.id, it.version) }
-                .groupBy { it.triggerId }
-        foundAlerts.values.forEach { alerts ->
-            if (alerts.size > 1) {
-                logger.warn("Found multiple alerts for same trigger: $alerts")
-            }
-        }
-
-        return monitor.triggers.associate { trigger ->
-            trigger to (foundAlerts[trigger.id]?.firstOrNull())
-        }
-    }
-
-    private fun contentParser(bytesReference: BytesReference): XContentParser {
-        val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                bytesReference, XContentType.JSON)
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
-        return xcp
-    }
-
-    private fun alertQuery(monitor: Monitor): SearchSourceBuilder {
-        return SearchSourceBuilder.searchSource()
-                .size(monitor.triggers.size * 2) // We expect there to be only a single in-progress alert so fetch 2 to check
-                .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitor.id))
-    }
-
-    private suspend fun saveAlerts(alerts: List<Alert>) {
-        var requestsToRetry = alerts.flatMap { alert ->
-            // we don't want to set the version when saving alerts because the Runner has first priority when writing alerts.
-            // In the rare event that a user acknowledges an alert between when it's read and when it's written
-            // back we're ok if that acknowledgement is lost. It's easier to get the user to retry than for the runner to
-            // spend time reloading the alert and writing it back.
-            when (alert.state) {
-                ACTIVE, ERROR -> {
-                    listOf<DocWriteRequest<*>>(IndexRequest(AlertIndices.ALERT_INDEX)
-                            .routing(alert.monitorId)
-                            .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
-                            .id(if (alert.id != Alert.NO_ID) alert.id else null))
-                }
-                ACKNOWLEDGED, DELETED -> {
-                    throw IllegalStateException("Unexpected attempt to save ${alert.state} alert: $alert")
-                }
-                COMPLETED -> {
-                    listOfNotNull<DocWriteRequest<*>>(
-                            DeleteRequest(AlertIndices.ALERT_INDEX, alert.id)
-                                    .routing(alert.monitorId),
-                            // Only add completed alert to history index if history is enabled
-                            if (alertIndices.isHistoryEnabled()) {
-                                IndexRequest(AlertIndices.HISTORY_WRITE_INDEX)
-                                        .routing(alert.monitorId)
-                                        .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
-                                        .id(alert.id)
-                            } else null
-                    )
-                }
-            }
-        }
-
-        if (requestsToRetry.isEmpty()) return
-        // Retry Bulk requests if there was any 429 response
-        retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
-            val bulkRequest = BulkRequest().add(requestsToRetry)
-            val bulkResponse: BulkResponse = client.suspendUntil { client.bulk(bulkRequest, it) }
-            val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
-            requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
-                .map { bulkRequest.requests()[it.itemId] as IndexRequest }
-
-            if (requestsToRetry.isNotEmpty()) {
-                val retryCause = failedResponses.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
-                throw ExceptionsHelper.convertToElastic(retryCause)
-            }
-        }
-    }
 
     private fun isActionActionable(action: Action, alert: Alert?): Boolean {
         if (alert == null || action.throttle == null) {
@@ -511,15 +355,5 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         return scriptService.compile(template, TemplateScript.CONTEXT)
                 .newInstance(template.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()
-    }
-
-    private fun List<AlertError>?.update(alertError: AlertError?): List<AlertError> {
-        return when {
-            this == null && alertError == null -> emptyList()
-            this != null && alertError == null -> this
-            this == null && alertError != null -> listOf(alertError)
-            this != null && alertError != null -> (listOf(alertError) + this).take(10)
-            else -> throw IllegalStateException("Unreachable code reached!")
-        }
     }
 }
