@@ -38,10 +38,4 @@ public class PropertyHelper {
         }
         return destinationFactoryMap;
     }
-
-    public static List<String> getBlacklistedIpRanges() {
-        return Arrays.asList(((String) properties.getOrDefault("ipRanges", "")).split(",")).stream()
-                .filter(ipString -> !ipString.isBlank())
-                .collect(Collectors.toList());
-    }
 }
