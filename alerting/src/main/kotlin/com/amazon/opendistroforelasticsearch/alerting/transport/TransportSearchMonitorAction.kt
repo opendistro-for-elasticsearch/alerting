@@ -71,8 +71,8 @@ class TransportSearchMonitorAction @Inject constructor(
             search(searchMonitorRequest.searchRequest, actionListener)
         } else {
             // security is enabled and filterby is enabled.
-            log.info("Filtering result by: ${user?.backendRoles}")
-            addFilter(user as User, searchMonitorRequest.searchRequest.source(), "monitor.user.backend_roles.keyword")
+            log.info("Filtering result by: ${user.backendRoles}")
+            addFilter(user, searchMonitorRequest.searchRequest.source(), "monitor.user.backend_roles.keyword")
             search(searchMonitorRequest.searchRequest, actionListener)
         }
     }
