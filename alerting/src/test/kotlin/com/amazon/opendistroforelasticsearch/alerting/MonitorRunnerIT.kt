@@ -640,6 +640,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 lastUpdateTime = Instant.now(),
                 chime = null,
                 slack = null,
+                sns = null,
                 customWebhook = null,
                 email = email
         ))
@@ -664,6 +665,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                         lastUpdateTime = Instant.now(),
                         chime = null,
                         slack = null,
+                        sns = null,
                         customWebhook = customWebhook,
                         email = null
                 ))
@@ -690,6 +692,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                             lastUpdateTime = Instant.now(),
                             chime = null,
                             slack = null,
+                            sns = null,
                             customWebhook = customWebhook,
                             email = null
                     ))

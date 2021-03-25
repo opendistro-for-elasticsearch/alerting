@@ -5,4 +5,28 @@ grant {
 
     permission java.net.SocketPermission "*", "connect,resolve";
     permission java.net.NetPermission "getProxySelector";
+
+    // needed because of problems in ClientConfiguration
+    // TODO: get these fixed in aws sdk
+    permission java.lang.RuntimePermission "accessDeclaredMembers";
+    permission java.lang.RuntimePermission "getClassLoader";
+    permission java.net.SocketPermission "*", "connect";
+    // Needed because of problems in AmazonSNS:
+    // When no region is set on a STSClient instance, the
+    // AWS SDK loads all known partitions from a JSON file and
+    // uses a Jackson's ObjectMapper for that: this one, in
+    // version 2.5.3 with the default binding options, tries
+    // to suppress access checks of ctor/field/method and thus
+    // requires this special permission. AWS must be fixed to
+    // uses Jackson correctly and have the correct modifiers
+    // on binded classes.
+    // TODO: get these fixed in aws sdk
+    // See https://github.com/aws/aws-sdk-java/issues/766
+    permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+
+    // Below is specific for notification SNS client
+    permission javax.management.MBeanServerPermission "createMBeanServer";
+    permission javax.management.MBeanServerPermission "findMBeanServer";
+    permission javax.management.MBeanPermission "com.amazonaws.metrics.*", "*";
+    permission javax.management.MBeanTrustPermission "register";
 };

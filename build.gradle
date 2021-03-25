@@ -19,6 +19,7 @@ buildscript {
     ext {
         es_version = '7.10.2'
         kotlin_version = '1.3.72'
+        aws_version = "1.11.849"
     }
 
     repositories {
