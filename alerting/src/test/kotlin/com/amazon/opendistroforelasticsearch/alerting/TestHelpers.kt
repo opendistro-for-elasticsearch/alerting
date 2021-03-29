@@ -65,6 +65,7 @@ fun randomMonitor(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     user: User = randomUser(),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
+    groupByFields: List<String>? = (1..randomInt(3)).map { ESRestTestCase.randomAlphaOfLength(10) },
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
     triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
@@ -72,7 +73,7 @@ fun randomMonitor(
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
 ): Monitor {
-    return Monitor(name = name, enabled = enabled, inputs = inputs, schedule = schedule, triggers = triggers,
+    return Monitor(name = name, enabled = enabled, inputs = inputs, groupByFields = groupByFields, schedule = schedule, triggers = triggers,
             enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
             user = user, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
@@ -81,6 +82,7 @@ fun randomMonitor(
 fun randomMonitorWithoutUser(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
+    groupByFields: List<String> = (1..randomInt(3)).map { ESRestTestCase.randomAlphaOfLength(10) },
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
     triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
@@ -88,7 +90,7 @@ fun randomMonitorWithoutUser(
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
 ): Monitor {
-    return Monitor(name = name, enabled = enabled, inputs = inputs, schedule = schedule, triggers = triggers,
+    return Monitor(name = name, enabled = enabled, inputs = inputs, groupByFields = groupByFields, schedule = schedule, triggers = triggers,
             enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
             user = null, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
