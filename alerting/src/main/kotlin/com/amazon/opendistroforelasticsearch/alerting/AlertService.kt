@@ -135,7 +135,7 @@ class AlertService(
 
     suspend fun saveAlerts(alerts: List<Alert>, retryPolicy: BackoffPolicy) {
         var requestsToRetry = alerts.flatMap { alert ->
-            // we don't want to set the version when saving alerts because the Runner has first priority when writing alerts.
+            // We don't want to set the version when saving alerts because the MonitorRunner has first priority when writing alerts.
             // In the rare event that a user acknowledges an alert between when it's read and when it's written
             // back we're ok if that acknowledgement is lost. It's easier to get the user to retry than for the runner to
             // spend time reloading the alert and writing it back.
