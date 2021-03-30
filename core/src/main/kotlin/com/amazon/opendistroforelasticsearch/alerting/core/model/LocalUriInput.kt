@@ -1,11 +1,9 @@
 package com.amazon.opendistroforelasticsearch.alerting.core.model
 
-import com.amazon.opendistroforelasticsearch.alerting.localuriapi.toConstructedUrl
 import org.apache.commons.validator.routines.UrlValidator
 import org.apache.http.client.utils.URIBuilder
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
-import org.elasticsearch.common.Strings
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -13,9 +11,10 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import java.io.IOException
+import java.net.URI
 
 /**
- * This is a data class for URI type of input for Monitors.
+ * This is a data class for a URI type of input for Monitors.
  */
 data class LocalUriInput(
     val scheme: String,
@@ -44,11 +43,7 @@ data class LocalUriInput(
         val urlValidator = UrlValidator(arrayOf("http", "https"), UrlValidator.ALLOW_LOCAL_URLS)
 
         // Build url field by field if not provided as whole.
-        val constructedUrl = if (Strings.isEmpty(url)) {
-            toConstructedUrl()
-        } else {
-            URIBuilder(url).build()
-        }
+        val constructedUrl = toConstructedUri()
 
         require(urlValidator.isValid(constructedUrl.toString())) {
             "Invalid url: $constructedUrl"
@@ -133,7 +128,25 @@ data class LocalUriInput(
     }
 
     /**
-     * Helper function to check whether one of url or scheme+host+port+path+params is defined.
+     * Constructs the [URI] either using [url] or using [scheme]+[host]+[port]+[path]+[params].
+     */
+    fun toConstructedUri(): URI {
+        return if (url.isEmpty()) {
+            val uriBuilder = URIBuilder()
+            uriBuilder.scheme = scheme
+            uriBuilder.host = host
+            uriBuilder.port = port
+            uriBuilder.path = path
+            for (e in params.entries)
+                uriBuilder.addParameter(e.key, e.value)
+            uriBuilder.build()
+        } else {
+            URIBuilder(url).build()
+        }
+    }
+
+    /**
+     * Helper function to confirm at least [url], or [scheme]+[host]+[port]+[path]+[params] is defined.
      */
     private fun validateFields(): Boolean {
         if (url.isNotEmpty()) {
