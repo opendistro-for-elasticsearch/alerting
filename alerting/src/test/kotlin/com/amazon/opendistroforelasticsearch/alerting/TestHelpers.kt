@@ -16,6 +16,7 @@ package com.amazon.opendistroforelasticsearch.alerting
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
+import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
@@ -227,6 +228,19 @@ fun randomUser(): User {
 
 fun randomUserEmpty(): User {
     return User("", listOf(), listOf(), listOf())
+}
+
+fun randomLocalUriInput(
+    scheme: String = if (randomInt(3) >= 2) "http" else "https",
+    host: String = "localhost",
+    port: Int = randomInt(LocalUriInput.MAX_PORT),
+    path: String,
+    queryParams: Map<String, String> = hashMapOf(),
+    url: String = "",
+    connectionTimeout: Int = 1 + randomInt(LocalUriInput.MAX_CONNECTION_TIMEOUT - 1),
+    socketTimeout: Int = 1 + randomInt(LocalUriInput.MAX_SOCKET_TIMEOUT - 1)
+): LocalUriInput {
+    return LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout)
 }
 
 fun EmailAccount.toJsonString(): String {
