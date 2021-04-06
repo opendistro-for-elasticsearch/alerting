@@ -22,7 +22,7 @@ class SupportedApiSettings {
         /**
          * Set to TRUE to enable the supportedApiList check. Set to FALSE to disable.
          */
-        // TODO HURNEYT: Currently set to TRUE for testing purposes.
+        // TODO: Currently set to TRUE for testing purposes.
         //  Should likely be set to FALSE by default.
         private var supportedApiListEnabled = true
 

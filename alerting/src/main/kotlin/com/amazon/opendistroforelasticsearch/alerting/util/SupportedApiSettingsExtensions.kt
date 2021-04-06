@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSettings
+import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSettings.Companion.validateLocalUriInput
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse
@@ -11,7 +12,7 @@ import org.elasticsearch.action.admin.cluster.stats.ClusterStatsResponse
 import org.elasticsearch.client.Client
 
 fun executeTransportAction(localUriInput: LocalUriInput, client: Client): ActionResponse {
-    val path = SupportedApiSettings.validateLocalUriInput(localUriInput)
+    val path = validateLocalUriInput(localUriInput)
     if (path == SupportedApiSettings.CLUSTER_HEALTH_PATH) {
         return client.admin().cluster().health(ClusterHealthRequest()).get()
     }

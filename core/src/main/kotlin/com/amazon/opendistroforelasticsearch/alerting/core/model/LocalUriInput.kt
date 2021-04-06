@@ -21,7 +21,7 @@ data class LocalUriInput(
     val host: String,
     val port: Int,
     val path: String,
-    val params: Map<String, String>,
+    val query_params: Map<String, String>,
     val url: String,
     val connection_timeout: Int,
     val socket_timeout: Int
@@ -30,13 +30,18 @@ data class LocalUriInput(
     // Verify parameters are valid during creation
     init {
         require(validateFields()) {
-            "Either one of url or scheme + host + port+ + path + params can be set."
+            "Either the url field, or scheme + host + port + path + params can be set."
         }
-        require(connection_timeout in 1..5) {
-            "Connection timeout: $connection_timeout is not in the range of 1 - 5"
+        if (port != -1) {
+            require(port in MIN_PORT..MAX_PORT) {
+                "Port: $port is not in the range of $MIN_PORT - $MAX_PORT"
+            }
         }
-        require(socket_timeout in 1..60) {
-            "Socket timeout: $socket_timeout is not in the range of 1 - 60"
+        require(connection_timeout in MIN_CONNECTION_TIMEOUT..MAX_CONNECTION_TIMEOUT) {
+            "Connection timeout: $connection_timeout is not in the range of $MIN_CONNECTION_TIMEOUT - $MAX_CONNECTION_TIMEOUT"
+        }
+        require(socket_timeout in MIN_SOCKET_TIMEOUT..MAX_SOCKET_TIMEOUT) {
+            "Socket timeout: $socket_timeout is not in the range of $MIN_SOCKET_TIMEOUT - $MAX_SOCKET_TIMEOUT"
         }
 
         // Create an UrlValidator that only accepts "http" and "https" as valid scheme and allows local URLs.
@@ -57,7 +62,7 @@ data class LocalUriInput(
             .field(HOST_FIELD, host)
             .field(PORT_FIELD, port)
             .field(PATH_FIELD, path)
-            .field(PARAMS_FIELD, this.params)
+            .field(PARAMS_FIELD, this.query_params)
             .field(URL_FIELD, url)
             .field(CONNECTION_TIMEOUT_FIELD, connection_timeout)
             .field(SOCKET_TIMEOUT_FIELD, socket_timeout)
@@ -74,13 +79,20 @@ data class LocalUriInput(
         out.writeString(host)
         out.writeInt(port)
         out.writeString(path)
-        out.writeMap(params)
+        out.writeMap(query_params)
         out.writeString(url)
         out.writeInt(connection_timeout)
         out.writeInt(socket_timeout)
     }
 
     companion object {
+        const val MIN_CONNECTION_TIMEOUT = 1
+        const val MAX_CONNECTION_TIMEOUT = 5
+        const val MIN_PORT = 1
+        const val MAX_PORT = 65535
+        const val MIN_SOCKET_TIMEOUT = 1
+        const val MAX_SOCKET_TIMEOUT = 60
+
         const val SCHEME_FIELD = "scheme"
         const val HOST_FIELD = "host"
         const val PORT_FIELD = "port"
@@ -104,8 +116,8 @@ data class LocalUriInput(
             var path = ""
             var params: Map<String, String> = mutableMapOf()
             var url = ""
-            var connectionTimeout = 5
-            var socketTimeout = 10
+            var connectionTimeout = MAX_CONNECTION_TIMEOUT
+            var socketTimeout = MAX_SOCKET_TIMEOUT
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
 
@@ -128,16 +140,16 @@ data class LocalUriInput(
     }
 
     /**
-     * Constructs the [URI] either using [url] or using [scheme]+[host]+[port]+[path]+[params].
+     * Constructs the [URI] either using [url] or using [scheme]+[host]+[port]+[path]+[query_params].
      */
     fun toConstructedUri(): URI {
         return if (url.isEmpty()) {
             val uriBuilder = URIBuilder()
-            uriBuilder.scheme = scheme
-            uriBuilder.host = host
-            uriBuilder.port = port
-            uriBuilder.path = path
-            for (e in params.entries)
+                .setScheme(scheme)
+                .setHost(host)
+                .setPort(port)
+                .setPath(path)
+            for (e in query_params.entries)
                 uriBuilder.addParameter(e.key, e.value)
             uriBuilder.build()
         } else {
@@ -146,11 +158,11 @@ data class LocalUriInput(
     }
 
     /**
-     * Helper function to confirm at least [url], or [scheme]+[host]+[port]+[path]+[params] is defined.
+     * Helper function to confirm at least [url], or [scheme]+[host]+[port]+[path]+[query_params] is defined.
      */
     private fun validateFields(): Boolean {
         if (url.isNotEmpty()) {
-            return (host.isEmpty() && (port == -1) && path.isEmpty() && params.isEmpty())
+            return (host.isEmpty() && (port == -1) && path.isEmpty() && query_params.isEmpty())
         }
         return true
     }
