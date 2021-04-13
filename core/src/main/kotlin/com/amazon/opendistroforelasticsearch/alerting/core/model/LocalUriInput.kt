@@ -32,10 +32,11 @@ data class LocalUriInput(
         require(validateFields()) {
             "Either the url field, or scheme + host + port + path + params can be set."
         }
-        if (port != -1) {
-            require(port in MIN_PORT..MAX_PORT) {
-                "Port: $port is not in the range of $MIN_PORT - $MAX_PORT"
-            }
+        require(host == "" || host.toLowerCase() == SUPPORTED_HOST) {
+            "Only host '$SUPPORTED_HOST' is supported. Host: $host"
+        }
+        require(port == -1 || port == SUPPORTED_PORT) {
+            "Only port '$SUPPORTED_PORT' is supported. Port: $port"
         }
         require(connection_timeout in MIN_CONNECTION_TIMEOUT..MAX_CONNECTION_TIMEOUT) {
             "Connection timeout: $connection_timeout is not in the range of $MIN_CONNECTION_TIMEOUT - $MAX_CONNECTION_TIMEOUT"
@@ -52,6 +53,12 @@ data class LocalUriInput(
 
         require(urlValidator.isValid(constructedUrl.toString())) {
             "Invalid url: $constructedUrl"
+        }
+        require(constructedUrl.host.toLowerCase() == SUPPORTED_HOST) {
+            "Only host '$SUPPORTED_HOST' is supported. Host: $host"
+        }
+        require(constructedUrl.port == SUPPORTED_PORT) {
+            "Only port '$SUPPORTED_PORT' is supported. Port: $port"
         }
     }
 
@@ -92,6 +99,9 @@ data class LocalUriInput(
         const val MAX_PORT = 65535
         const val MIN_SOCKET_TIMEOUT = 1
         const val MAX_SOCKET_TIMEOUT = 60
+
+        const val SUPPORTED_HOST = "localhost"
+        const val SUPPORTED_PORT = 9200
 
         const val SCHEME_FIELD = "scheme"
         const val HOST_FIELD = "host"

@@ -232,8 +232,8 @@ fun randomUserEmpty(): User {
 
 fun randomLocalUriInput(
     scheme: String = if (randomInt(3) >= 2) "http" else "https",
-    host: String = "localhost",
-    port: Int = randomInt(LocalUriInput.MAX_PORT),
+    host: String = LocalUriInput.SUPPORTED_HOST,
+    port: Int = LocalUriInput.SUPPORTED_PORT,
     path: String,
     queryParams: Map<String, String> = hashMapOf(),
     url: String = "",

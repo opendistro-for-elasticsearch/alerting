@@ -813,8 +813,6 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val clusterIndex = randomInt(clusterHosts.size - 1)
         val input = randomLocalUriInput(
             scheme = clusterHosts[clusterIndex].schemeName,
-            host = clusterHosts[clusterIndex].hostName,
-            port = clusterHosts[clusterIndex].port,
             path = path
         )
         val monitor = createMonitor(randomMonitor(inputs = listOf(input)))
@@ -840,8 +838,6 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val clusterIndex = randomInt(clusterHosts.size - 1)
         val input = randomLocalUriInput(
             scheme = clusterHosts[clusterIndex].schemeName,
-            host = clusterHosts[clusterIndex].hostName,
-            port = clusterHosts[clusterIndex].port,
             path = path
         )
         val monitor = createMonitor(randomMonitor(inputs = listOf(input)))
@@ -871,8 +867,6 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val clusterIndex = randomInt(clusterHosts.size - 1)
         val input = randomLocalUriInput(
             scheme = clusterHosts[clusterIndex].schemeName,
-            host = clusterHosts[clusterIndex].hostName,
-            port = clusterHosts[clusterIndex].port,
             path = path
         )
         val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))
@@ -905,8 +899,6 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val clusterIndex = randomInt(clusterHosts.size - 1)
         val input = randomLocalUriInput(
             scheme = clusterHosts[clusterIndex].schemeName,
-            host = clusterHosts[clusterIndex].hostName,
-            port = clusterHosts[clusterIndex].port,
             path = path
         )
         val monitor = createMonitor(randomMonitor(inputs = listOf(input), triggers = listOf(trigger)))

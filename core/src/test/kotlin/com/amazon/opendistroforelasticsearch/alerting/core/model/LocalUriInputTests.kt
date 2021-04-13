@@ -37,7 +37,7 @@ class LocalUriInputTests {
         host = ""
         port = -1
         path = ""
-        url = "http://localost:9200/_cluster/health"
+        url = "http://localhost:9200/_cluster/health"
 
         // WHEN
         val localUriInput = LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout)
@@ -72,7 +72,7 @@ class LocalUriInputTests {
         host = ""
         port = -1
         path = ""
-        url = "https://localost:9200/_cluster/health"
+        url = "https://localhost:9200/_cluster/health"
 
         // WHEN
         val localUriInput = LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout)
@@ -102,6 +102,17 @@ class LocalUriInputTests {
     }
 
     @Test
+    fun `test invalid host is not localhost`() {
+        // GIVEN
+        host = "127.0.0.1"
+
+        // WHEN + THEN
+        assertFailsWith<IllegalArgumentException>(
+            "Only host '${LocalUriInput.SUPPORTED_HOST}' is supported. Host: $host") {
+            LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
+    }
+
+    @Test
     fun `test invalid path`() {
         // GIVEN
         path = "///"
@@ -112,24 +123,13 @@ class LocalUriInputTests {
     }
 
     @Test
-    fun `test invalid port that's too low`() {
+    fun `test invalid port`() {
         // GIVEN
-        port = LocalUriInput.MIN_PORT - 1
+        port = LocalUriInput.SUPPORTED_PORT + 1
 
         // WHEN + THEN
         assertFailsWith<IllegalArgumentException>(
-            "Port: $port is not in the range of ${LocalUriInput.MIN_PORT} - ${LocalUriInput.MAX_PORT}") {
-            LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
-    }
-
-    @Test
-    fun `test invalid port that's too high`() {
-        // GIVEN
-        port = LocalUriInput.MAX_PORT + 1
-
-        // WHEN + THEN
-        assertFailsWith<IllegalArgumentException>(
-            "Port: $port is not in the range of ${LocalUriInput.MIN_PORT} - ${LocalUriInput.MAX_PORT}") {
+            "Only port '${LocalUriInput.SUPPORTED_PORT}' is supported. Port: $port") {
             LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
     }
 
@@ -194,6 +194,34 @@ class LocalUriInputTests {
 
         // WHEN + THEN
         assertFailsWith<IllegalArgumentException>("Either the url field, or scheme + host + port + path + params can be set.") {
+            LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
+    }
+
+    @Test
+    fun `test invalid host in url field`() {
+        // GIVEN
+        scheme = ""
+        host = ""
+        port = -1
+        path = ""
+        url = "http://127.0.0.1:9200/_cluster/health"
+
+        // WHEN + THEN
+        assertFailsWith<IllegalArgumentException>("Only host '${LocalUriInput.SUPPORTED_HOST}' is supported. Host: $host") {
+            LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
+    }
+
+    @Test
+    fun `test invalid port in url field`() {
+        // GIVEN
+        scheme = ""
+        host = ""
+        port = -1
+        path = ""
+        url = "http://localhost:${LocalUriInput.SUPPORTED_PORT + 1}/_cluster/health"
+
+        // WHEN + THEN
+        assertFailsWith<IllegalArgumentException>("Only port '${LocalUriInput.SUPPORTED_PORT}' is supported. Port: $port") {
             LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
     }
 }
