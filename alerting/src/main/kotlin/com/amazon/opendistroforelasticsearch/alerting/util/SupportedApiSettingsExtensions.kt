@@ -2,8 +2,7 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
-import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSettings
-import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSettings.Companion.validateLocalUriInput
+import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSettings.Companion.resolveToActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse
@@ -12,22 +11,17 @@ import org.elasticsearch.action.admin.cluster.stats.ClusterStatsResponse
 import org.elasticsearch.client.Client
 
 fun executeTransportAction(localUriInput: LocalUriInput, client: Client): ActionResponse {
-    val path = validateLocalUriInput(localUriInput)
-    if (path == SupportedApiSettings.CLUSTER_HEALTH_PATH) {
-        return client.admin().cluster().health(ClusterHealthRequest()).get()
+    return when (val request = resolveToActionRequest(localUriInput)) {
+        is ClusterHealthRequest -> client.admin().cluster().health(request).get()
+        is ClusterStatsRequest -> client.admin().cluster().clusterStats(request).get()
+        else -> throw IllegalArgumentException("Unsupported API request: ${request.javaClass.name}")
     }
-    if (path == SupportedApiSettings.CLUSTER_STATS_PATH) {
-        return client.admin().cluster().clusterStats(ClusterStatsRequest()).get()
-    }
-    throw IllegalArgumentException("Unsupported API: $path")
 }
 
 fun ActionResponse.toMap(): Map<String, Any> {
-    if (this is ClusterHealthResponse) {
-        return this.convertToMap()
+    return when (this) {
+        is ClusterHealthResponse -> this.convertToMap()
+        is ClusterStatsResponse -> this.convertToMap()
+        else -> throw IllegalArgumentException("Unsupported ActionResponse type: ${this.javaClass.name}")
     }
-    if (this is ClusterStatsResponse) {
-        return this.convertToMap()
-    }
-    throw IllegalArgumentException("Unsupported ActionResponse type: ${this.javaClass.name}")
 }

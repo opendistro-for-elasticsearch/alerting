@@ -169,11 +169,10 @@ data class LocalUriInput(
 
     /**
      * Helper function to confirm at least [url], or [scheme]+[host]+[port]+[path]+[query_params] is defined.
+     * The ELSE statement currently only checks [path] as it's the only field without a default value.
      */
     private fun validateFields(): Boolean {
-        if (url.isNotEmpty()) {
-            return (host.isEmpty() && (port == -1) && path.isEmpty() && query_params.isEmpty())
-        }
-        return true
+        return if (url.isNotEmpty()) host.isEmpty() && (port == -1) && path.isEmpty() && query_params.isEmpty()
+        else path.isNotEmpty()
     }
 }

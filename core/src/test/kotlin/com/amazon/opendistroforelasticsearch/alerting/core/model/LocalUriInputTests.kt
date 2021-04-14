@@ -198,6 +198,20 @@ class LocalUriInputTests {
     }
 
     @Test
+    fun `test LocalUriInput creation when all inputs are empty`() {
+        // GIVEN
+        scheme = ""
+        host = ""
+        port = -1
+        path = ""
+        url = ""
+
+        // WHEN + THEN
+        assertFailsWith<IllegalArgumentException>("Either the url field, or scheme + host + port + path + params can be set.") {
+            LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
+    }
+
+    @Test
     fun `test invalid host in url field`() {
         // GIVEN
         scheme = ""
