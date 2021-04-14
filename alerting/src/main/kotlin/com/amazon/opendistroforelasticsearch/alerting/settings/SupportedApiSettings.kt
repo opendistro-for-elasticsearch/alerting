@@ -1,6 +1,9 @@
 package com.amazon.opendistroforelasticsearch.alerting.settings
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
+import org.elasticsearch.action.ActionRequest
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest
+import org.elasticsearch.action.admin.cluster.stats.ClusterStatsRequest
 
 /**
  * A class that supports storing a unique set of API paths that can be accessed by general users.
@@ -19,13 +22,6 @@ class SupportedApiSettings {
          */
         private var supportedApiList = HashMap<String, Map<String, Set<String>>>()
 
-        /**
-         * Set to TRUE to enable the supportedApiList check. Set to FALSE to disable.
-         */
-        // TODO: Currently set to TRUE for testing purposes.
-        //  Should likely be set to FALSE by default.
-        private var supportedApiListEnabled = true
-
         init {
             supportedApiList[CLUSTER_HEALTH_PATH] = hashMapOf()
             supportedApiList[CLUSTER_STATS_PATH] = hashMapOf()
@@ -42,15 +38,20 @@ class SupportedApiSettings {
         }
 
         /**
-         * If [supportedApiListEnabled] is TRUE, calls [validatePath] to confirm whether the provided path
-         * is in supportedApiList. Will otherwise take no actions.
+         * Calls [validatePath] to confirm whether the provided path is in supportedApiList.
+         * Will otherwise throw an exception.
          * @param localUriInput The [LocalUriInput] to validate.
+         * @throws IllegalArgumentException When the requested API is not supported.
          * @return The path that was validated.
          */
-        fun validateLocalUriInput(localUriInput: LocalUriInput): String {
+        fun resolveToActionRequest(localUriInput: LocalUriInput): ActionRequest {
             val path = localUriInput.toConstructedUri().path
-            if (supportedApiListEnabled) validatePath(path)
-            return path
+            validatePath(path)
+            return when (path) {
+                CLUSTER_HEALTH_PATH -> ClusterHealthRequest()
+                CLUSTER_STATS_PATH -> ClusterStatsRequest()
+                else -> throw IllegalArgumentException("Unsupported API: $path")
+            }
         }
 
         /**
@@ -59,7 +60,7 @@ class SupportedApiSettings {
          * @param path The path to validate.
          * @throws IllegalArgumentException When supportedApiList does not contain the provided path.
          */
-        private fun validatePath(path: String) {
+        fun validatePath(path: String) {
             if (!supportedApiList.contains(path)) throw IllegalArgumentException("API path not in supportedApiList: $path")
         }
     }

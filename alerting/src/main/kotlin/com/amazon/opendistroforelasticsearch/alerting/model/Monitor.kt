@@ -201,7 +201,7 @@ data class Monitor(
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             val input = Input.parse(xcp)
                             if (input is LocalUriInput) {
-                                SupportedApiSettings.validateLocalUriInput(input)
+                                SupportedApiSettings.validatePath(input.toConstructedUri().path)
                             }
                             inputs.add(input)
                         }
