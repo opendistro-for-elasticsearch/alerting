@@ -5,7 +5,7 @@ import org.elasticsearch.test.ESTestCase
 class SupportedApiSettingsExtensionsTests : ESTestCase() {
     private var expectedResponse = hashMapOf<String, Any>()
     private var mappedResponse = hashMapOf<String, Any>()
-    private var supportedJsonPayload = hashMapOf<String, Set<String>>()
+    private var supportedJsonPayload = hashMapOf<String, ArrayList<String>>()
 
     fun `test redactFieldsFromResponse with non-empty supportedJsonPayload`() {
         // GIVEN
@@ -26,11 +26,11 @@ class SupportedApiSettingsExtensionsTests : ESTestCase() {
             ("pathRoot3" to 3))
 
         supportedJsonPayload = hashMapOf(
-            ("pathRoot1" to setOf(
+            ("pathRoot1" to arrayListOf(
                 "pathRoot1_subPath1",
                 "pathRoot1_subPath2.pathRoot1_subPath2_subPath2.pathRoot1_subPath2_subPath2_subPath1"
             )),
-            ("pathRoot2" to setOf(
+            ("pathRoot2" to arrayListOf(
                 "pathRoot2_subPath2"
             )))
 
