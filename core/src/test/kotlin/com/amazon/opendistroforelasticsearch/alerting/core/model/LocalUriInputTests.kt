@@ -71,14 +71,27 @@ class LocalUriInputTests {
         scheme = ""
         host = ""
         port = -1
-        path = ""
-        url = "https://localhost:9200/_cluster/health"
 
         // WHEN
         val localUriInput = LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout)
 
         // THEN
         assertEquals(url, localUriInput.url)
+    }
+
+    @Test
+    fun `test valid LocalUriInput creation with path, but empty scheme, host, and port fields`() {
+        // GIVEN
+        scheme = ""
+        host = ""
+        port = -1
+
+        // WHEN
+        val localUriInput = LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout)
+
+        // THEN
+        assertEquals(path, localUriInput.path)
+        assertEquals(localUriInput.toConstructedUri().toString(), "http://localhost:9200/_cluster/health")
     }
 
     @Test

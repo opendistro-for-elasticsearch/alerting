@@ -155,9 +155,9 @@ data class LocalUriInput(
     fun toConstructedUri(): URI {
         return if (url.isEmpty()) {
             val uriBuilder = URIBuilder()
-                .setScheme(scheme)
-                .setHost(host)
-                .setPort(port)
+                .setScheme(if (scheme.isNotEmpty()) scheme else "http")
+                .setHost(if (host.isNotEmpty()) host else SUPPORTED_HOST)
+                .setPort(if (port != -1) port else SUPPORTED_PORT)
                 .setPath(path)
             for (e in query_params.entries)
                 uriBuilder.addParameter(e.key, e.value)

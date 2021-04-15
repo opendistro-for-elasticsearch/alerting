@@ -38,11 +38,12 @@ class SupportedApiSettings {
         }
 
         /**
-         * Calls [validatePath] to confirm whether the provided path is in supportedApiList.
+         * Calls [validatePath] to confirm whether the provided [LocalUriInput]'s path is in [supportedApiList].
+         * Will then return an [ActionRequest] for the API associated with that path.
          * Will otherwise throw an exception.
-         * @param localUriInput The [LocalUriInput] to validate.
-         * @throws IllegalArgumentException When the requested API is not supported.
-         * @return The path that was validated.
+         * @param localUriInput The [LocalUriInput] to resolve.
+         * @throws IllegalArgumentException when the requested API is not supported.
+         * @return The [ActionRequest] for the API associated with the provided [LocalUriInput].
          */
         fun resolveToActionRequest(localUriInput: LocalUriInput): ActionRequest {
             val path = localUriInput.toConstructedUri().path
@@ -55,10 +56,10 @@ class SupportedApiSettings {
         }
 
         /**
-         * Confirms whether the provided path is in supportedApiList.
+         * Confirms whether the provided path is in [supportedApiList].
          * Throws an exception if the provided path is not on the list; otherwise performs no action.
          * @param path The path to validate.
-         * @throws IllegalArgumentException When supportedApiList does not contain the provided path.
+         * @throws IllegalArgumentException when supportedApiList does not contain the provided path.
          */
         fun validatePath(path: String) {
             if (!supportedApiList.contains(path)) throw IllegalArgumentException("API path not in supportedApiList: $path")
