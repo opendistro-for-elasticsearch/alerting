@@ -19,10 +19,13 @@ class SupportedApiSettings {
 
         /**
          * The key in this map represents the path to call an API.
+         *
          * NOTE: Paths should conform to the following pattern:
          * "/_cluster/stats"
          *
          * The value in these maps represents a path root mapped to a list of paths to field values.
+         * If the value mapped to an API is an empty map, no fields will be redacted from the API response.
+         *
          * NOTE: Keys in this map should consist of root components of the response body; e.g.,:
          * "indices"
          *
@@ -61,7 +64,6 @@ class SupportedApiSettings {
         }
 
         /**
-         * Calls [validatePath] to confirm whether the provided [LocalUriInput]'s path is in [supportedApiList].
          * Will then return an [ActionRequest] for the API associated with that path.
          * Will otherwise throw an exception.
          * @param localUriInput The [LocalUriInput] to resolve.
@@ -69,9 +71,7 @@ class SupportedApiSettings {
          * @return The [ActionRequest] for the API associated with the provided [LocalUriInput].
          */
         fun resolveToActionRequest(localUriInput: LocalUriInput): ActionRequest {
-            val path = localUriInput.toConstructedUri().path
-            validatePath(path)
-            return when (path) {
+            return when (val path = localUriInput.toConstructedUri().path) {
                 CLUSTER_HEALTH_PATH -> ClusterHealthRequest()
                 CLUSTER_STATS_PATH -> ClusterStatsRequest()
                 else -> throw IllegalArgumentException("Unsupported API: $path")
