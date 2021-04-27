@@ -44,6 +44,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST_NONE
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
+import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -231,24 +232,17 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             throw IllegalArgumentException("Invalid job type")
         }
 
-        launch { runMonitor(job, periodStart, periodEnd) }
+        launch {
+            if (job.isAggregationMonitor()) {
+                runAggregationMonitor(job, periodStart, periodEnd)
+            } else {
+                runMonitor(job, periodStart, periodEnd)
+            }
+        }
     }
 
     suspend fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
-        /*
-         * We need to handle 3 cases:
-         * 1. Monitors created by older versions and never updated. These monitors wont have User details in the
-         * monitor object. `monitor.user` will be null. Insert `all_access, AmazonES_all_access` role.
-         * 2. Monitors are created when security plugin is disabled, these will have empty User object.
-         * (`monitor.user.name`, `monitor.user.roles` are empty )
-         * 3. Monitors are created when security plugin is enabled, these will have an User object.
-         */
-        val roles = if (monitor.user == null) {
-            // fixme: discuss and remove hardcoded to settings?
-            settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
-        } else {
-            monitor.user.roles
-        }
+        val roles = getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
         if (periodStart == periodEnd) {
@@ -299,6 +293,93 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             alertService.saveAlerts(updatedAlerts, retryPolicy)
         }
         return monitorResult.copy(triggerResults = triggerResults)
+    }
+
+    suspend fun runAggregationMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
+        val roles = getRolesForMonitor(monitor)
+        logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
+
+        if (periodStart == periodEnd) {
+            logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
+        }
+
+        // TODO: Should we use MonitorRunResult for both Monitor types or create an AggregationMonitorRunResult
+        //  to store InternalComposite instead of Map<String, Any>?
+        /*
+         * Iterating over the Map even in the aggregation case should be fine (we'll be passing the Map of the individual buckets during
+         * the Painless script execution of the Trigger anyway).
+         *
+         * One possible issue is that the aggregation name of the composite aggregation can be user defined and we'll need that value to
+         * ensure we access the correct aggregation in the Map (this could potentially be retrieved from the SearchSourceBuilder, assuming
+         * we validate and only allow a single composite aggregation in the query, which seems reasonable).
+         * Ex.
+         * {
+         *   ...
+         *   "aggregations": {
+         *     "my_buckets": { <-------- This can be called anything
+         *       "after_key": {
+         *         "date": 1494201600000,
+         *         "product": "rocky"
+         *       },
+         *       "buckets": [
+         *         ...
+         *       ]
+         *       ...
+         *     }
+         *   }
+         * }
+         */
+         var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
+        val currentAlerts = try {
+            alertIndices.createOrUpdateAlertIndex()
+            alertIndices.createOrUpdateInitialHistoryIndex()
+            alertService.loadCurrentAlertsForAggregationMonitor(monitor)
+        } catch (e: Exception) {
+            // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
+            val id = if (monitor.id.trim().isEmpty()) "_na_" else monitor.id
+            logger.error("Error loading alerts for monitor: $id", e)
+            return monitorResult.copy(error = e)
+        }
+
+        // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
+        //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
+        //  the buckets until we hit that threshold. In that case, we'd want to exit the execution without creating any alerts since the
+        //  buckets we iterate over before hitting the limit is not deterministic. Is there a better way to fail faster in this case?
+        runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
+            monitorResult = monitorResult.copy(inputResults = inputService.collectInputResults(monitor, periodStart, periodEnd))
+        }
+
+        // TODO: Iterate through buckets and execute Trigger scripts against each bucket creating a Trigger -> buckets mappings for alert
+        //  creation.
+
+        // TODO: Separate buckets/alerts into categories so that the alerts can be created/updated accordingly:
+        //  * De-duped alerts = currentAlerts U filteredBuckets
+        //  * Completed alerts = currentAlerts - de-duped alerts
+        //  * New alerts = filteredBuckets - de-duped alerts
+
+        // TODO: Run Actions for a Trigger and compose alerts
+
+        // TODO: Update alerts in alerting config index
+
+        return monitorResult
+    }
+
+    private fun getRolesForMonitor(monitor: Monitor): List<String> {
+        /*
+         * We need to handle 3 cases:
+         * 1. Monitors created by older versions and never updated. These monitors wont have User details in the
+         * monitor object. `monitor.user` will be null. Insert `all_access, AmazonES_all_access` role.
+         * 2. Monitors are created when security plugin is disabled, these will have empty User object.
+         * (`monitor.user.name`, `monitor.user.roles` are empty )
+         * 3. Monitors are created when security plugin is enabled, these will have an User object.
+         */
+        return if (monitor.user == null) {
+            // fixme: discuss and remove hardcoded to settings?
+            // TODO: Remove "AmazonES_all_access" role?
+            settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
+        } else {
+            monitor.user.roles
+        }
     }
 
     // TODO: Can this be updated to just use 'Instant.now()'?

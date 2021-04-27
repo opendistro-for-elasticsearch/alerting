@@ -29,6 +29,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
+import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
@@ -80,6 +81,9 @@ data class Monitor(
         }
         require(inputs.size <= MONITOR_MAX_INPUTS) { "Monitors can only have $MONITOR_MAX_INPUTS search input." }
         require(triggers.size <= MONITOR_MAX_TRIGGERS) { "Monitors can only support up to $MONITOR_MAX_TRIGGERS triggers." }
+        if (this.isAggregationMonitor()) {
+            // TODO: Add a verification for groupByFields and on Inputs when there are groupByFields
+        }
     }
 
     @Throws(IOException::class)

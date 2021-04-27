@@ -83,6 +83,25 @@ class AlertService(
         }
     }
 
+    // TODO: For now this is largely a duplicate of the regular loadCurrentAlerts()
+    //  The original method could be refactored to support Set if this is the final usage
+    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, Set<Alert>?> {
+        val request = SearchRequest(AlertIndices.ALERT_INDEX)
+            .routing(monitor.id)
+            .source(alertQuery(monitor))
+        val response: SearchResponse = client.suspendUntil { client.search(request, it) }
+        if (response.status() != RestStatus.OK) {
+            throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
+        }
+
+        val foundAlerts = response.hits.map { Alert.parse(contentParser(it.sourceRef), it.id, it.version) }
+            .groupBy { it.triggerId }
+
+        return monitor.triggers.associate { trigger ->
+            trigger to (foundAlerts[trigger.id]?.toSet())
+        }
+    }
+
     fun composeAlert(ctx: TriggerExecutionContext, result: TriggerRunResult, alertError: AlertError?): Alert? {
         val currentTime = Instant.now()
         val currentAlert = ctx.alert
