@@ -502,9 +502,9 @@ fun randomADMonitor(
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
 ): Monitor {
-    return Monitor(name = name, enabled = enabled, inputs = inputs, groupByFields = null, schedule = schedule, triggers = triggers,
-            enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
-            user = user, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+    return Monitor(name = name, monitorType = Monitor.MonitorType.TRADITIONAL_MONITOR, enabled = enabled, inputs = inputs,
+        schedule = schedule, triggers = triggers, enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
+        user = user, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
 fun randomADUser(backendRole: String = ESRestTestCase.randomAlphaOfLength(10)): User {

@@ -120,4 +120,4 @@ fun <T : Any> checkUserFilterByPermissions(
     return true
 }
 
-fun Monitor.isAggregationMonitor(): Boolean = !this.groupByFields.isNullOrEmpty()
+fun Monitor.isAggregationMonitor(): Boolean = this.monitorType == Monitor.MonitorType.AGGREGATION_MONITOR

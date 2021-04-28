@@ -46,9 +46,22 @@ class GetMonitorResponseTests : ESTestCase() {
         val testInstance = Instant.ofEpochSecond(1538164858L)
 
         val cronSchedule = CronSchedule(cronExpression, ZoneId.of("Asia/Kolkata"), testInstance)
-        val req = GetMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK,
-                Monitor("123", 0L, "test-monitor", true, cronSchedule, Instant.now(),
-                        Instant.now(), randomUser(), 0, mutableListOf(), mutableListOf(), mutableListOf(), mutableMapOf()))
+        val monitor = Monitor(
+            id = "123",
+            version = 0L,
+            name = "test-monitor",
+            enabled = true,
+            schedule = cronSchedule,
+            lastUpdateTime = Instant.now(),
+            enabledTime = Instant.now(),
+            monitorType = Monitor.MonitorType.TRADITIONAL_MONITOR,
+            user = randomUser(),
+            schemaVersion = 0,
+            inputs = mutableListOf(),
+            triggers = mutableListOf(),
+            uiMetadata = mutableMapOf()
+        )
+        val req = GetMonitorResponse("1234", 1L, 2L, 0L, RestStatus.OK, monitor)
         assertNotNull(req)
 
         val out = BytesStreamOutput()
