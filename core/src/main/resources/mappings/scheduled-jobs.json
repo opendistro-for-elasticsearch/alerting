@@ -18,6 +18,9 @@
             }
           }
         },
+        "monitor_type": {
+          "type": "keyword"
+        },
         "user": {
           "properties": {
             "name": {

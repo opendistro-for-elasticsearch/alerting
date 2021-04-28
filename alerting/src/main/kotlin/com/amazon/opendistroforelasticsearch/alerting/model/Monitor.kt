@@ -56,6 +56,7 @@ data class Monitor(
     override val schedule: Schedule,
     override val lastUpdateTime: Instant,
     override val enabledTime: Instant?,
+    val monitorType: MonitorType,
     val user: User?,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val inputs: List<Input>,
@@ -95,6 +96,7 @@ data class Monitor(
         schedule = Schedule.readFrom(sin),
         lastUpdateTime = sin.readInstant(),
         enabledTime = sin.readOptionalInstant(),
+        monitorType = sin.readEnum(MonitorType::class.java),
         user = if (sin.readBoolean()) {
             User(sin)
         } else null,
@@ -104,6 +106,17 @@ data class Monitor(
         triggers = sin.readList(::Trigger),
         uiMetadata = suppressWarning(sin.readMap())
     )
+
+    // This enum classifies different Monitors
+    // This is different from 'type' which denotes the Scheduled Job type
+    enum class MonitorType(val value: String) {
+        TRADITIONAL_MONITOR("traditional_monitor"),
+        AGGREGATION_MONITOR("aggregation_monitor");
+
+        override fun toString(): String {
+            return value
+        }
+    }
 
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -118,16 +131,17 @@ data class Monitor(
         builder.startObject()
         if (params.paramAsBoolean("with_type", false)) builder.startObject(type)
         builder.field(TYPE_FIELD, type)
-                .field(SCHEMA_VERSION_FIELD, schemaVersion)
-                .field(NAME_FIELD, name)
-                .optionalUserField(USER_FIELD, user)
-                .field(ENABLED_FIELD, enabled)
-                .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
-                .field(SCHEDULE_FIELD, schedule)
-                .field(INPUTS_FIELD, inputs.toTypedArray())
-                .optionalStringList(GROUP_BY_FIELD, groupByFields)
-                .field(TRIGGERS_FIELD, triggers.toTypedArray())
-                .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
+            .field(SCHEMA_VERSION_FIELD, schemaVersion)
+            .field(NAME_FIELD, name)
+            .field(MONITOR_TYPE_FIELD, monitorType)
+            .optionalUserField(USER_FIELD, user)
+            .field(ENABLED_FIELD, enabled)
+            .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
+            .field(SCHEDULE_FIELD, schedule)
+            .field(INPUTS_FIELD, inputs.toTypedArray())
+            .optionalStringList(GROUP_BY_FIELD, groupByFields)
+            .field(TRIGGERS_FIELD, triggers.toTypedArray())
+            .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
         if (uiMetadata.isNotEmpty()) builder.field(UI_METADATA_FIELD, uiMetadata)
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
@@ -149,6 +163,7 @@ data class Monitor(
         schedule.writeTo(out)
         out.writeInstant(lastUpdateTime)
         out.writeOptionalInstant(enabledTime)
+        out.writeEnum(monitorType)
         out.writeBoolean(user != null)
         user?.writeTo(out)
         out.writeInt(schemaVersion)
@@ -161,6 +176,7 @@ data class Monitor(
     companion object {
         const val MONITOR_TYPE = "monitor"
         const val TYPE_FIELD = "type"
+        const val MONITOR_TYPE_FIELD = "monitor_type"
         const val SCHEMA_VERSION_FIELD = "schema_version"
         const val NAME_FIELD = "name"
         const val USER_FIELD = "user"
@@ -186,6 +202,8 @@ data class Monitor(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
             lateinit var name: String
+            // Default to TRADITIONAL_MONITOR to cover Monitors that existed before the addition of MonitorType
+            var monitorType: MonitorType = MonitorType.TRADITIONAL_MONITOR
             var user: User? = null
             lateinit var schedule: Schedule
             var lastUpdateTime: Instant? = null
@@ -205,6 +223,7 @@ data class Monitor(
                 when (fieldName) {
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     NAME_FIELD -> name = xcp.text()
+                    MONITOR_TYPE_FIELD -> monitorType = MonitorType.valueOf(xcp.text())
                     USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
@@ -251,6 +270,7 @@ data class Monitor(
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     lastUpdateTime ?: Instant.now(),
                     enabledTime,
+                    monitorType,
                     user,
                     schemaVersion,
                     inputs.toList(),
