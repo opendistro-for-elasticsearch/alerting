@@ -1,0 +1,130 @@
+{
+  "dynamic": "strict",
+  "_routing": {
+    "required": true
+  },
+  "_meta" : {
+    "schema_version": 2
+  },
+  "properties": {
+    "schema_version": {
+      "type": "integer"
+    },
+    "monitor_id": {
+      "type": "keyword"
+    },
+    "monitor_version": {
+      "type": "long"
+    },
+    "id": {
+      "type": "keyword"
+    },
+    "version": {
+      "type": "long"
+    },
+    "severity": {
+      "type": "keyword"
+    },
+    "monitor_name": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "monitor_user": {
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "backend_roles": {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "roles": {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "custom_attribute_names": {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword"
+            }
+          }
+        }
+      }
+    },
+    "trigger_id": {
+      "type": "keyword"
+    },
+    "trigger_name": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "state": {
+      "type": "keyword"
+    },
+    "start_time": {
+      "type": "date"
+    },
+    "last_notification_time": {
+      "type": "date"
+    },
+    "acknowledged_time": {
+      "type": "date"
+    },
+    "end_time": {
+      "type": "date"
+    },
+    "error_message": {
+      "type": "text"
+    },
+    "alert_history": {
+      "type": "nested",
+      "properties": {
+        "timestamp": {
+          "type": "date"
+        },
+        "message": {
+          "type": "text"
+        }
+      }
+    },
+    "action_execution_results": {
+      "type": "nested",
+      "properties": {
+        "action_id": {
+          "type": "keyword"
+        },
+        "last_execution_time": {
+          "type": "date"
+        },
+        "throttled_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,377 @@
+{
+  "_meta" : {
+    "schema_version": 3
+  },
+  "properties": {
+    "monitor": {
+      "dynamic": "false",
+      "properties": {
+        "schema_version": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "user": {
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "backend_roles": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "roles": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "custom_attribute_names": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            }
+          }
+        },
+        "type": {
+          "type": "keyword"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "enabled_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "last_update_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "schedule": {
+          "properties": {
+            "period": {
+              "properties": {
+                "interval": {
+                  "type": "integer"
+                },
+                "unit": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "cron": {
+              "properties": {
+                "expression": {
+                  "type": "text"
+                },
+                "timezone": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "inputs": {
+          "type": "nested",
+          "properties": {
+            "search": {
+              "properties": {
+                "indices": {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    }
+                  }
+                },
+                "query": {
+                  "type": "object",
+                  "enabled": false
+                }
+              }
+            }
+          }
+        },
+        "triggers": {
+          "type": "nested",
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "min_time_between_executions": {
+              "type": "integer"
+            },
+            "condition": {
+              "type": "object",
+              "enabled": false
+            },
+            "actions": {
+              "type": "nested",
+              "properties": {
+                "name": {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    }
+                  }
+                },
+                "destination_id": {
+                  "type": "keyword"
+                },
+                "subject_template": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "message_template": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "throttle_enabled": {
+                  "type": "boolean"
+                },
+                "throttle": {
+                  "properties": {
+                    "value": {
+                      "type": "integer"
+                    },
+                    "unit": {
+                      "type": "keyword"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ui_metadata": {
+          "type": "object",
+          "enabled": false
+        }
+      }
+    },
+    "destination": {
+      "dynamic": "false",
+      "properties": {
+        "schema_version": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "user": {
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "backend_roles": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "roles": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "custom_attribute_names": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            }
+          }
+        },
+        "type": {
+          "type": "keyword"
+        },
+        "last_update_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "chime": {
+          "properties": {
+            "url": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+          }
+        },
+        "slack": {
+          "properties": {
+            "url": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+          }
+        },
+        "custom_webhook": {
+          "properties": {
+            "url": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "scheme": {
+              "type": "keyword"
+            },
+            "host": {
+              "type": "text"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "path": {
+              "type": "keyword"
+            },
+            "query_params": {
+              "type": "object",
+              "enabled": false
+            },
+            "header_params": {
+              "type": "object",
+              "enabled": false
+            },
+            "username": {
+              "type": "text"
+            },
+            "password": {
+              "type": "text"
+            }
+          }
+        },
+        "email": {
+          "properties": {
+            "email_account_id": {
+              "type": "keyword"
+            },
+            "recipients": {
+              "type": "nested",
+              "properties": {
+                "type": {
+                  "type": "keyword"
+                },
+                "email_group_id": {
+                  "type": "keyword"
+                },
+                "email": {
+                  "type": "text"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "email_account": {
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "host": {
+          "type": "text"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "method": {
+          "type": "text"
+        },
+        "from": {
+          "type": "text"
+        }
+      }
+    },
+    "email_group": {
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "emails": {
+          "type": "nested",
+          "properties": {
+            "email": {
+              "type": "text"
+            }
+          }
+        }
+      }
+    }
+  }
+}
