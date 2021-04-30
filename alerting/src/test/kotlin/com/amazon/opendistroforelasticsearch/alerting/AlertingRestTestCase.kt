@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
@@ -79,7 +80,8 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
             mutableListOf(
                 Monitor.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY,
-                TraditionalTrigger.XCONTENT_REGISTRY
+                TraditionalTrigger.XCONTENT_REGISTRY,
+                AggregationTrigger.XCONTENT_REGISTRY
             ) + SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 

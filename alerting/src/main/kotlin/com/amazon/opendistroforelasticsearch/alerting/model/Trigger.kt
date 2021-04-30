@@ -29,7 +29,7 @@ interface Trigger : Writeable, ToXContentObject {
 
     enum class Type(val value: String) {
         TRADITIONAL_TRIGGER(TraditionalTrigger.TRADITIONAL_TRIGGER_FIELD),
-        AGGREGATION_TRIGGER("change_this");
+        AGGREGATION_TRIGGER(AggregationTrigger.AGGREGATION_TRIGGER_FIELD);
 
         override fun toString(): String {
             return value
@@ -65,12 +65,12 @@ interface Trigger : Writeable, ToXContentObject {
         @JvmStatic
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): Trigger {
-            val type = sin.readEnum(Trigger.Type::class.java)
-            return if (type == Type.TRADITIONAL_TRIGGER) {
-                TraditionalTrigger(sin)
-            } else {
-                // TODO: return AggregationTrigger(sin)
-                TraditionalTrigger(sin)
+            return when (val type = sin.readEnum(Trigger.Type::class.java)) {
+                Type.TRADITIONAL_TRIGGER -> TraditionalTrigger(sin)
+                Type.AGGREGATION_TRIGGER -> AggregationTrigger(sin)
+                // This shouldn't be reachable but ensuring exhaustiveness as Kotlin warns
+                // enum can be null in Java
+                else -> throw IllegalStateException("Unexpected input [$type] when reading Trigger")
             }
         }
     }

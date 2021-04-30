@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
@@ -302,6 +303,6 @@ fun parser(xc: String): XContentParser {
 
 fun xContentRegistry(): NamedXContentRegistry {
     return NamedXContentRegistry(listOf(
-            SearchInput.XCONTENT_REGISTRY, TraditionalTrigger.XCONTENT_REGISTRY) +
+            SearchInput.XCONTENT_REGISTRY, TraditionalTrigger.XCONTENT_REGISTRY, AggregationTrigger.XCONTENT_REGISTRY) +
             SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
 }

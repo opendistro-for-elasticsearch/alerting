@@ -1,3 +1,18 @@
+/*
+ *   Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger.Companion.ACTIONS_FIELD
@@ -16,6 +31,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.script.Script
 import java.io.IOException
 
@@ -147,7 +163,7 @@ data class TraditionalTrigger(
                         xcp.nextToken()
                     }
                     ACTIONS_FIELD -> {
-                        XContentParserUtils.ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             actions.add(Action.parse(xcp))
                         }
@@ -166,7 +182,7 @@ data class TraditionalTrigger(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): Trigger {
+        fun readFrom(sin: StreamInput): TraditionalTrigger {
             return TraditionalTrigger(sin)
         }
     }
