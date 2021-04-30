@@ -45,7 +45,7 @@ class MonitorTests : ESTestCase() {
 
         val tooManyTriggers = mutableListOf<Trigger>()
         for (i in 0..10) {
-            tooManyTriggers.add(randomTrigger())
+            tooManyTriggers.add(randomTraditionalTrigger())
         }
 
         try {

@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
@@ -67,7 +68,7 @@ fun randomMonitor(
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
-    triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
+    triggers: List<Trigger> = (1..randomInt(10)).map { randomTraditionalTrigger() },
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
@@ -83,7 +84,7 @@ fun randomMonitorWithoutUser(
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
-    triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
+    triggers: List<Trigger> = (1..randomInt(10)).map { randomTraditionalTrigger() },
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
@@ -93,15 +94,15 @@ fun randomMonitorWithoutUser(
         uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
-fun randomTrigger(
+fun randomTraditionalTrigger(
     id: String = UUIDs.base64UUID(),
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     severity: String = "1",
     condition: Script = randomScript(),
     actions: List<Action> = mutableListOf(),
     destinationId: String = ""
-): Trigger {
-    return Trigger(
+): TraditionalTrigger {
+    return TraditionalTrigger(
         id = id,
         name = name,
         severity = severity,
@@ -163,7 +164,7 @@ fun randomThrottle(
 ) = Throttle(value, unit)
 
 fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
-    val trigger = randomTrigger()
+    val trigger = randomTraditionalTrigger()
     val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
     return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
             actionExecutionResults = actionExecutionResults)
@@ -301,6 +302,6 @@ fun parser(xc: String): XContentParser {
 
 fun xContentRegistry(): NamedXContentRegistry {
     return NamedXContentRegistry(listOf(
-            SearchInput.XCONTENT_REGISTRY) +
+            SearchInput.XCONTENT_REGISTRY, TraditionalTrigger.XCONTENT_REGISTRY) +
             SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
 }

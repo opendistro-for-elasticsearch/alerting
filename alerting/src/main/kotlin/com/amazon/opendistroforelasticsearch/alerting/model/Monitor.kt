@@ -102,7 +102,7 @@ data class Monitor(
         } else null,
         schemaVersion = sin.readInt(),
         inputs = sin.readList(::SearchInput),
-        triggers = sin.readList(::Trigger),
+        triggers = sin.readList((Trigger)::readFrom),
         uiMetadata = suppressWarning(sin.readMap())
     )
 
@@ -166,7 +166,14 @@ data class Monitor(
         user?.writeTo(out)
         out.writeInt(schemaVersion)
         out.writeCollection(inputs)
-        out.writeCollection(triggers)
+        // Outputting type with each Trigger so that the generic Trigger.readFrom() can read it
+        // TODO: Could probably move this out somewhere else to clean this up
+        out.writeVInt(triggers.size)
+        triggers.forEach {
+            if (it is TraditionalTrigger) out.writeEnum(Trigger.Type.TRADITIONAL_TRIGGER)
+            else out.writeEnum(Trigger.Type.AGGREGATION_TRIGGER)
+            it.writeTo(out)
+        }
         out.writeMap(uiMetadata)
     }
 

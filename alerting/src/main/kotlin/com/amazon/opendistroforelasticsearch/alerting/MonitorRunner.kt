@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
@@ -272,8 +273,8 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
             val currentAlert = currentAlerts[trigger]
-            val triggerCtx = TriggerExecutionContext(monitor, trigger, monitorResult, currentAlert)
-            val triggerResult = triggerService.runTrigger(monitor, trigger, triggerCtx)
+            val triggerCtx = TriggerExecutionContext(monitor, trigger as TraditionalTrigger, monitorResult, currentAlert)
+            val triggerResult = triggerService.runTraditionalTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
             if (triggerService.isTriggerActionable(triggerCtx, triggerResult)) {

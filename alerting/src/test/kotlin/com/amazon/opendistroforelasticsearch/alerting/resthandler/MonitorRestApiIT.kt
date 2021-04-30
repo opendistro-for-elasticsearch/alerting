@@ -26,7 +26,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
@@ -34,7 +34,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomAnomalyDetector
 import com.amazon.opendistroforelasticsearch.alerting.randomAnomalyDetectorWithUser
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
-import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType
@@ -284,7 +284,14 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test updating conditions for a monitor`() {
         val monitor = createRandomMonitor()
 
-        val updatedTriggers = listOf(Trigger("foo", "1", Script("return true"), emptyList()))
+        val updatedTriggers = listOf(
+            TraditionalTrigger(
+                name = "foo",
+                severity = "1",
+                condition = Script("return true"),
+                actions = emptyList()
+            )
+        )
         val updateResponse = client().makeRequest("PUT", monitor.relativeUrl(),
                 emptyMap(), monitor.copy(triggers = updatedTriggers).toHttpEntity())
 
@@ -649,7 +656,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test delete trigger moves alerts`() {
         client().updateSettings(ScheduledJobSettings.SWEEPER_ENABLED.key, true)
         putAlertMappings()
-        val trigger = randomTrigger()
+        val trigger = randomTraditionalTrigger()
         val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
         val alert = createAlert(randomAlert(monitor).copy(triggerId = trigger.id, state = Alert.State.ACTIVE))
         refreshIndex("*")
@@ -672,8 +679,8 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test delete trigger moves alerts only for deleted trigger`() {
         client().updateSettings(ScheduledJobSettings.SWEEPER_ENABLED.key, true)
         putAlertMappings()
-        val triggerToDelete = randomTrigger()
-        val triggerToKeep = randomTrigger()
+        val triggerToDelete = randomTraditionalTrigger()
+        val triggerToKeep = randomTraditionalTrigger()
         val monitor = createMonitor(randomMonitor(triggers = listOf(triggerToDelete, triggerToKeep)))
         val alertKeep = createAlert(randomAlert(monitor).copy(triggerId = triggerToKeep.id, state = Alert.State.ACTIVE))
         val alertDelete = createAlert(randomAlert(monitor).copy(triggerId = triggerToDelete.id, state = Alert.State.ACTIVE))
@@ -806,7 +813,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     private fun randomMonitorWithThrottle(value: Int, unit: ChronoUnit = ChronoUnit.MINUTES): Monitor {
         val throttle = randomThrottle(value, unit)
         val action = randomAction().copy(throttle = throttle)
-        val trigger = randomTrigger(actions = listOf(action))
+        val trigger = randomTraditionalTrigger(actions = listOf(action))
         return randomMonitor(triggers = listOf(trigger))
     }
 }

@@ -28,7 +28,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomInputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
-import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
@@ -94,12 +94,12 @@ class WriteableTests : ESTestCase() {
         assertEquals("Round tripping Monitor doesn't work", monitor, newMonitor)
     }
 
-    fun `test trigger as stream`() {
-        val trigger = randomTrigger()
+    fun `test traditional trigger as stream`() {
+        val trigger = randomTraditionalTrigger()
         val out = BytesStreamOutput()
         trigger.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newTrigger = Trigger(sin)
+        val newTrigger = TraditionalTrigger.readFrom(sin)
         assertEquals("Round tripping Trigger doesn't work", trigger, newTrigger)
     }
 

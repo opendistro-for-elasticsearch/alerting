@@ -14,7 +14,7 @@ class com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript$Factor
 
 class com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext {
     Monitor getMonitor()
-    Trigger getTrigger()
+    TraditionalTrigger getTrigger()
     List getResults()
     java.time.Instant getPeriodStart()
     java.time.Instant getPeriodEnd()
@@ -29,7 +29,7 @@ class com.amazon.opendistroforelasticsearch.alerting.model.Monitor {
     boolean getEnabled()
 }
 
-class com.amazon.opendistroforelasticsearch.alerting.model.Trigger {
+class com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger {
     String getId()
     String getName()
     String getSeverity()

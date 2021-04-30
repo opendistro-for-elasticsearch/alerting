@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedul
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.index.query.BoolQueryBuilder
@@ -479,12 +480,12 @@ fun maxAnomalyGradeSearchInput(
     return SearchInput(indices = listOf(adResultIndex), query = searchSourceBuilder)
 }
 
-fun adMonitorTrigger(): Trigger {
+fun adMonitorTrigger(): TraditionalTrigger {
     val triggerScript = """
             return ctx.results[0].aggregations.max_anomaly_grade.value != null && 
                    ctx.results[0].aggregations.max_anomaly_grade.value > 0.7
         """.trimIndent()
-    return randomTrigger(condition = Script(triggerScript))
+    return randomTraditionalTrigger(condition = Script(triggerScript))
 }
 
 fun adSearchInput(detectorId: String): SearchInput {
@@ -497,7 +498,7 @@ fun randomADMonitor(
     inputs: List<Input> = listOf(adSearchInput("test_detector_id")),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
-    triggers: List<Trigger> = (1..ESTestCase.randomInt(10)).map { randomTrigger() },
+    triggers: List<Trigger> = (1..ESTestCase.randomInt(10)).map { randomTraditionalTrigger() },
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false

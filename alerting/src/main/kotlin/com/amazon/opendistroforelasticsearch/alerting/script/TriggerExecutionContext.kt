@@ -18,12 +18,12 @@ package com.amazon.opendistroforelasticsearch.alerting.script
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import java.time.Instant
 
 data class TriggerExecutionContext(
     val monitor: Monitor,
-    val trigger: Trigger,
+    val trigger: TraditionalTrigger,
     val results: List<Map<String, Any>>,
     val periodStart: Instant,
     val periodEnd: Instant,
@@ -31,7 +31,7 @@ data class TriggerExecutionContext(
     val error: Exception? = null
 ) {
 
-    constructor(monitor: Monitor, trigger: Trigger, monitorRunResult: MonitorRunResult, alert: Alert? = null):
+    constructor(monitor: Monitor, trigger: TraditionalTrigger, monitorRunResult: MonitorRunResult, alert: Alert? = null):
             this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart,
             monitorRunResult.periodEnd, alert, monitorRunResult.scriptContextError(trigger))
 

@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
@@ -74,9 +75,12 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     val numberOfNodes = System.getProperty("cluster.number_of_nodes", "1")!!.toInt()
 
     override fun xContentRegistry(): NamedXContentRegistry {
-        return NamedXContentRegistry(mutableListOf(Monitor.XCONTENT_REGISTRY,
-                SearchInput.XCONTENT_REGISTRY) +
-                SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
+        return NamedXContentRegistry(
+            mutableListOf(
+                Monitor.XCONTENT_REGISTRY,
+                SearchInput.XCONTENT_REGISTRY,
+                TraditionalTrigger.XCONTENT_REGISTRY
+            ) + SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 
     fun Response.asMap(): Map<String, Any> {
