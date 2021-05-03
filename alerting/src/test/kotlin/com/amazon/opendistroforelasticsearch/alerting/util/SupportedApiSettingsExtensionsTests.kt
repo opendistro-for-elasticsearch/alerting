@@ -23,7 +23,10 @@ class SupportedApiSettingsExtensionsTests : ESTestCase() {
                 ("pathRoot2_subPath1" to 21),
                 ("pathRoot2_subPath2" to setOf(221, 222, "223string"))
             )),
-            ("pathRoot3" to 3))
+            ("pathRoot3" to hashMapOf(
+                ("pathRoot3_subPath1" to 31),
+                ("pathRoot3_subPath2" to setOf(321, 322, "323string"))
+            )))
 
         supportedJsonPayload = hashMapOf(
             ("pathRoot1" to arrayListOf(
@@ -32,7 +35,8 @@ class SupportedApiSettingsExtensionsTests : ESTestCase() {
             )),
             ("pathRoot2" to arrayListOf(
                 "pathRoot2_subPath2"
-            )))
+            )),
+            ("pathRoot3" to arrayListOf()))
 
         expectedResponse = hashMapOf(
             ("pathRoot1" to hashMapOf(
@@ -45,6 +49,10 @@ class SupportedApiSettingsExtensionsTests : ESTestCase() {
             )),
             ("pathRoot2" to hashMapOf(
                 ("pathRoot2_subPath2" to setOf(221, 222, "223string"))
+            )),
+            ("pathRoot3" to hashMapOf(
+                ("pathRoot3_subPath1" to 31),
+                ("pathRoot3_subPath2" to setOf(321, 322, "323string"))
             )))
 
         // WHEN

@@ -50,12 +50,12 @@ fun redactFieldsFromResponse(mappedActionResponse: Map<String, Any>, supportedJs
         else -> {
             val output = hashMapOf<String, Any>()
             for ((key, value) in supportedJsonPayload) {
-                when (mappedActionResponse[key]) {
+                when (val mappedValue = mappedActionResponse[key]) {
                     is Map<*, *> -> output[key] = XContentMapValues.filter(
                         mappedActionResponse[key] as MutableMap<String, *>?,
                         value.toTypedArray(), arrayOf()
                     )
-                    else -> output[key] = value
+                    else -> output[key] = mappedValue ?: hashMapOf<String, Any>()
                 }
             }
             output
