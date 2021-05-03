@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting
 
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
@@ -36,7 +36,7 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
         return result.triggered && !suppress
     }
 
-    fun runTrigger(monitor: Monitor, trigger: Trigger, ctx: TriggerExecutionContext): TriggerRunResult {
+    fun runTraditionalTrigger(monitor: Monitor, trigger: TraditionalTrigger, ctx: TriggerExecutionContext): TriggerRunResult {
         return try {
             val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
                 .newInstance(trigger.condition.params)

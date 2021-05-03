@@ -30,7 +30,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitorWithoutUser
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
-import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
@@ -91,7 +91,7 @@ class XContentTests : ESTestCase() {
         assertFailsWith<IllegalArgumentException>("Can only set positive throttle period") { Throttle.parse(parser(throttleString)) }
     }
 
-    fun `test monitor parsing`() {
+    fun `test traditional monitor parsing`() {
         val monitor = randomMonitor()
 
         val monitorString = monitor.toJsonString()
@@ -99,8 +99,8 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping Monitor doesn't work", monitor, parsedMonitor)
     }
 
-    fun `test trigger parsing`() {
-        val trigger = randomTrigger()
+    fun `test traditional trigger parsing`() {
+        val trigger = randomTraditionalTrigger()
 
         val triggerString = trigger.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedTrigger = Trigger.parse(parser(triggerString))
@@ -150,7 +150,7 @@ class XContentTests : ESTestCase() {
 
     fun `test creating a monitor with duplicate trigger ids fails`() {
         try {
-            val repeatedTrigger = randomTrigger()
+            val repeatedTrigger = randomTraditionalTrigger()
             randomMonitor().copy(triggers = listOf(repeatedTrigger, repeatedTrigger))
             fail("Creating a monitor with duplicate triggers did not fail.")
         } catch (ignored: IllegalArgumentException) {
@@ -174,7 +174,7 @@ class XContentTests : ESTestCase() {
         assertEquals(0, parsedUser.roles.size)
     }
 
-    fun `test monitor parsing without user`() {
+    fun `test traditional monitor parsing without user`() {
         val monitor = randomMonitorWithoutUser()
 
         val monitorString = monitor.toJsonString()
@@ -197,5 +197,87 @@ class XContentTests : ESTestCase() {
         val emailGroupString = emailGroup.toJsonString()
         val parsedEmailGroup = EmailGroup.parse(parser(emailGroupString))
         assertEquals("Round tripping EmailGroup doesn't work", emailGroup, parsedEmailGroup)
+    }
+
+    fun `test old destination format parsing`() {
+        val monitorString = """
+            {
+              "type": "monitor",
+              "schema_version": 3,
+              "name": "asdf",
+              "user": {
+                "name": "admin123",
+                "backend_roles": [],
+                "roles": [
+                  "all_access",
+                  "security_manager"
+                ],
+                "custom_attribute_names": [],
+                "user_requested_tenant": null
+              },
+              "enabled": true,
+              "enabled_time": 1613530078244,
+              "schedule": {
+                "period": {
+                  "interval": 1,
+                  "unit": "MINUTES"
+                }
+              },
+              "inputs": [
+                {
+                  "search": {
+                    "indices": [
+                      "test_index"
+                    ],
+                    "query": {
+                      "size": 0,
+                      "query": {
+                        "bool": {
+                          "filter": [
+                            {
+                              "range": {
+                                "order_date": {
+                                  "from": "{{period_end}}||-1h",
+                                  "to": "{{period_end}}",
+                                  "include_lower": true,
+                                  "include_upper": true,
+                                  "format": "epoch_millis",
+                                  "boost": 1.0
+                                }
+                              }
+                            }
+                          ],
+                          "adjust_pure_negative": true,
+                          "boost": 1.0
+                        }
+                      },
+                      "aggregations": {}
+                    }
+                  }
+                }
+              ],
+              "triggers": [
+                {
+                  "id": "e_sc0XcB98Q42rHjTh4K",
+                  "name": "abc",
+                  "severity": "1",
+                  "condition": {
+                    "script": {
+                      "source": "ctx.results[0].hits.total.value > 100000",
+                      "lang": "painless"
+                    }
+                  },
+                  "actions": []
+                }
+              ],
+              "last_update_time": 1614121489719
+            }
+        """.trimIndent()
+        val parsedMonitor = Monitor.parse(parser(monitorString))
+        assertEquals("Incorrect monitor type", Monitor.MonitorType.TRADITIONAL_MONITOR, parsedMonitor.monitorType)
+        assertEquals("Incorrect trigger count", 1, parsedMonitor.triggers.size)
+        val trigger = parsedMonitor.triggers.first()
+        assertTrue("Incorrect trigger type", trigger is TraditionalTrigger)
+        assertEquals("Incorrect name for parsed trigger", "abc", trigger.name)
     }
 }

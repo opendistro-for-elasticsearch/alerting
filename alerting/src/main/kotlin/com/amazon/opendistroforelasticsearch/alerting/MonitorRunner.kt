@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
@@ -272,8 +273,8 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         val triggerResults = mutableMapOf<String, TriggerRunResult>()
         for (trigger in monitor.triggers) {
             val currentAlert = currentAlerts[trigger]
-            val triggerCtx = TriggerExecutionContext(monitor, trigger, monitorResult, currentAlert)
-            val triggerResult = triggerService.runTrigger(monitor, trigger, triggerCtx)
+            val triggerCtx = TriggerExecutionContext(monitor, trigger as TraditionalTrigger, monitorResult, currentAlert)
+            val triggerResult = triggerService.runTraditionalTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
             if (triggerService.isTriggerActionable(triggerCtx, triggerResult)) {
@@ -295,7 +296,12 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         return monitorResult.copy(triggerResults = triggerResults)
     }
 
-    suspend fun runAggregationMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
+    suspend fun runAggregationMonitor(
+        monitor: Monitor,
+        periodStart: Instant,
+        periodEnd: Instant,
+        dryrun: Boolean = false
+    ): MonitorRunResult {
         val roles = getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
@@ -305,31 +311,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
         // TODO: Should we use MonitorRunResult for both Monitor types or create an AggregationMonitorRunResult
         //  to store InternalComposite instead of Map<String, Any>?
-        /*
-         * Iterating over the Map even in the aggregation case should be fine (we'll be passing the Map of the individual buckets during
-         * the Painless script execution of the Trigger anyway).
-         *
-         * One possible issue is that the aggregation name of the composite aggregation can be user defined and we'll need that value to
-         * ensure we access the correct aggregation in the Map (this could potentially be retrieved from the SearchSourceBuilder, assuming
-         * we validate and only allow a single composite aggregation in the query, which seems reasonable).
-         * Ex.
-         * {
-         *   ...
-         *   "aggregations": {
-         *     "my_buckets": { <-------- This can be called anything
-         *       "after_key": {
-         *         "date": 1494201600000,
-         *         "product": "rocky"
-         *       },
-         *       "buckets": [
-         *         ...
-         *       ]
-         *       ...
-         *     }
-         *   }
-         * }
-         */
-         var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
+        var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
             alertIndices.createOrUpdateInitialHistoryIndex()
