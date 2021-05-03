@@ -277,20 +277,8 @@ class TransportIndexMonitorAction @Inject constructor(
                 return
             }
 
-            if (request.method == RestRequest.Method.PUT) return updateMonitor()
+            if (request.method == RestRequest.Method.PUT) updateOrCreateMonitor() else createMonitor()
 
-            val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
-            val searchSource = SearchSourceBuilder().query(query).timeout(requestTimeout)
-            val searchRequest = SearchRequest(SCHEDULED_JOBS_INDEX).source(searchSource)
-            client.search(searchRequest, object : ActionListener<SearchResponse> {
-                override fun onResponse(searchResponse: SearchResponse) {
-                    onSearchResponse(searchResponse)
-                }
-
-                override fun onFailure(t: Exception) {
-                    actionListener.onFailure(AlertingException.wrap(t))
-                }
-            })
         }
 
         private fun validateActionThrottle(monitor: Monitor, maxValue: TimeValue, minValue: TimeValue) {
@@ -358,31 +346,15 @@ class TransportIndexMonitorAction @Inject constructor(
                     .setIfSeqNo(request.seqNo)
                     .setIfPrimaryTerm(request.primaryTerm)
                     .timeout(indexTimeout)
-            client.index(indexRequest, object : ActionListener<IndexResponse> {
-                override fun onResponse(response: IndexResponse) {
-                    val failureReasons = checkShardsFailure(response)
-                    if (failureReasons != null) {
-                        actionListener.onFailure(
-                                AlertingException.wrap(ElasticsearchStatusException(failureReasons.toString(), response.status())))
-                        return
-                    }
-                    actionListener.onResponse(IndexMonitorResponse(response.id, response.version, response.seqNo,
-                            response.primaryTerm, RestStatus.CREATED, request.monitor))
-                }
-                override fun onFailure(t: Exception) {
-                    actionListener.onFailure(AlertingException.wrap(t))
-                }
-            })
+            sendIndexRequest(indexRequest)
         }
 
-        private fun updateMonitor() {
+        private fun updateOrCreateMonitor() {
             val getRequest = GetRequest(SCHEDULED_JOBS_INDEX, request.monitorId)
             client.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {
                     if (!response.isExists) {
-                        actionListener.onFailure(AlertingException.wrap(
-                            ElasticsearchStatusException("Monitor with ${request.monitorId} is not found", RestStatus.NOT_FOUND)))
-                        return
+                        createMonitor()
                     }
                     val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                         response.sourceAsBytesRef, XContentType.JSON)
@@ -413,20 +385,38 @@ class TransportIndexMonitorAction @Inject constructor(
                     .setIfSeqNo(request.seqNo)
                     .setIfPrimaryTerm(request.primaryTerm)
                     .timeout(indexTimeout)
+            sendIndexRequest(indexRequest)
+        }
 
+        private fun sendIndexRequest(indexRequest: IndexRequest) {
             client.index(indexRequest, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {
                     val failureReasons = checkShardsFailure(response)
                     if (failureReasons != null) {
                         actionListener.onFailure(
-                                AlertingException.wrap(ElasticsearchStatusException(failureReasons.toString(), response.status())))
+                            AlertingException.wrap(ElasticsearchStatusException(failureReasons.toString(), response.status())))
                         return
                     }
                     actionListener.onResponse(
                         IndexMonitorResponse(response.id, response.version, response.seqNo,
-                                response.primaryTerm, RestStatus.CREATED, request.monitor)
+                            response.primaryTerm, RestStatus.CREATED, request.monitor)
                     )
                 }
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(AlertingException.wrap(t))
+                }
+            })
+        }
+
+        private fun createMonitor() {
+            val query = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("${Monitor.MONITOR_TYPE}.type", Monitor.MONITOR_TYPE))
+            val searchSource = SearchSourceBuilder().query(query).timeout(requestTimeout)
+            val searchRequest = SearchRequest(SCHEDULED_JOBS_INDEX).source(searchSource)
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(searchResponse: SearchResponse) {
+                    onSearchResponse(searchResponse)
+                }
+
                 override fun onFailure(t: Exception) {
                     actionListener.onFailure(AlertingException.wrap(t))
                 }
