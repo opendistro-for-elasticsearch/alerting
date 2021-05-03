@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
+import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
@@ -56,8 +57,10 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
+import com.amazon.opendistroforelasticsearch.alerting.util.executeTransportAction
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
+import com.amazon.opendistroforelasticsearch.alerting.util.toMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -335,6 +338,13 @@ class MonitorRunner(
                         }
                         val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
                         results += searchResponse.convertToMap()
+                    }
+                    is LocalUriInput -> {
+                        logger.debug("LocalUriInput path: ${input.toConstructedUri().path}")
+                        val response = executeTransportAction(input, client)
+                        results += withContext(Dispatchers.IO) {
+                            response.toMap()
+                        }
                     }
                     else -> {
                         throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
