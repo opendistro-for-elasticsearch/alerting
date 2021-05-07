@@ -30,21 +30,28 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.time.Instant
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportAcknowledgeAlertAction::class.java)
 
 class TransportAcknowledgeAlertAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
+    val settings: Settings,
     actionFilters: ActionFilters,
     val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<AcknowledgeAlertRequest, AcknowledgeAlertResponse>(
         AcknowledgeAlertAction.NAME, transportService, actionFilters, ::AcknowledgeAlertRequest
 ) {
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     override fun doExecute(task: Task, request: AcknowledgeAlertRequest, actionListener: ActionListener<AcknowledgeAlertResponse>) {
-        client.threadPool().threadContext.stashContext().use {
-            AcknowledgeHandler(client, actionListener, request).start()
+        authClient.threadPool().threadContext.stashContext().use {
+            AcknowledgeHandler(authClient, actionListener, request).start()
         }
     }
 

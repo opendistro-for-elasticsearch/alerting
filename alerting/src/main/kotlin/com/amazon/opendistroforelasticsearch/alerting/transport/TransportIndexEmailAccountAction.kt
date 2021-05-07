@@ -54,7 +54,10 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
-
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 private val log = LogManager.getLogger(TransportIndexEmailAccountAction::class.java)
 
 class TransportIndexEmailAccountAction @Inject constructor(
@@ -72,6 +75,8 @@ class TransportIndexEmailAccountAction @Inject constructor(
     @Volatile private var requestTimeout = REQUEST_TIMEOUT.get(settings)
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
     @Volatile private var allowList = ALLOW_LIST.get(settings)
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
@@ -80,8 +85,8 @@ class TransportIndexEmailAccountAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexEmailAccountRequest, actionListener: ActionListener<IndexEmailAccountResponse>) {
-        client.threadPool().threadContext.stashContext().use {
-            IndexEmailAccountHandler(client, actionListener, request).start()
+        authClient.threadPool().threadContext.stashContext().use {
+            IndexEmailAccountHandler(authClient, actionListener, request).start()
         }
     }
 

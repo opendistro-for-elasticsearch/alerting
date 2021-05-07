@@ -44,6 +44,10 @@ import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportGetMonitorAction::class.java)
 
@@ -57,7 +61,9 @@ class TransportGetMonitorAction @Inject constructor(
 ) : HandledTransportAction<GetMonitorRequest, GetMonitorResponse> (
         GetMonitorAction.NAME, transportService, actionFilters, ::GetMonitorRequest
 ) {
-
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
+ 
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
 
     init {
@@ -83,8 +89,8 @@ class TransportGetMonitorAction @Inject constructor(
          * Once system-indices [https://github.com/opendistro-for-elasticsearch/security/issues/666] is done, we
          * might further improve this logic. Also change try to kotlin-use for auto-closable.
          */
-        client.threadPool().threadContext.stashContext().use {
-            client.get(getRequest, object : ActionListener<GetResponse> {
+        authClient.threadPool().threadContext.stashContext().use {
+            authClient.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {
                     if (!response.isExists) {
                         actionListener.onFailure(

@@ -112,7 +112,11 @@ import org.elasticsearch.script.ScriptContext
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
+import org.elasticsearch.common.settings.SecureString
+import java.util.*
 import java.util.function.Supplier
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
 
 /**
  * Entry point of the OpenDistro for Elasticsearch alerting plugin
@@ -218,11 +222,13 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
     ): Collection<Any> {
         // Need to figure out how to use the Elasticsearch DI classes rather than handwiring things here.
         val settings = environment.settings()
-        alertIndices = AlertIndices(settings, client, threadPool, clusterService)
-        runner = MonitorRunner(settings, client, threadPool, scriptService, xContentRegistry, alertIndices, clusterService)
-        scheduledJobIndices = ScheduledJobIndices(client.admin(), clusterService)
+        val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+        val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
+        alertIndices = AlertIndices(settings, authClient, threadPool, clusterService)
+        runner = MonitorRunner(settings, authClient, threadPool, scriptService, xContentRegistry, alertIndices, clusterService)
+        scheduledJobIndices = ScheduledJobIndices(authClient.admin(), clusterService)
         scheduler = JobScheduler(threadPool, runner)
-        sweeper = JobSweeper(environment.settings(), client, clusterService, threadPool, xContentRegistry, scheduler, ALERTING_JOB_TYPES)
+        sweeper = JobSweeper(environment.settings(), authClient, clusterService, threadPool, xContentRegistry, scheduler, ALERTING_JOB_TYPES)
         this.threadPool = threadPool
         this.clusterService = clusterService
         return listOf(sweeper, scheduler, runner, scheduledJobIndices)
@@ -252,6 +258,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
                 AlertingSettings.REQUEST_TIMEOUT,
                 AlertingSettings.MAX_ACTION_THROTTLE_VALUE,
                 AlertingSettings.FILTER_BY_BACKEND_ROLES,
+                AlertingSettings.ALERTING_USERNAME,
+                AlertingSettings.ALERTING_PASSWORD,
                 DestinationSettings.EMAIL_USERNAME,
                 DestinationSettings.EMAIL_PASSWORD,
                 DestinationSettings.ALLOW_LIST,

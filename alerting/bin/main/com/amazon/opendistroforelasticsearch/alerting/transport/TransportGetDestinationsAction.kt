@@ -52,6 +52,10 @@ import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportGetDestinationsAction::class.java)
 
@@ -67,7 +71,10 @@ class TransportGetDestinationsAction @Inject constructor(
 ) {
 
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-
+    private var user: User? = null
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
+ 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
     }
@@ -77,7 +84,7 @@ class TransportGetDestinationsAction @Inject constructor(
         getDestinationsRequest: GetDestinationsRequest,
         actionListener: ActionListener<GetDestinationsResponse>
     ) {
-            val userStr = client.threadPool().threadContext.getTransient<String>(
+            val userStr = authClient.threadPool().threadContext.getTransient<String>(
                     ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT
             )
             log.debug("User and roles string from thread context: $userStr")
@@ -118,7 +125,7 @@ class TransportGetDestinationsAction @Inject constructor(
             }
             searchSourceBuilder.query(queryBuilder)
 
-            client.threadPool().threadContext.stashContext().use {
+            authClient.threadPool().threadContext.stashContext().use {
                 resolve(searchSourceBuilder, actionListener, user)
             }
     }
@@ -150,7 +157,7 @@ class TransportGetDestinationsAction @Inject constructor(
         val searchRequest = SearchRequest()
                 .source(searchSourceBuilder)
                 .indices(ScheduledJob.SCHEDULED_JOBS_INDEX)
-        client.search(searchRequest, object : ActionListener<SearchResponse> {
+        authClient.search(searchRequest, object : ActionListener<SearchResponse> {
             override fun onResponse(response: SearchResponse) {
                 val totalDestinationCount = response.hits.totalHits?.value?.toInt()
                 val destinations = mutableListOf<Destination>()

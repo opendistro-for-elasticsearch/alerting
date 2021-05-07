@@ -48,6 +48,10 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportDeleteDestinationAction::class.java)
 
@@ -61,6 +65,8 @@ class TransportDeleteDestinationAction @Inject constructor(
 ) : HandledTransportAction<DeleteDestinationRequest, DeleteResponse>(
         DeleteDestinationAction.NAME, transportService, actionFilters, ::DeleteDestinationRequest
     ) {
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
 
@@ -78,8 +84,8 @@ class TransportDeleteDestinationAction @Inject constructor(
         if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
             return
         }
-        client.threadPool().threadContext.stashContext().use {
-            DeleteDestinationHandler(client, actionListener, deleteRequest, user, request.destinationId).resolveUserAndStart()
+        authClient.threadPool().threadContext.stashContext().use {
+            DeleteDestinationHandler(authClient, actionListener, deleteRequest, user, request.destinationId).resolveUserAndStart()
         }
     }
 

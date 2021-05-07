@@ -32,6 +32,10 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 class TransportSearchEmailGroupAction @Inject constructor(
     transportService: TransportService,
@@ -44,6 +48,8 @@ class TransportSearchEmailGroupAction @Inject constructor(
 ) {
 
     @Volatile private var allowList = ALLOW_LIST.get(settings)
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
@@ -61,8 +67,8 @@ class TransportSearchEmailGroupAction @Inject constructor(
             return
         }
 
-        client.threadPool().threadContext.stashContext().use {
-            client.search(searchRequest, object : ActionListener<SearchResponse> {
+        authClient.threadPool().threadContext.stashContext().use {
+            authClient.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
                     actionListener.onResponse(response)
                 }

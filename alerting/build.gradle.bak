@@ -39,7 +39,7 @@ esplugin {
     name 'opendistro-alerting'
     description 'Amazon OpenDistro alerting plugin'
     classname 'com.amazon.opendistroforelasticsearch.alerting.AlertingPlugin'
-    extendedPlugins = ['lang-painless', 'x-pack-core']
+    extendedPlugins = ['lang-painless']
 }
 
 // Prefer elastic bundled versions for conflicts (primarily with AWS SDK).  We need to specify these manually because
@@ -65,11 +65,7 @@ configurations.all {
 
 dependencies {
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "org.elasticsearch.plugin:x-pack-core:${versions.elasticsearch}"
-    compileOnly "org.apache.httpcomponents:httpclient:4.5.10"
-    compileOnly "org.apache.httpcomponents:httpcore:${versions.httpcore}" 
-    compileOnly "commons-logging:commons-logging:${versions.commonslogging}"
-    compileOnly "commons-codec:commons-codec:${versions.commonscodec}"
+
     // Elasticsearch Nanny state
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
@@ -111,7 +107,7 @@ integTest.getClusters().forEach{c -> c.plugin(project.getObjects().fileProperty(
 
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 testClusters.integTest {
-    testDistribution = "DEFAULT"
+    testDistribution = "OSS"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
@@ -124,13 +120,6 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    setting 'xpack.security.enabled', 'true'
-    setting 'xpack.security.http.ssl.enabled', 'false'
-    setting 'xpack.ml.enabled', 'false'
-    keystore 'bootstrap.password', 'password'
-    user username: 'admin', password: 'password', role: 'superuser'
-    setting 'opendistro.alerting.user', 'admin'
-    setting 'opendistro.alerting.password', 'password'
 }
 
 testClusters.integTest.nodes.each { node ->

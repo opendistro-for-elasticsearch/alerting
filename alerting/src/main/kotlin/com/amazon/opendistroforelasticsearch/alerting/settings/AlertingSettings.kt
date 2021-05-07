@@ -124,5 +124,13 @@ class AlertingSettings {
                 "opendistro.alerting.filter_by_backend_roles",
                 false,
                 Setting.Property.NodeScope, Setting.Property.Dynamic)
+                
+        val ALERTING_USERNAME = Setting.simpleString(
+                "opendistro.alerting.user", "",
+                Setting.Property.NodeScope, Setting.Property.Dynamic)
+
+        val ALERTING_PASSWORD = Setting.simpleString(
+                "opendistro.alerting.password", "",
+                Setting.Property.NodeScope, Setting.Property.Dynamic)
     }
 }

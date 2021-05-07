@@ -42,6 +42,10 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportIndexDestinationAction::class.java)
 
@@ -60,7 +64,10 @@ class TransportIndexDestinationAction @Inject constructor(
     @Volatile private var indexTimeout = AlertingSettings.INDEX_TIMEOUT.get(settings)
     @Volatile private var allowList = DestinationSettings.ALLOW_LIST.get(settings)
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-
+    private var user: User? = null
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
+ 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.INDEX_TIMEOUT) { indexTimeout = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(DestinationSettings.ALLOW_LIST) { allowList = it }
@@ -68,15 +75,15 @@ class TransportIndexDestinationAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexDestinationRequest, actionListener: ActionListener<IndexDestinationResponse>) {
-        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
+        val userStr = authClient.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
         val user: User? = User.parse(userStr)
 
         if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
             return
         }
-        client.threadPool().threadContext.stashContext().use {
-            IndexDestinationHandler(client, actionListener, request, user).resolveUserAndStart()
+        authClient.threadPool().threadContext.stashContext().use {
+            IndexDestinationHandler(authClient, actionListener, request, user).resolveUserAndStart()
         }
     }
 

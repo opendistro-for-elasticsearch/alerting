@@ -34,6 +34,10 @@ import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportSearchMonitorAction::class.java)
 
@@ -47,17 +51,20 @@ class TransportSearchMonitorAction @Inject constructor(
         SearchMonitorAction.NAME, transportService, actionFilters, ::SearchMonitorRequest
 ) {
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+    private var user: User? = null
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
     }
 
     override fun doExecute(task: Task, searchMonitorRequest: SearchMonitorRequest, actionListener: ActionListener<SearchResponse>) {
-        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
+        val userStr = authClient.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
         val user: User? = User.parse(userStr)
 
-        client.threadPool().threadContext.stashContext().use {
+        authClient.threadPool().threadContext.stashContext().use {
             resolve(searchMonitorRequest, actionListener, user)
         }
     }
@@ -78,7 +85,7 @@ class TransportSearchMonitorAction @Inject constructor(
     }
 
     fun search(searchRequest: SearchRequest, actionListener: ActionListener<SearchResponse>) {
-        client.search(searchRequest, object : ActionListener<SearchResponse> {
+        authClient.search(searchRequest, object : ActionListener<SearchResponse> {
             override fun onResponse(response: SearchResponse) {
                 actionListener.onResponse(response)
             }

@@ -34,6 +34,10 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 class TransportDeleteEmailGroupAction @Inject constructor(
     transportService: TransportService,
@@ -46,6 +50,8 @@ class TransportDeleteEmailGroupAction @Inject constructor(
 ) {
 
     @Volatile private var allowList = ALLOW_LIST.get(settings)
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
@@ -65,8 +71,8 @@ class TransportDeleteEmailGroupAction @Inject constructor(
 
         val deleteRequest = DeleteRequest(ScheduledJob.SCHEDULED_JOBS_INDEX, request.emailGroupID)
             .setRefreshPolicy(request.refreshPolicy)
-        client.threadPool().threadContext.stashContext().use {
-            client.delete(deleteRequest, object : ActionListener<DeleteResponse> {
+        authClient.threadPool().threadContext.stashContext().use {
+            authClient.delete(deleteRequest, object : ActionListener<DeleteResponse> {
                 override fun onResponse(response: DeleteResponse) {
                     actionListener.onResponse(response)
                 }

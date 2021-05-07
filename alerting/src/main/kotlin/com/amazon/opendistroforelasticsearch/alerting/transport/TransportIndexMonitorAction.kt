@@ -72,6 +72,10 @@ import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
 import java.time.Duration
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportIndexMonitorAction::class.java)
 
@@ -93,7 +97,10 @@ class TransportIndexMonitorAction @Inject constructor(
     @Volatile private var maxActionThrottle = MAX_ACTION_THROTTLE_VALUE.get(settings)
     @Volatile private var allowList = ALLOW_LIST.get(settings)
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
-
+    var user: User? = null
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
+ 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALERTING_MAX_MONITORS) { maxMonitors = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(REQUEST_TIMEOUT) { requestTimeout = it }
@@ -105,7 +112,7 @@ class TransportIndexMonitorAction @Inject constructor(
 
     override fun doExecute(task: Task, request: IndexMonitorRequest, actionListener: ActionListener<IndexMonitorResponse>) {
 
-        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
+        val userStr = authClient.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
         val user: User? = User.parse(userStr)
 
@@ -114,10 +121,10 @@ class TransportIndexMonitorAction @Inject constructor(
         }
 
         if (!isADMonitor(request.monitor)) {
-            checkIndicesAndExecute(client, actionListener, request, user)
+            checkIndicesAndExecute(authClient, actionListener, request, user)
         } else {
             // check if user has access to any anomaly detector for AD monitor
-            checkAnomalyDetectorAndExecute(client, actionListener, request, user)
+            checkAnomalyDetectorAndExecute(authClient, actionListener, request, user)
         }
     }
 

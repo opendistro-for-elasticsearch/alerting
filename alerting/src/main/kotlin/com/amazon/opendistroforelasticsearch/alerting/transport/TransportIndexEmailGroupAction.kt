@@ -48,6 +48,10 @@ import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportIndexEmailGroupAction::class.java)
 
@@ -65,6 +69,8 @@ class TransportIndexEmailGroupAction @Inject constructor(
 
     @Volatile private var indexTimeout = INDEX_TIMEOUT.get(settings)
     @Volatile private var allowList = ALLOW_LIST.get(settings)
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_TIMEOUT) { indexTimeout = it }
@@ -72,8 +78,8 @@ class TransportIndexEmailGroupAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: IndexEmailGroupRequest, actionListener: ActionListener<IndexEmailGroupResponse>) {
-        client.threadPool().threadContext.stashContext().use {
-            IndexEmailGroupHandler(client, actionListener, request).start()
+        authClient.threadPool().threadContext.stashContext().use {
+            IndexEmailGroupHandler(authClient, actionListener, request).start()
         }
     }
 

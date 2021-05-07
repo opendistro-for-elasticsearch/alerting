@@ -29,25 +29,32 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.time.Instant
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportGetMonitorAction::class.java)
 
 class TransportExecuteMonitorAction @Inject constructor(
     transportService: TransportService,
     private val client: Client,
+    val settings: Settings,
     private val runner: MonitorRunner,
     actionFilters: ActionFilters,
     val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<ExecuteMonitorRequest, ExecuteMonitorResponse> (
         ExecuteMonitorAction.NAME, transportService, actionFilters, ::ExecuteMonitorRequest) {
-
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
+ 
     override fun doExecute(task: Task, execMonitorRequest: ExecuteMonitorRequest, actionListener: ActionListener<ExecuteMonitorResponse>) {
 
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         log.debug("User and roles string from thread context: $userStr")
         val user: User? = User.parse(userStr)
 
-        client.threadPool().threadContext.stashContext().use {
+        authClient.threadPool().threadContext.stashContext().use {
             val executeMonitor = fun(monitor: Monitor) {
                 // Launch the coroutine with the clients threadContext. This is needed to preserve authentication information
                 // stored on the threadContext set by the security plugin when using the Alerting plugin with the Security plugin.
@@ -71,7 +78,7 @@ class TransportExecuteMonitorAction @Inject constructor(
 
             if (execMonitorRequest.monitorId != null) {
                 val getRequest = GetRequest(ScheduledJob.SCHEDULED_JOBS_INDEX).id(execMonitorRequest.monitorId)
-                client.get(getRequest, object : ActionListener<GetResponse> {
+                authClient.get(getRequest, object : ActionListener<GetResponse> {
                     override fun onResponse(response: GetResponse) {
                         if (!response.isExists) {
                             actionListener.onFailure(AlertingException.wrap(

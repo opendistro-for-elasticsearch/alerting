@@ -46,6 +46,10 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.BASIC_AUTH_HEADER
+import org.elasticsearch.xpack.core.security.authc.support.UsernamePasswordToken.basicAuthHeaderValue
+import org.elasticsearch.common.settings.*
+import java.util.*
 
 private val log = LogManager.getLogger(TransportDeleteMonitorAction::class.java)
 
@@ -61,6 +65,8 @@ class TransportDeleteMonitorAction @Inject constructor(
 ) {
 
     @Volatile private var filterByEnabled = AlertingSettings.FILTER_BY_BACKEND_ROLES.get(settings)
+    private val passwd = SecureString(settings.get("opendistro.alerting.password", "").toCharArray());
+    private val authClient = client.filterWithHeader(Collections.singletonMap(BASIC_AUTH_HEADER, basicAuthHeaderValue(settings.get("opendistro.alerting.user", ""), passwd)));
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(AlertingSettings.FILTER_BY_BACKEND_ROLES) { filterByEnabled = it }
@@ -76,8 +82,8 @@ class TransportDeleteMonitorAction @Inject constructor(
         if (!checkFilterByUserBackendRoles(filterByEnabled, user, actionListener)) {
             return
         }
-        client.threadPool().threadContext.stashContext().use {
-            DeleteMonitorHandler(client, actionListener, deleteRequest, user, request.monitorId).resolveUserAndStart()
+        authClient.threadPool().threadContext.stashContext().use {
+            DeleteMonitorHandler(authClient, actionListener, deleteRequest, user, request.monitorId).resolveUserAndStart()
         }
     }
 
