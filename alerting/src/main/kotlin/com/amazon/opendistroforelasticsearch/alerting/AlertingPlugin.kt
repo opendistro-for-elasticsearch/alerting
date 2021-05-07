@@ -104,7 +104,11 @@ import org.elasticsearch.index.IndexModule
 import org.elasticsearch.painless.spi.PainlessExtension
 import org.elasticsearch.painless.spi.Whitelist
 import org.elasticsearch.painless.spi.WhitelistLoader
-import org.elasticsearch.plugins.*
+import org.elasticsearch.plugins.ActionPlugin
+import org.elasticsearch.plugins.Plugin
+import org.elasticsearch.plugins.ReloadablePlugin
+import org.elasticsearch.plugins.ScriptPlugin
+import org.elasticsearch.plugins.SearchPlugin
 import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
