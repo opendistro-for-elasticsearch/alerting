@@ -32,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.IndexMonitorAction
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchEmailAccountAction
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchEmailGroupAction
 import com.amazon.opendistroforelasticsearch.alerting.action.SearchMonitorAction
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorExtAggregationBuilder
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.JobSweeper
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
@@ -91,12 +92,14 @@ import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry
+import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.settings.ClusterSettings
 import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
 import org.elasticsearch.index.IndexModule
@@ -107,6 +110,7 @@ import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
 import org.elasticsearch.plugins.ReloadablePlugin
 import org.elasticsearch.plugins.ScriptPlugin
+import org.elasticsearch.plugins.SearchPlugin
 import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
@@ -122,7 +126,7 @@ import java.util.function.Supplier
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [TraditionalTrigger.XCONTENT_REGISTRY],
  * [AggregationTrigger.XCONTENT_REGISTRY] to the [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
-internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, ReloadablePlugin, Plugin() {
+internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, ReloadablePlugin, SearchPlugin, Plugin() {
     override fun getContextWhitelists(): Map<ScriptContext<*>, List<Whitelist>> {
         val whitelist = WhitelistLoader.loadFromResourceFiles(javaClass, "com.amazon.opendistroforelasticsearch.alerting.txt")
         return mapOf(TriggerScript.CONTEXT to listOf(whitelist))
@@ -289,5 +293,17 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
 
     override fun reload(settings: Settings) {
         runner.reloadDestinationSettings(settings)
+    }
+
+    override fun getPipelineAggregations(): List<SearchPlugin.PipelineAggregationSpec> {
+        return listOf(
+            SearchPlugin.PipelineAggregationSpec(
+                BucketSelectorExtAggregationBuilder.NAME,
+                { sin: StreamInput -> BucketSelectorExtAggregationBuilder(sin) },
+                { parser: XContentParser, agg_name: String ->
+                    BucketSelectorExtAggregationBuilder.parse(agg_name, parser)
+                }
+            )
+        )
     }
 }
