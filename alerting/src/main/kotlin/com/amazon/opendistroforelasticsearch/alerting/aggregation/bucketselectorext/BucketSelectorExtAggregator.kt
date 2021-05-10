@@ -65,7 +65,7 @@ class BucketSelectorExtAggregator : SiblingPipelineAggregator {
     constructor(sin: StreamInput) : super(sin.readString(), null, null) {
         script = Script(sin)
         gapPolicy = GapPolicy.readFrom(sin)
-        bucketsPathsMap = sin.readGenericValue() as Map<String, String>
+        bucketsPathsMap = sin.readMap() as Map<String, String>
         parentBucketPath = sin.readString()
         if (sin.readBoolean()) {
             bucketSelectorExtFilter = BucketSelectorExtFilter(sin)

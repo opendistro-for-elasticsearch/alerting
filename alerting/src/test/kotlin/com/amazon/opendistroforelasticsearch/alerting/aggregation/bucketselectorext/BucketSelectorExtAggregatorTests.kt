@@ -52,7 +52,7 @@ import java.util.Collections
 import java.util.function.Consumer
 import java.util.function.Function
 
-class BucketSelectorExtAggregatorTestsIT : AggregatorTestCase() {
+class BucketSelectorExtAggregatorTests : AggregatorTestCase() {
 
     private var SCRIPTNAME = "bucket_selector_script"
     private var paramName = "the_avg"

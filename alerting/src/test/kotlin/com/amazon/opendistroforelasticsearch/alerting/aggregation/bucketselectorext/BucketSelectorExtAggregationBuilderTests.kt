@@ -22,7 +22,7 @@ import org.elasticsearch.search.aggregations.BasePipelineAggregationTestCase
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude
 import org.elasticsearch.search.aggregations.pipeline.BucketHelpers.GapPolicy
 
-class BucketSelectorExtAggregationBuilderTestsIT : BasePipelineAggregationTestCase<BucketSelectorExtAggregationBuilder>() {
+class BucketSelectorExtAggregationBuilderTests : BasePipelineAggregationTestCase<BucketSelectorExtAggregationBuilder>() {
     override fun plugins(): List<SearchPlugin?> {
         return listOf(AlertingPlugin())
     }

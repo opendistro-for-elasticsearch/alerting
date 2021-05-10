@@ -52,12 +52,9 @@ class BucketSelectorExtAggregationBuilder :
     }
 
     @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
     constructor(sin: StreamInput) : super(sin, NAME.preferredName) {
-        val mapSize: Int = sin.readVInt()
-        bucketsPathsMap = java.util.HashMap(mapSize)
-        for (i in 0 until mapSize) {
-            bucketsPathsMap[sin.readString()] = sin.readString()
-        }
+        bucketsPathsMap = sin.readMap() as MutableMap<String, String>
         script = Script(sin)
         gapPolicy = GapPolicy.readFrom(sin)
         parentBucketPath = sin.readString()
@@ -70,11 +67,7 @@ class BucketSelectorExtAggregationBuilder :
 
     @Throws(IOException::class)
     override fun doWriteTo(out: StreamOutput) {
-        out.writeVInt(bucketsPathsMap.size)
-        for ((key, value) in bucketsPathsMap) {
-            out.writeString(key)
-            out.writeString(value)
-        }
+        out.writeMap(bucketsPathsMap as Map<String, String>)
         script.writeTo(out)
         gapPolicy.writeTo(out)
         out.writeString(parentBucketPath)
@@ -102,18 +95,18 @@ class BucketSelectorExtAggregationBuilder :
     @Throws(IOException::class)
     public override fun internalXContent(builder: XContentBuilder, params: Params): XContentBuilder {
         builder.field(PipelineAggregator.Parser.BUCKETS_PATH.preferredName, bucketsPathsMap as Map<String, Any>?)
-        builder.field(PARENT_BUCKET_PATH.preferredName, parentBucketPath)
-        builder.field(Script.SCRIPT_PARSE_FIELD.preferredName, script)
-        builder.field(PipelineAggregator.Parser.GAP_POLICY.preferredName, gapPolicy.getName())
+            .field(PARENT_BUCKET_PATH.preferredName, parentBucketPath)
+            .field(Script.SCRIPT_PARSE_FIELD.preferredName, script)
+            .field(PipelineAggregator.Parser.GAP_POLICY.preferredName, gapPolicy.getName())
         if (filter != null) {
             if (filter.isCompositeAggregation) {
                 builder.startObject(BUCKET_SELECTOR_COMPOSITE_AGG_FILTER.preferredName)
-                builder.value(filter)
-                builder.endObject()
+                    .value(filter)
+                    .endObject()
             } else {
                 builder.startObject(BUCKET_SELECTOR_FILTER.preferredName)
-                builder.value(filter)
-                builder.endObject()
+                    .value(filter)
+                    .endObject()
             }
         }
         return builder
