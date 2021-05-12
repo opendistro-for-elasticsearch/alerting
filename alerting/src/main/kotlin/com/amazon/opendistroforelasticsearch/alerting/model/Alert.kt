@@ -50,7 +50,8 @@ data class Alert(
     val errorMessage: String? = null,
     val errorHistory: List<AlertError>,
     val severity: String,
-    val actionExecutionResults: List<ActionExecutionResult>
+    val actionExecutionResults: List<ActionExecutionResult>,
+    val aggregationResultBucket: AggregationResultBucket?
 ) : Writeable, ToXContent {
 
     init {
@@ -61,7 +62,7 @@ data class Alert(
 
     constructor(
         monitor: Monitor,
-        trigger: Trigger,
+        trigger: TraditionalTrigger,
         startTime: Instant,
         lastNotificationTime: Instant?,
         state: State = State.ACTIVE,
@@ -70,9 +71,41 @@ data class Alert(
         actionExecutionResults: List<ActionExecutionResult> = mutableListOf(),
         schemaVersion: Int = NO_SCHEMA_VERSION
     ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version, monitorUser = monitor.user,
-            triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
-            lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
-            severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion)
+        triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
+        lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
+        severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion,aggregationResultBucket=null)
+
+    constructor(
+        monitor: Monitor,
+        trigger: AggregationTrigger,
+        startTime: Instant,
+        lastNotificationTime: Instant?,
+        state: State = State.ACTIVE,
+        errorMessage: String? = null,
+        errorHistory: List<AlertError> = mutableListOf(),
+        actionExecutionResults: List<ActionExecutionResult> = mutableListOf(),
+        schemaVersion: Int = NO_SCHEMA_VERSION
+    ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version, monitorUser = monitor.user,
+        triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
+        lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
+        severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion, aggregationResultBucket=null)
+
+    constructor(
+        monitor: Monitor,
+        trigger: AggregationTrigger,
+        startTime: Instant,
+        lastNotificationTime: Instant?,
+        state: State = State.ACTIVE,
+        errorMessage: String? = null,
+        errorHistory: List<AlertError> = mutableListOf(),
+        actionExecutionResults: List<ActionExecutionResult> = mutableListOf(),
+        schemaVersion: Int = NO_SCHEMA_VERSION,
+        aggregationResultBucket: AggregationResultBucket
+    ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version, monitorUser = monitor.user,
+        triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
+        lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
+        severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion,
+        aggregationResultBucket=aggregationResultBucket)
 
     enum class State {
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR, DELETED
@@ -80,26 +113,27 @@ data class Alert(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
-            id = sin.readString(),
-            version = sin.readLong(),
-            schemaVersion = sin.readInt(),
-            monitorId = sin.readString(),
-            monitorName = sin.readString(),
-            monitorVersion = sin.readLong(),
-            monitorUser = if (sin.readBoolean()) {
-                User(sin)
-            } else null,
-            triggerId = sin.readString(),
-            triggerName = sin.readString(),
-            state = sin.readEnum(State::class.java),
-            startTime = sin.readInstant(),
-            endTime = sin.readOptionalInstant(),
-            lastNotificationTime = sin.readOptionalInstant(),
-            acknowledgedTime = sin.readOptionalInstant(),
-            errorMessage = sin.readOptionalString(),
-            errorHistory = sin.readList(::AlertError),
-            severity = sin.readString(),
-            actionExecutionResults = sin.readList(::ActionExecutionResult)
+        id = sin.readString(),
+        version = sin.readLong(),
+        schemaVersion = sin.readInt(),
+        monitorId = sin.readString(),
+        monitorName = sin.readString(),
+        monitorVersion = sin.readLong(),
+        monitorUser = if (sin.readBoolean()) {
+            User(sin)
+        } else null,
+        triggerId = sin.readString(),
+        triggerName = sin.readString(),
+        state = sin.readEnum(State::class.java),
+        startTime = sin.readInstant(),
+        endTime = sin.readOptionalInstant(),
+        lastNotificationTime = sin.readOptionalInstant(),
+        acknowledgedTime = sin.readOptionalInstant(),
+        errorMessage = sin.readOptionalString(),
+        errorHistory = sin.readList(::AlertError),
+        severity = sin.readString(),
+        actionExecutionResults = sin.readList(::ActionExecutionResult),
+        aggregationResultBucket = if (sin.readBoolean()) AggregationResultBucket(sin) else null
     )
 
     fun isAcknowledged(): Boolean = (state == State.ACKNOWLEDGED)
@@ -125,6 +159,12 @@ data class Alert(
         out.writeCollection(errorHistory)
         out.writeString(severity)
         out.writeCollection(actionExecutionResults)
+        if (aggregationResultBucket != null) {
+            out.writeBoolean(true)
+            aggregationResultBucket.writeTo(out)
+        } else {
+            out.writeBoolean(false)
+        }
     }
 
     companion object {
@@ -147,7 +187,8 @@ data class Alert(
         const val ALERT_HISTORY_FIELD = "alert_history"
         const val SEVERITY_FIELD = "severity"
         const val ACTION_EXECUTION_RESULTS_FIELD = "action_execution_results"
-
+        const val BUCKET_KEY = AggregationResultBucket.BUCKET_KEY
+        const val PARENTS_BUCKET_PATH = AggregationResultBucket.PARENTS_BUCKET_PATH
         const val NO_ID = ""
         const val NO_VERSION = Versions.NOT_FOUND
 
@@ -171,7 +212,7 @@ data class Alert(
             var errorMessage: String? = null
             val errorHistory: MutableList<AlertError> = mutableListOf()
             var actionExecutionResults: MutableList<ActionExecutionResult> = mutableListOf()
-
+            var aggAlertBucket: AggregationResultBucket? = null
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
@@ -204,16 +245,17 @@ data class Alert(
                             actionExecutionResults.add(ActionExecutionResult.parse(xcp))
                         }
                     }
+                    AggregationResultBucket.CONFIG_NAME -> aggAlertBucket = AggregationResultBucket.parse(xcp)
                 }
             }
 
             return Alert(id = id, version = version, schemaVersion = schemaVersion, monitorId = requireNotNull(monitorId),
-                    monitorName = requireNotNull(monitorName), monitorVersion = monitorVersion, monitorUser = monitorUser,
-                    triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
-                    state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
-                    lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
-                    errorMessage = errorMessage, errorHistory = errorHistory, severity = severity,
-                    actionExecutionResults = actionExecutionResults)
+                monitorName = requireNotNull(monitorName), monitorVersion = monitorVersion, monitorUser = monitorUser,
+                triggerId = requireNotNull(triggerId), triggerName = requireNotNull(triggerName),
+                state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
+                lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
+                errorMessage = errorMessage, errorHistory = errorHistory, severity = severity,
+                actionExecutionResults = actionExecutionResults, aggregationResultBucket=aggAlertBucket)
         }
 
         @JvmStatic
@@ -224,37 +266,41 @@ data class Alert(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        return builder.startObject()
-                .field(ALERT_ID_FIELD, id)
-                .field(ALERT_VERSION_FIELD, version)
-                .field(MONITOR_ID_FIELD, monitorId)
-                .field(SCHEMA_VERSION_FIELD, schemaVersion)
-                .field(MONITOR_VERSION_FIELD, monitorVersion)
-                .field(MONITOR_NAME_FIELD, monitorName)
-                .optionalUserField(MONITOR_USER_FIELD, monitorUser)
-                .field(TRIGGER_ID_FIELD, triggerId)
-                .field(TRIGGER_NAME_FIELD, triggerName)
-                .field(STATE_FIELD, state)
-                .field(ERROR_MESSAGE_FIELD, errorMessage)
-                .field(ALERT_HISTORY_FIELD, errorHistory.toTypedArray())
-                .field(SEVERITY_FIELD, severity)
-                .field(ACTION_EXECUTION_RESULTS_FIELD, actionExecutionResults.toTypedArray())
-                .optionalTimeField(START_TIME_FIELD, startTime)
-                .optionalTimeField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
-                .optionalTimeField(END_TIME_FIELD, endTime)
-                .optionalTimeField(ACKNOWLEDGED_TIME_FIELD, acknowledgedTime)
-                .endObject()
+        builder.startObject()
+            .field(ALERT_ID_FIELD, id)
+            .field(ALERT_VERSION_FIELD, version)
+            .field(MONITOR_ID_FIELD, monitorId)
+            .field(SCHEMA_VERSION_FIELD, schemaVersion)
+            .field(MONITOR_VERSION_FIELD, monitorVersion)
+            .field(MONITOR_NAME_FIELD, monitorName)
+            .optionalUserField(MONITOR_USER_FIELD, monitorUser)
+            .field(TRIGGER_ID_FIELD, triggerId)
+            .field(TRIGGER_NAME_FIELD, triggerName)
+            .field(STATE_FIELD, state)
+            .field(ERROR_MESSAGE_FIELD, errorMessage)
+            .field(ALERT_HISTORY_FIELD, errorHistory.toTypedArray())
+            .field(SEVERITY_FIELD, severity)
+            .field(ACTION_EXECUTION_RESULTS_FIELD, actionExecutionResults.toTypedArray())
+            .optionalTimeField(START_TIME_FIELD, startTime)
+            .optionalTimeField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
+            .optionalTimeField(END_TIME_FIELD, endTime)
+            .optionalTimeField(ACKNOWLEDGED_TIME_FIELD, acknowledgedTime)
+        aggregationResultBucket?.toXContent(builder, params)
+        builder.endObject()
+        return builder
     }
 
     fun asTemplateArg(): Map<String, Any?> {
         return mapOf(ACKNOWLEDGED_TIME_FIELD to acknowledgedTime?.toEpochMilli(),
-                ALERT_ID_FIELD to id,
-                ALERT_VERSION_FIELD to version,
-                END_TIME_FIELD to endTime?.toEpochMilli(),
-                ERROR_MESSAGE_FIELD to errorMessage,
-                LAST_NOTIFICATION_TIME_FIELD to lastNotificationTime?.toEpochMilli(),
-                SEVERITY_FIELD to severity,
-                START_TIME_FIELD to startTime.toEpochMilli(),
-                STATE_FIELD to state.toString())
+            ALERT_ID_FIELD to id,
+            ALERT_VERSION_FIELD to version,
+            END_TIME_FIELD to endTime?.toEpochMilli(),
+            ERROR_MESSAGE_FIELD to errorMessage,
+            LAST_NOTIFICATION_TIME_FIELD to lastNotificationTime?.toEpochMilli(),
+            SEVERITY_FIELD to severity,
+            START_TIME_FIELD to startTime.toEpochMilli(),
+            STATE_FIELD to state.toString(),
+            BUCKET_KEY to aggregationResultBucket?.bucketKey,
+            PARENTS_BUCKET_PATH to aggregationResultBucket?.parentBucketPath)
     }
 }
