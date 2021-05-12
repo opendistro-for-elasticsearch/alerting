@@ -213,7 +213,7 @@ data class Alert(
             var acknowledgedTime: Instant? = null
             var errorMessage: String? = null
             val errorHistory: MutableList<AlertError> = mutableListOf()
-            var actionExecutionResults: MutableList<ActionExecutionResult> = mutableListOf()
+            val actionExecutionResults: MutableList<ActionExecutionResult> = mutableListOf()
             var aggAlertBucket: AggregationResultBucket? = null
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
