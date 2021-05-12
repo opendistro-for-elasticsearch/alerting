@@ -23,14 +23,16 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomAggregationMonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomInputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
-import com.amazon.opendistroforelasticsearch.alerting.randomTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -122,12 +124,21 @@ class WriteableTests : ESTestCase() {
         assertEquals("Round tripping ActionRunResult doesn't work", actionRunResult, newActionRunResult)
     }
 
-    fun `test triggerrunresult as stream`() {
-        val runResult = randomTriggerRunResult()
+    fun `test traditional triggerrunresult as stream`() {
+        val runResult = randomTraditionalTriggerRunResult()
         val out = BytesStreamOutput()
         runResult.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRunResult = TriggerRunResult(sin)
+        val newRunResult = TraditionalTriggerRunResult(sin)
+        assertEquals("Round tripping ActionRunResult doesn't work", runResult, newRunResult)
+    }
+
+    fun `test aggregation triggerrunresult as stream`() {
+        val runResult = randomAggregationTriggerRunResult()
+        val out = BytesStreamOutput()
+        runResult.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newRunResult = AggregationTriggerRunResult(sin)
         assertEquals("Round tripping ActionRunResult doesn't work", runResult, newRunResult)
     }
 
@@ -140,12 +151,21 @@ class WriteableTests : ESTestCase() {
         assertEquals("Round tripping InputRunResults doesn't work", runResult, newRunResult)
     }
 
-    fun `test monitorrunresult as stream`() {
-        val runResult = randomMonitorRunResult()
+    fun `test traditional monitorrunresult as stream`() {
+        val runResult = randomTraditionalMonitorRunResult()
         val out = BytesStreamOutput()
         runResult.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRunResult = MonitorRunResult(sin)
+        val newRunResult = MonitorRunResult<TraditionalTriggerRunResult>(sin)
+        assertEquals("Round tripping MonitorRunResult doesn't work", runResult, newRunResult)
+    }
+
+    fun `test aggregation monitorrunresult as stream`() {
+        val runResult = randomAggregationMonitorRunResult()
+        val out = BytesStreamOutput()
+        runResult.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newRunResult = MonitorRunResult<AggregationTriggerRunResult>(sin)
         assertEquals("Round tripping MonitorRunResult doesn't work", runResult, newRunResult)
     }
 

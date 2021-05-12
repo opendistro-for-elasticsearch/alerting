@@ -23,9 +23,10 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
-import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
@@ -102,7 +103,7 @@ class AlertService(
         }
     }
 
-    fun composeAlert(ctx: TriggerExecutionContext, result: TriggerRunResult, alertError: AlertError?): Alert? {
+    fun composeTraditionalAlert(ctx: TraditionalTriggerExecutionContext, result: TraditionalTriggerRunResult, alertError: AlertError?): Alert? {
         val currentTime = Instant.now()
         val currentAlert = ctx.alert
 

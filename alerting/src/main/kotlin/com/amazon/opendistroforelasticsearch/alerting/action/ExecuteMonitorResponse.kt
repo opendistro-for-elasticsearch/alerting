@@ -26,9 +26,9 @@ import java.io.IOException
 
 class ExecuteMonitorResponse : ActionResponse, ToXContentObject {
 
-    val monitorRunResult: MonitorRunResult
+    val monitorRunResult: MonitorRunResult<*>
 
-    constructor(monitorRunResult: MonitorRunResult) : super() {
+    constructor(monitorRunResult: MonitorRunResult<*>) : super() {
         this.monitorRunResult = monitorRunResult
     }
 

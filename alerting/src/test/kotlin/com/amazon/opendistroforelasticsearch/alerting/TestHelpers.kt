@@ -23,14 +23,16 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
@@ -219,9 +221,24 @@ fun randomActionExecutionResult(
     throttledCount: Int = randomInt()
 ) = ActionExecutionResult(actionId, lastExecutionTime, throttledCount)
 
-fun randomMonitorRunResult(): MonitorRunResult {
-    val triggerResults = mutableMapOf<String, TriggerRunResult>()
-    val triggerRunResult = randomTriggerRunResult()
+fun randomTraditionalMonitorRunResult(): MonitorRunResult<TraditionalTriggerRunResult> {
+    val triggerResults = mutableMapOf<String, TraditionalTriggerRunResult>()
+    val triggerRunResult = randomTraditionalTriggerRunResult()
+    triggerResults.plus(Pair("test", triggerRunResult))
+
+    return MonitorRunResult(
+        "test-monitor",
+        Instant.now(),
+        Instant.now(),
+        null,
+        randomInputRunResults(),
+        triggerResults
+    )
+}
+
+fun randomAggregationMonitorRunResult(): MonitorRunResult<AggregationTriggerRunResult> {
+    val triggerResults = mutableMapOf<String, AggregationTriggerRunResult>()
+    val triggerRunResult = randomAggregationTriggerRunResult()
     triggerResults.plus(Pair("test", triggerRunResult))
 
     return MonitorRunResult(
@@ -238,11 +255,29 @@ fun randomInputRunResults(): InputRunResults {
     return InputRunResults(listOf(), null)
 }
 
-fun randomTriggerRunResult(): TriggerRunResult {
+fun randomTraditionalTriggerRunResult(): TraditionalTriggerRunResult {
     val map = mutableMapOf<String, ActionRunResult>()
     map.plus(Pair("key1", randomActionRunResult()))
     map.plus(Pair("key2", randomActionRunResult()))
-    return TriggerRunResult("trigger-name", true, null, map)
+    return TraditionalTriggerRunResult("trigger-name", true, null, map)
+}
+
+fun randomAggregationTriggerRunResult(): AggregationTriggerRunResult {
+    val map = mutableMapOf<String, ActionRunResult>()
+    map.plus(Pair("key1", randomActionRunResult()))
+    map.plus(Pair("key2", randomActionRunResult()))
+
+    val aggBcuket1 = AggregationResultBucket("parent_bucket_path_1", "bucket_key_1",
+        mapOf("k1" to "val1", "k2" to "val2"))
+    val aggBcuket2 = AggregationResultBucket("parent_bucket_path_2", "bucket_key_2",
+        mapOf("k1" to "val1", "k2" to "val2"))
+
+    val actionResultsMap: MutableMap<String?, MutableMap<String, ActionRunResult>> = mutableMapOf()
+    actionResultsMap[aggBcuket1.bucketKey] = map
+    actionResultsMap[aggBcuket2.bucketKey] = map
+
+    return AggregationTriggerRunResult("trigger-name", null,
+        mapOf(aggBcuket1.bucketKey to aggBcuket1, aggBcuket2.bucketKey to aggBcuket2), actionResultsMap)
 }
 
 fun randomActionRunResult(): ActionRunResult {
