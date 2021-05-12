@@ -46,10 +46,6 @@ data class AggregationTrigger(
     override val actions: List<Action>
 ) : Trigger {
 
-    // TODO: Once class is full implemented add tests to the following suites:
-    //  - WriteableTests
-    //  - XContentTests
-
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
         sin.readString(), // id
