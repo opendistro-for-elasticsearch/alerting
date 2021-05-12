@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.parser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
@@ -105,7 +106,16 @@ class XContentTests : ESTestCase() {
         val triggerString = trigger.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedTrigger = Trigger.parse(parser(triggerString))
 
-        assertEquals("Round tripping Trigger doesn't work", trigger, parsedTrigger)
+        assertEquals("Round tripping TraditionalTrigger doesn't work", trigger, parsedTrigger)
+    }
+
+    fun `test aggregation trigger parsing`() {
+        val trigger = randomAggregationTrigger()
+
+        val triggerString = trigger.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedTrigger = Trigger.parse(parser(triggerString))
+
+        assertEquals("Round tripping AggregationTrigger doesn't work", trigger, parsedTrigger)
     }
 
     fun `test alert parsing`() {

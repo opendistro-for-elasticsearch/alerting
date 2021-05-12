@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomInputRunResults
@@ -100,6 +101,15 @@ class WriteableTests : ESTestCase() {
         trigger.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newTrigger = TraditionalTrigger.readFrom(sin)
+        assertEquals("Round tripping Trigger doesn't work", trigger, newTrigger)
+    }
+
+    fun `test aggregation trigger as stream`() {
+        val trigger = randomAggregationTrigger()
+        val out = BytesStreamOutput()
+        trigger.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newTrigger = AggregationTrigger.readFrom(sin)
         assertEquals("Round tripping Trigger doesn't work", trigger, newTrigger)
     }
 

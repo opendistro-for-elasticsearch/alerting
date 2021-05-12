@@ -33,7 +33,7 @@ import java.util.Objects
 class BucketSelectorExtAggregationBuilder :
     AbstractPipelineAggregationBuilder<BucketSelectorExtAggregationBuilder> {
     private val bucketsPathsMap: MutableMap<String, String>
-    private val parentBucketPath: String
+    val parentBucketPath: String
     val script: Script
     val filter: BucketSelectorExtFilter?
     private var gapPolicy = GapPolicy.SKIP
@@ -140,7 +140,7 @@ class BucketSelectorExtAggregationBuilder :
 
     companion object {
         val NAME = ParseField("bucket_selector_ext")
-        private val PARENT_BUCKET_PATH = ParseField("parent_bucket_path")
+        val PARENT_BUCKET_PATH = ParseField("parent_bucket_path")
 
         @Throws(IOException::class)
         fun parse(reducerName: String, parser: XContentParser): BucketSelectorExtAggregationBuilder {

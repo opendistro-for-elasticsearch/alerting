@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.model
 
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorExtAggregationBuilder
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger.Companion.ACTIONS_FIELD
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger.Companion.ID_FIELD
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger.Companion.NAME_FIELD
@@ -41,21 +42,17 @@ data class AggregationTrigger(
     override val id: String = UUIDs.base64UUID(),
     override val name: String,
     override val severity: String,
+    val bucketSelector: BucketSelectorExtAggregationBuilder,
     override val actions: List<Action>
-    // TODO: Add the remaining member variables based on integrated with Trigger pipeline aggregator
 ) : Trigger {
-
-    // TODO: Once class is full implemented add tests to the following suites:
-    //  - WriteableTests
-    //  - XContentTests
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
         sin.readString(), // id
         sin.readString(), // name
         sin.readString(), // severity
+        BucketSelectorExtAggregationBuilder(sin), // condition
         sin.readList(::Action) // actions
-        // TODO: Add remainder of inputs after integration
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -64,8 +61,10 @@ data class AggregationTrigger(
             .field(ID_FIELD, id)
             .field(NAME_FIELD, name)
             .field(SEVERITY_FIELD, severity)
+            .startObject(CONDITION_FIELD)
+        bucketSelector.internalXContent(builder, params)
+        builder.endObject()
             .field(ACTIONS_FIELD, actions.toTypedArray())
-            // TODO: Add remainder of contents after integration
             .endObject()
             .endObject()
         return builder
@@ -80,12 +79,24 @@ data class AggregationTrigger(
         out.writeString(id)
         out.writeString(name)
         out.writeString(severity)
+        bucketSelector.writeTo(out)
         out.writeCollection(actions)
-        // TODO: Add remainder of outputs after integration
+    }
+
+    fun asTemplateArg(): Map<String, Any> {
+        return mapOf(ID_FIELD to id, NAME_FIELD to name, SEVERITY_FIELD to severity,
+            ACTIONS_FIELD to actions.map { it.asTemplateArg() },
+            AGGREGATION_TRIGGER_FIELD to {
+                mapOf(
+                    BucketSelectorExtAggregationBuilder.NAME.preferredName to bucketSelector.name,
+                    BucketSelectorExtAggregationBuilder.PARENT_BUCKET_PATH.preferredName to bucketSelector.parentBucketPath
+                )
+            })
     }
 
     companion object {
         const val AGGREGATION_TRIGGER_FIELD = "aggregation_trigger"
+        const val CONDITION_FIELD = "condition"
 
         val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(Trigger::class.java, ParseField(AGGREGATION_TRIGGER_FIELD),
             CheckedFunction { parseInner(it) })
@@ -98,6 +109,7 @@ data class AggregationTrigger(
             lateinit var severity: String
             val actions: MutableList<Action> = mutableListOf()
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            lateinit var bucketSelector: BucketSelectorExtAggregationBuilder
 
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
@@ -107,13 +119,15 @@ data class AggregationTrigger(
                     ID_FIELD -> id = xcp.text()
                     NAME_FIELD -> name = xcp.text()
                     SEVERITY_FIELD -> severity = xcp.text()
+                    CONDITION_FIELD -> {
+                        bucketSelector = BucketSelectorExtAggregationBuilder.parse(name, xcp)
+                    }
                     ACTIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             actions.add(Action.parse(xcp))
                         }
                     }
-                    // TODO: Add remainder of field to parse after integration
                 }
             }
 
@@ -121,6 +135,7 @@ data class AggregationTrigger(
                 id = requireNotNull(id) { "Trigger id is null." },
                 name = requireNotNull(name) { "Trigger name is null" },
                 severity = requireNotNull(severity) { "Trigger severity is null" },
+                bucketSelector = bucketSelector,
                 actions = requireNotNull(actions) { "Trigger actions are null" })
         }
 

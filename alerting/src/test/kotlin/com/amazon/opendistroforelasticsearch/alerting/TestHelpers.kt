@@ -14,6 +14,8 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorExtAggregationBuilder
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorExtFilter
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
@@ -55,6 +57,7 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.SearchModule
+import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomInt
@@ -109,6 +112,39 @@ fun randomTraditionalTrigger(
         severity = severity,
         condition = condition,
         actions = if (actions.isEmpty()) (0..randomInt(10)).map { randomAction(destinationId = destinationId) } else actions)
+}
+
+fun randomAggregationTrigger(
+    id: String = UUIDs.base64UUID(),
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    severity: String = "1",
+    bucketSelector: BucketSelectorExtAggregationBuilder = randomBucketSelectorExtAggregationBuilder(name = name),
+    actions: List<Action> = mutableListOf(),
+    destinationId: String = ""
+): AggregationTrigger {
+    return AggregationTrigger(
+        id = id,
+        name = name,
+        severity = severity,
+        bucketSelector = bucketSelector,
+        actions = if (actions.isEmpty()) (0..randomInt(10)).map { randomAction(destinationId = destinationId) } else actions)
+}
+
+fun randomBucketSelectorExtAggregationBuilder(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    bucketsPathsMap: MutableMap<String, String> = mutableMapOf("avg" to "10"),
+    script: Script = randomBucketSelectorScript(params=bucketsPathsMap),
+    parentBucketPath: String = "testPath",
+    filter: BucketSelectorExtFilter = BucketSelectorExtFilter(IncludeExclude("foo*", "bar*"))
+    ) : BucketSelectorExtAggregationBuilder {
+    return BucketSelectorExtAggregationBuilder(name, bucketsPathsMap, script, parentBucketPath, filter)
+}
+
+fun randomBucketSelectorScript(
+    idOrCode: String = "params.avg >= 0",
+    params: Map<String, String> = mutableMapOf("avg" to "10")
+): Script {
+    return Script(Script.DEFAULT_SCRIPT_TYPE, Script.DEFAULT_SCRIPT_LANG, idOrCode, emptyMap<String, String>(), params)
 }
 
 fun randomEmailAccount(
