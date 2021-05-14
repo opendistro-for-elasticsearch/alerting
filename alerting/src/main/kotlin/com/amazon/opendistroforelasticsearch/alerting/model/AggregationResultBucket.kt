@@ -51,8 +51,8 @@ data class AggregationResultBucket(
 
     companion object {
         const val CONFIG_NAME = "agg_alert_content"
-        private const val PARENTS_BUCKET_PATH = "parent_bucket_path"
-        private const val BUCKET_KEY = "bucket_key"
+        const val PARENTS_BUCKET_PATH = "parent_bucket_path"
+        const val BUCKET_KEY = "bucket_key"
         private const val BUCKET = "bucket"
 
         fun parse(xcp: XContentParser): AggregationResultBucket {
