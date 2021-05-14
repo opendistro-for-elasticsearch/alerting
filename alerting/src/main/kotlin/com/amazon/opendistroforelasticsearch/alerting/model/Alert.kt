@@ -73,7 +73,8 @@ data class Alert(
     ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version, monitorUser = monitor.user,
         triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
         lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
-        severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion,aggregationResultBucket=null)
+        severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion,
+        aggregationResultBucket = null)
 
     constructor(
         monitor: Monitor,
@@ -255,7 +256,7 @@ data class Alert(
                 state = requireNotNull(state), startTime = requireNotNull(startTime), endTime = endTime,
                 lastNotificationTime = lastNotificationTime, acknowledgedTime = acknowledgedTime,
                 errorMessage = errorMessage, errorHistory = errorHistory, severity = severity,
-                actionExecutionResults = actionExecutionResults, aggregationResultBucket=aggAlertBucket)
+                actionExecutionResults = actionExecutionResults, aggregationResultBucket = aggAlertBucket)
         }
 
         @JvmStatic
