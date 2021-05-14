@@ -22,18 +22,19 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
-import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
-import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
@@ -242,7 +243,8 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
     }
 
-    suspend fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false): MonitorRunResult {
+    suspend fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false):
+            MonitorRunResult<TraditionalTriggerRunResult> {
         val roles = getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
@@ -250,7 +252,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
 
-        var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
+        var monitorResult = MonitorRunResult<TraditionalTriggerRunResult>(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
             alertIndices.createOrUpdateInitialHistoryIndex()
@@ -270,21 +272,21 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
 
         val updatedAlerts = mutableListOf<Alert>()
-        val triggerResults = mutableMapOf<String, TriggerRunResult>()
+        val triggerResults = mutableMapOf<String, TraditionalTriggerRunResult>()
         for (trigger in monitor.triggers) {
             val currentAlert = currentAlerts[trigger]
-            val triggerCtx = TriggerExecutionContext(monitor, trigger as TraditionalTrigger, monitorResult, currentAlert)
+            val triggerCtx = TraditionalTriggerExecutionContext(monitor, trigger as TraditionalTrigger, monitorResult, currentAlert)
             val triggerResult = triggerService.runTraditionalTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
-            if (triggerService.isTriggerActionable(triggerCtx, triggerResult)) {
+            if (triggerService.isTraditionalTriggerActionable(triggerCtx, triggerResult)) {
                 val actionCtx = triggerCtx.copy(error = monitorResult.error ?: triggerResult.error)
                 for (action in trigger.actions) {
                     triggerResult.actionResults[action.id] = runAction(action, actionCtx, dryrun)
                 }
             }
 
-            val updatedAlert = alertService.composeAlert(triggerCtx, triggerResult,
+            val updatedAlert = alertService.composeTraditionalAlert(triggerCtx, triggerResult,
                 monitorResult.alertError() ?: triggerResult.alertError())
             if (updatedAlert != null) updatedAlerts += updatedAlert
         }
@@ -301,7 +303,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         periodStart: Instant,
         periodEnd: Instant,
         dryrun: Boolean = false
-    ): MonitorRunResult {
+    ): MonitorRunResult<AggregationTriggerRunResult> {
         val roles = getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
@@ -311,7 +313,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
         // TODO: Should we use MonitorRunResult for both Monitor types or create an AggregationMonitorRunResult
         //  to store InternalComposite instead of Map<String, Any>?
-        var monitorResult = MonitorRunResult(monitor.name, periodStart, periodEnd)
+        var monitorResult = MonitorRunResult<AggregationTriggerRunResult>(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
             alertIndices.createOrUpdateInitialHistoryIndex()
@@ -381,7 +383,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         return true
     }
 
-    private suspend fun runAction(action: Action, ctx: TriggerExecutionContext, dryrun: Boolean): ActionRunResult {
+    private suspend fun runAction(action: Action, ctx: TraditionalTriggerExecutionContext, dryrun: Boolean): ActionRunResult {
         return try {
             if (!isActionActionable(action, ctx.alert)) {
                 return ActionRunResult(action.id, action.name, mapOf(), true, null, null)
@@ -414,7 +416,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
     }
 
-    private fun compileTemplate(template: Script, ctx: TriggerExecutionContext): String {
+    private fun compileTemplate(template: Script, ctx: TraditionalTriggerExecutionContext): String {
         return scriptService.compile(template, TemplateScript.CONTEXT)
                 .newInstance(template.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()

@@ -18,8 +18,8 @@ package com.amazon.opendistroforelasticsearch.alerting
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
-import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
-import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
@@ -30,22 +30,22 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
 
     private val logger = LogManager.getLogger(TriggerService::class.java)
 
-    fun isTriggerActionable(ctx: TriggerExecutionContext, result: TriggerRunResult): Boolean {
+    fun isTraditionalTriggerActionable(ctx: TraditionalTriggerExecutionContext, result: TraditionalTriggerRunResult): Boolean {
         // Suppress actions if the current alert is acknowledged and there are no errors.
         val suppress = ctx.alert?.state == Alert.State.ACKNOWLEDGED && result.error == null && ctx.error == null
         return result.triggered && !suppress
     }
 
-    fun runTraditionalTrigger(monitor: Monitor, trigger: TraditionalTrigger, ctx: TriggerExecutionContext): TriggerRunResult {
+    fun runTraditionalTrigger(monitor: Monitor, trigger: TraditionalTrigger, ctx: TraditionalTriggerExecutionContext): TraditionalTriggerRunResult {
         return try {
             val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
                 .newInstance(trigger.condition.params)
                 .execute(ctx)
-            TriggerRunResult(trigger.name, triggered, null)
+            TraditionalTriggerRunResult(trigger.name, triggered, null)
         } catch (e: Exception) {
             logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
             // if the script fails we need to send an alert so set triggered = true
-            TriggerRunResult(trigger.name, true, e)
+            TraditionalTriggerRunResult(trigger.name, true, e)
         }
     }
 }

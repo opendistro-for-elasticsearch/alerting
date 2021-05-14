@@ -15,7 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.action
 
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomAggregationMonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitorRunResult
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
@@ -23,8 +24,21 @@ import org.junit.Assert
 
 class ExecuteMonitorResponseTests : ESTestCase() {
 
-    fun `test exec monitor response`() {
-        val req = ExecuteMonitorResponse(randomMonitorRunResult())
+    fun `test exec traditional monitor response`() {
+        val req = ExecuteMonitorResponse(randomTraditionalMonitorRunResult())
+        Assert.assertNotNull(req)
+
+        val out = BytesStreamOutput()
+        req.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newReq = ExecuteMonitorResponse(sin)
+        assertNotNull(newReq.monitorRunResult)
+        assertEquals("test-monitor", newReq.monitorRunResult.monitorName)
+        assertNotNull(newReq.monitorRunResult.inputResults)
+    }
+
+    fun `test exec aggregation monitor response`() {
+        val req = ExecuteMonitorResponse(randomAggregationMonitorRunResult())
         Assert.assertNotNull(req)
 
         val out = BytesStreamOutput()

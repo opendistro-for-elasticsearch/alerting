@@ -84,19 +84,23 @@ data class AggregationTrigger(
     }
 
     fun asTemplateArg(): Map<String, Any> {
-        return mapOf(ID_FIELD to id, NAME_FIELD to name, SEVERITY_FIELD to severity,
+        return mapOf(
+            ID_FIELD to id,
+            NAME_FIELD to name,
+            SEVERITY_FIELD to severity,
             ACTIONS_FIELD to actions.map { it.asTemplateArg() },
-            AGGREGATION_TRIGGER_FIELD to {
-                mapOf(
-                    BucketSelectorExtAggregationBuilder.NAME.preferredName to bucketSelector.name,
-                    BucketSelectorExtAggregationBuilder.PARENT_BUCKET_PATH.preferredName to bucketSelector.parentBucketPath
-                )
-            })
+            PARENT_BUCKET_PATH to getParentBucketPath()
+        )
+    }
+
+    fun getParentBucketPath(): String {
+        return bucketSelector.parentBucketPath
     }
 
     companion object {
         const val AGGREGATION_TRIGGER_FIELD = "aggregation_trigger"
         const val CONDITION_FIELD = "condition"
+        const val PARENT_BUCKET_PATH = "parentBucketPath"
 
         val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(Trigger::class.java, ParseField(AGGREGATION_TRIGGER_FIELD),
             CheckedFunction { parseInner(it) })
