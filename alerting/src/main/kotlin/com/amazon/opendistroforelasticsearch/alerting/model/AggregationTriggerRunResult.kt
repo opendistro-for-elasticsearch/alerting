@@ -28,11 +28,12 @@ data class AggregationTriggerRunResult(
 ) : TriggerRunResult(triggerName, error) {
 
     @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
     constructor(sin: StreamInput): this(
         sin.readString(),
         sin.readException() as Exception?, // error
         sin.readMap(StreamInput::readString, ::AggregationResultBucket),
-        sin.readMap(StreamInput::readString) { innerSin: StreamInput -> innerSin.readMap(StreamInput::readString, ::ActionRunResult) }
+        sin.readMap() as MutableMap<String?, MutableMap<String, ActionRunResult>>
     )
 
     override fun internalXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -42,18 +43,13 @@ data class AggregationTriggerRunResult(
     }
 
     @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeMap<String?, AggregationResultBucket>(aggregationResultBuckets, StreamOutput::writeString) {
                 valueOut: StreamOutput, aggResultBucket: AggregationResultBucket -> aggResultBucket.writeTo(valueOut)
         }
-
-        out.writeMap<String?, MutableMap<String, ActionRunResult>>(actionResultsMap, StreamOutput::writeString) {
-                actionOut: StreamOutput, value: MutableMap<String, ActionRunResult> -> actionOut.writeMap<String, ActionRunResult>(
-            value, StreamOutput::writeString) {
-                    actionResultOut: StreamOutput, actionResult: ActionRunResult -> actionResult.writeTo(actionResultOut)
-            }
-        }
+        out.writeMap(actionResultsMap as Map<String, Any>?)
     }
 
     companion object {
