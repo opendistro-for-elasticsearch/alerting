@@ -89,7 +89,8 @@ data class Alert(
     ) : this(monitorId = monitor.id, monitorName = monitor.name, monitorVersion = monitor.version, monitorUser = monitor.user,
         triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
         lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
-        severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion, aggregationResultBucket=null)
+        severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion,
+        aggregationResultBucket = null)
 
     constructor(
         monitor: Monitor,
@@ -106,7 +107,7 @@ data class Alert(
         triggerId = trigger.id, triggerName = trigger.name, state = state, startTime = startTime,
         lastNotificationTime = lastNotificationTime, errorMessage = errorMessage, errorHistory = errorHistory,
         severity = trigger.severity, actionExecutionResults = actionExecutionResults, schemaVersion = schemaVersion,
-        aggregationResultBucket=aggregationResultBucket)
+        aggregationResultBucket = aggregationResultBucket)
 
     enum class State {
         ACTIVE, ACKNOWLEDGED, COMPLETED, ERROR, DELETED
