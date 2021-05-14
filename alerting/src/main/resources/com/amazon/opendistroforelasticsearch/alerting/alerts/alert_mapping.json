@@ -1,4 +1,5 @@
 {
+  "dynamic": "strict",
   "_routing": {
     "required": true
   },

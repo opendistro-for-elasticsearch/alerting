@@ -28,12 +28,14 @@ abstract class TriggerRunResult(
 ) : Writeable, ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        val msg = error?.message
         builder.startObject()
             .field("name", triggerName)
-            .field("error", msg)
+
         internalXContent(builder, params)
-        builder.endObject()
+        val msg = error?.message
+
+        builder.field("error", msg)
+            .endObject()
         return builder
     }
 

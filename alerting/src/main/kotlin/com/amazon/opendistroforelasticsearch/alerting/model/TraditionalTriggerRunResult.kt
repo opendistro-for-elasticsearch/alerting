@@ -28,14 +28,14 @@ data class TraditionalTriggerRunResult (
     var triggered: Boolean,
     override var error: Exception?,
     var actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
-) : TriggerRunResult (triggerName, error) {
+) : TriggerRunResult(triggerName, error) {
 
 
     @Throws(IOException::class)
     @Suppress("UNCHECKED_CAST")
     constructor(sin: StreamInput) : this(
-        triggerName=sin.readString(),
-        error=sin.readException(),
+        triggerName = sin.readString(),
+        error = sin.readException(),
         triggered = sin.readBoolean(),
         actionResults = sin.readMap() as MutableMap<String, ActionRunResult>
     )

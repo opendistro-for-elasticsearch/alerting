@@ -30,15 +30,6 @@ class com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerEx
     Exception getError()
 }
 
-class com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext {
-    Monitor getMonitor()
-    AggregationTrigger getTrigger()
-    List getResults()
-    java.time.Instant getPeriodStart()
-    java.time.Instant getPeriodEnd()
-    HashMap getAlerts()
-    Exception getError()
-}
 
 class com.amazon.opendistroforelasticsearch.alerting.model.Monitor {
     String getId()
@@ -52,14 +43,6 @@ class com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger {
     String getName()
     String getSeverity()
     List getActions()
-}
-
-class com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger {
-    String getId()
-    String getName()
-    String getSeverity()
-    List getActions()
-    String getParentBucketPath()
 }
 
 class com.amazon.opendistroforelasticsearch.alerting.model.Alert {

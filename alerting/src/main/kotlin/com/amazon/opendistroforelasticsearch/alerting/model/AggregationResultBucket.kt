@@ -42,17 +42,17 @@ data class AggregationResultBucket(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject(CONFIG_NAME)
-        builder.field("parentBucketPath", parentBucketPath)
-        builder.field("bucketKey", bucketKey)
-        builder.field("bucket", bucket)
-        builder.endObject()
+            .field(PARENTS_BUCKET_PATH, parentBucketPath)
+            .field(BUCKET_KEY, bucketKey)
+            .field(BUCKET, bucket)
+            .endObject()
         return builder
     }
 
     companion object {
-        const val CONFIG_NAME = "aggAlertContent"
-        private const val PARENTS_BUCKET_PATH = "parentBucketPath"
-        private const val BUCKET_KEY = "bucketKey"
+        const val CONFIG_NAME = "agg_alert_content"
+        private const val PARENTS_BUCKET_PATH = "parent_bucket_path"
+        private const val BUCKET_KEY = "bucket_key"
         private const val BUCKET = "bucket"
 
         fun parse(xcp: XContentParser): AggregationResultBucket {
