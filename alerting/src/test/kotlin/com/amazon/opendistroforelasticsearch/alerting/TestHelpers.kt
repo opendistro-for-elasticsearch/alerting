@@ -209,6 +209,14 @@ fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
             actionExecutionResults = actionExecutionResults)
 }
 
+fun randomAlertWithAggregationResultBucket(monitor: Monitor = randomMonitor()): Alert {
+    val trigger = randomAggregationTrigger()
+    val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
+    return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
+        actionExecutionResults = actionExecutionResults, aggregationResultBucket = AggregationResultBucket("parent_bucket_path_1", "bucket_key_1",
+            mapOf("k1" to "val1", "k2" to "val2")))
+}
+
 fun randomEmailAccountMethod(): EmailAccount.MethodType {
     val methodValues = EmailAccount.MethodType.values().map { it.value }
     val randomValue = methodValues[randomInt(methodValues.size - 1)]
