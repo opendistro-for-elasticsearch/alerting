@@ -27,7 +27,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
@@ -108,7 +107,11 @@ class AlertService(
         }
     }
 
-    fun composeTraditionalAlert(ctx: TraditionalTriggerExecutionContext, result: TraditionalTriggerRunResult, alertError: AlertError?): Alert? {
+    fun composeTraditionalAlert(
+        ctx: TraditionalTriggerExecutionContext,
+        result: TraditionalTriggerRunResult,
+        alertError: AlertError?
+    ): Alert? {
         val currentTime = Instant.now()
         val currentAlert = ctx.alert
 

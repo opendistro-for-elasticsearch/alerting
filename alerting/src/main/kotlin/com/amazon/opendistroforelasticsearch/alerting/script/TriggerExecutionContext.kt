@@ -19,13 +19,13 @@ import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import java.time.Instant
 
-abstract class TriggerExecutionContext (
+abstract class TriggerExecutionContext(
     open val monitor: Monitor,
     open val results: List<Map<String, Any>>,
     open val periodStart: Instant,
     open val periodEnd: Instant,
     open val error: Exception? = null
-    ) {
+) {
 
     constructor(monitor: Monitor, trigger: Trigger, monitorRunResult: MonitorRunResult<*>):
         this(monitor, monitorRunResult.inputResults.results, monitorRunResult.periodStart,

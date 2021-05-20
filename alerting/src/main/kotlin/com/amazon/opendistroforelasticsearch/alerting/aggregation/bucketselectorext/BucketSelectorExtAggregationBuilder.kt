@@ -251,5 +251,4 @@ class BucketSelectorExtAggregationBuilder :
             return factory
         }
     }
-
 }

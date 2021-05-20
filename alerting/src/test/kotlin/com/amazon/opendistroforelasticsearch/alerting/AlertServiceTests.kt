@@ -154,7 +154,11 @@ class AlertServiceTests : ESTestCase() {
         assertAlertsExistForBucketKeys(listOf(listOf("a")), categorizedAlerts.completedAlerts)
     }
 
-    private fun createCurrentAlertsFromBucketKeys(monitor: Monitor, trigger: AggregationTrigger, bucketKeysList: List<List<String>>): Map<String, Alert> {
+    private fun createCurrentAlertsFromBucketKeys(
+        monitor: Monitor,
+        trigger: AggregationTrigger,
+        bucketKeysList: List<List<String>>
+    ): Map<String, Alert> {
         return bucketKeysList.map { bucketKeys ->
             val aggResultBucket = AggregationResultBucket("parent_bucket_path", bucketKeys, mapOf())
             val alert = Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,

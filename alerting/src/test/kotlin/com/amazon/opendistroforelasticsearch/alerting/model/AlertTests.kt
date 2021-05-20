@@ -51,9 +51,10 @@ class AlertTests : ESTestCase() {
         assertEquals("Template args start time does not", templateArgs[Alert.START_TIME_FIELD], alert.startTime.toEpochMilli())
         assertEquals("Template args last notification time does not match", templateArgs[Alert.LAST_NOTIFICATION_TIME_FIELD], null)
         assertEquals("Template args severity does not match", templateArgs[Alert.SEVERITY_FIELD], alert.severity)
-        Assert.assertEquals("Template args bucketKeys do not match", templateArgs[Alert.BUCKET_KEYS], alert.aggregationResultBucket?.bucketKeys)
-        Assert.assertEquals("Template args parentBucketPath does not match", templateArgs[Alert.PARENTS_BUCKET_PATH], alert.aggregationResultBucket?.parentBucketPath)
-
+        Assert.assertEquals("Template args bucketKeys do not match",
+            templateArgs[Alert.BUCKET_KEYS], alert.aggregationResultBucket?.bucketKeys)
+        Assert.assertEquals("Template args parentBucketPath does not match",
+            templateArgs[Alert.PARENTS_BUCKET_PATH], alert.aggregationResultBucket?.parentBucketPath)
     }
     fun `test alert acknowledged`() {
         val ackAlert = randomAlert().copy(state = Alert.State.ACKNOWLEDGED)

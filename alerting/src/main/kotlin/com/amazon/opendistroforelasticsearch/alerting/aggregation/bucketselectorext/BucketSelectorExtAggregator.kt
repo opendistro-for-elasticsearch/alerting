@@ -46,8 +46,12 @@ class BucketSelectorExtAggregator : SiblingPipelineAggregator {
     private var bucketSelectorExtFilter: BucketSelectorExtFilter? = null
 
     constructor(
-        name: String?, bucketsPathsMap: Map<String, String>, parentBucketPath: String,
-        script: Script, gapPolicy: GapPolicy, filter: BucketSelectorExtFilter?,
+        name: String?,
+        bucketsPathsMap: Map<String, String>,
+        parentBucketPath: String,
+        script: Script,
+        gapPolicy: GapPolicy,
+        filter: BucketSelectorExtFilter?,
         metadata: Map<String, Any>?
     ) : super(name, bucketsPathsMap.values.toTypedArray(), metadata) {
         this.bucketsPathsMap = bucketsPathsMap
@@ -73,7 +77,6 @@ class BucketSelectorExtAggregator : SiblingPipelineAggregator {
             bucketSelectorExtFilter = null
         }
     }
-
 
     @Throws(IOException::class)
     override fun doWriteTo(out: StreamOutput) {

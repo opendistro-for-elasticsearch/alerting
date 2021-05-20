@@ -332,9 +332,11 @@ class BucketSelectorExtAggregatorTests : AggregatorTestCase() {
 
     @Throws(IOException::class)
     private fun testCase(
-        aggregationBuilder: FiltersAggregationBuilder, query: Query,
+        aggregationBuilder: FiltersAggregationBuilder,
+        query: Query,
         buildIndex: CheckedConsumer<RandomIndexWriter, IOException>,
-        verify: Consumer<InternalFilters>, vararg fieldType: MappedFieldType
+        verify: Consumer<InternalFilters>,
+        vararg fieldType: MappedFieldType
     ) {
         newDirectory().use { directory ->
             val indexWriter = RandomIndexWriter(random(), directory)
@@ -351,9 +353,11 @@ class BucketSelectorExtAggregatorTests : AggregatorTestCase() {
 
     @Throws(IOException::class)
     private fun testCaseInternalFilter(
-        aggregationBuilder: FilterAggregationBuilder, query: Query,
+        aggregationBuilder: FilterAggregationBuilder,
+        query: Query,
         buildIndex: CheckedConsumer<RandomIndexWriter, IOException>,
-        verify: Consumer<InternalFilter>, vararg fieldType: MappedFieldType
+        verify: Consumer<InternalFilter>,
+        vararg fieldType: MappedFieldType
     ) {
         newDirectory().use { directory ->
             val indexWriter = RandomIndexWriter(random(), directory)

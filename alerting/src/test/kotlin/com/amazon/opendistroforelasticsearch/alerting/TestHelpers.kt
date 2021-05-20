@@ -152,10 +152,10 @@ fun randomAggregationTrigger(
 fun randomBucketSelectorExtAggregationBuilder(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     bucketsPathsMap: MutableMap<String, String> = mutableMapOf("avg" to "10"),
-    script: Script = randomBucketSelectorScript(params=bucketsPathsMap),
+    script: Script = randomBucketSelectorScript(params = bucketsPathsMap),
     parentBucketPath: String = "testPath",
     filter: BucketSelectorExtFilter = BucketSelectorExtFilter(IncludeExclude("foo*", "bar*"))
-    ) : BucketSelectorExtAggregationBuilder {
+): BucketSelectorExtAggregationBuilder {
     return BucketSelectorExtAggregationBuilder(name, bucketsPathsMap, script, parentBucketPath, filter)
 }
 
@@ -297,7 +297,7 @@ fun randomAggregationTriggerRunResult(): AggregationTriggerRunResult {
     val aggBucket2 = AggregationResultBucket("parent_bucket_path_2", listOf("bucket_key_2"),
         mapOf("k1" to "val1", "k2" to "val2"))
 
-    val actionResultsMap: MutableMap<String?, MutableMap<String, ActionRunResult>> = mutableMapOf()
+    val actionResultsMap: MutableMap<String, MutableMap<String, ActionRunResult>> = mutableMapOf()
     actionResultsMap[aggBucket1.getBucketKeysHash()] = map
     actionResultsMap[aggBucket2.getBucketKeysHash()] = map
 

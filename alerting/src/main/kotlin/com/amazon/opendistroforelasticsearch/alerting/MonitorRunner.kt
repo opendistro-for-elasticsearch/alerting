@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
-import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.alerts.moveAlerts
 import com.amazon.opendistroforelasticsearch.alerting.core.JobRunner
@@ -37,7 +36,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Compan
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
-import com.amazon.opendistroforelasticsearch.alerting.model.userErrorMessage
 import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext

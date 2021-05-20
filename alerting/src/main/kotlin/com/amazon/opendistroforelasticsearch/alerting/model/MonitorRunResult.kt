@@ -28,7 +28,7 @@ import org.elasticsearch.script.ScriptException
 import java.io.IOException
 import java.time.Instant
 
-data class MonitorRunResult<TriggerResult: TriggerRunResult>(
+data class MonitorRunResult<TriggerResult : TriggerRunResult>(
     val monitorName: String,
     val periodStart: Instant,
     val periodEnd: Instant,

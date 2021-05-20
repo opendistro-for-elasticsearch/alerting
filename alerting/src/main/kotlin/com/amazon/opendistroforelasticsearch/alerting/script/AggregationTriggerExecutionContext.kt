@@ -32,7 +32,7 @@ data class AggregationTriggerExecutionContext(
     val newAlerts: List<Alert> = listOf(),
     val completedAlerts: List<Alert> = listOf(),
     override val error: Exception? = null
-): TriggerExecutionContext(monitor, results, periodStart, periodEnd, error) {
+) : TriggerExecutionContext(monitor, results, periodStart, periodEnd, error) {
 
     constructor(
         monitor: Monitor,

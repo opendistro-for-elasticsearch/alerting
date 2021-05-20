@@ -39,7 +39,11 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
         return result.triggered && !suppress
     }
 
-    fun runTraditionalTrigger(monitor: Monitor, trigger: TraditionalTrigger, ctx: TraditionalTriggerExecutionContext): TraditionalTriggerRunResult {
+    fun runTraditionalTrigger(
+        monitor: Monitor,
+        trigger: TraditionalTrigger,
+        ctx: TraditionalTriggerExecutionContext
+    ): TraditionalTriggerRunResult {
         return try {
             val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
                 .newInstance(trigger.condition.params)
