@@ -21,29 +21,30 @@ import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.util.Locale
 
 data class AggregationResultBucket(
     val parentBucketPath: String?,
-    val bucketKey: String?,
+    val bucketKeys: List<String>,
     val bucket: Map<String, Any>?
 ): Writeable, ToXContent {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : this(sin.readString(), sin.readString(), sin.readMap())
+    constructor(sin: StreamInput) : this(sin.readString(), sin.readStringList(), sin.readMap())
 
     override fun writeTo(out: StreamOutput) {
         out.writeString(parentBucketPath)
-        out.writeString(bucketKey)
+        out.writeStringCollection(bucketKeys)
         out.writeMap(bucket)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject(CONFIG_NAME)
             .field(PARENTS_BUCKET_PATH, parentBucketPath)
-            .field(BUCKET_KEY, bucketKey)
+            .field(BUCKET_KEYS, bucketKeys.toTypedArray())
             .field(BUCKET, bucket)
             .endObject()
         return builder
@@ -52,14 +53,14 @@ data class AggregationResultBucket(
     companion object {
         const val CONFIG_NAME = "agg_alert_content"
         const val PARENTS_BUCKET_PATH = "parent_bucket_path"
-        const val BUCKET_KEY = "bucket_key"
+        const val BUCKET_KEYS = "bucket_key"
         private const val BUCKET = "bucket"
 
         fun parse(xcp: XContentParser): AggregationResultBucket {
             var parentBucketPath: String? = null
-            var bucketKey: String? = null
+            var bucketKeys = mutableListOf<String>()
             var bucket: MutableMap<String, Any>? = null
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
             if (CONFIG_NAME != xcp.currentName()) {
                 throw ParsingException(xcp.tokenLocation,
@@ -68,16 +69,21 @@ data class AggregationResultBucket(
                         CONFIG_NAME, xcp.currentName())
                 )
             }
-            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
                 when (fieldName) {
                     PARENTS_BUCKET_PATH -> parentBucketPath = xcp.text()
-                    BUCKET_KEY -> bucketKey = xcp.text()
+                    BUCKET_KEYS -> {
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
+                        while (xcp.nextToken() != Token.END_ARRAY) {
+                            bucketKeys.add(xcp.text())
+                        }
+                    }
                     BUCKET -> bucket = xcp.map()
                 }
             }
-            return AggregationResultBucket(parentBucketPath, bucketKey, bucket)
+            return AggregationResultBucket(parentBucketPath, bucketKeys, bucket)
         }
     }
 }

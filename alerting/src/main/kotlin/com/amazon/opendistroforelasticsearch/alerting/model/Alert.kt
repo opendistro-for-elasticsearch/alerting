@@ -51,7 +51,7 @@ data class Alert(
     val errorHistory: List<AlertError>,
     val severity: String,
     val actionExecutionResults: List<ActionExecutionResult>,
-    val aggregationResultBucket: AggregationResultBucket?
+    val aggregationResultBucket: AggregationResultBucket? = null
 ) : Writeable, ToXContent {
 
     init {
@@ -189,7 +189,7 @@ data class Alert(
         const val ALERT_HISTORY_FIELD = "alert_history"
         const val SEVERITY_FIELD = "severity"
         const val ACTION_EXECUTION_RESULTS_FIELD = "action_execution_results"
-        const val BUCKET_KEY = AggregationResultBucket.BUCKET_KEY
+        const val BUCKET_KEYS = AggregationResultBucket.BUCKET_KEYS
         const val PARENTS_BUCKET_PATH = AggregationResultBucket.PARENTS_BUCKET_PATH
         const val NO_ID = ""
         const val NO_VERSION = Versions.NOT_FOUND
@@ -302,7 +302,7 @@ data class Alert(
             SEVERITY_FIELD to severity,
             START_TIME_FIELD to startTime.toEpochMilli(),
             STATE_FIELD to state.toString(),
-            BUCKET_KEY to aggregationResultBucket?.bucketKey,
+            BUCKET_KEYS to aggregationResultBucket?.bucketKeys,
             PARENTS_BUCKET_PATH to aggregationResultBucket?.parentBucketPath)
     }
 }
