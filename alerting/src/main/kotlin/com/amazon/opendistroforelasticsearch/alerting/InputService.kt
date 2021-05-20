@@ -15,12 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
+import com.amazon.opendistroforelasticsearch.alerting.util.executeTransportAction
+import com.amazon.opendistroforelasticsearch.alerting.util.toMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -64,6 +69,13 @@ class InputService(
                         }
                         val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
                         results += searchResponse.convertToMap()
+                    }
+                    is LocalUriInput -> {
+                        logger.debug("LocalUriInput path: ${input.toConstructedUri().path}")
+                        val response = executeTransportAction(input, client)
+                        results += withContext(Dispatchers.IO) {
+                            response.toMap()
+                        }
                     }
                     else -> {
                         throw IllegalArgumentException("Unsupported input type: ${input.name()}.")
