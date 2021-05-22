@@ -30,12 +30,11 @@ data class AggregationTriggerExecutionContext(
     override val periodEnd: Instant,
     val alerts: HashMap<String?, Alert>? = null,
     override val error: Exception? = null
-): TriggerExecutionContext(monitor, results, periodStart, periodEnd, error) {
+) : TriggerExecutionContext(monitor, results, periodStart, periodEnd, error) {
 
-    constructor(monitor: Monitor, trigger: AggregationTrigger, monitorRunResult: MonitorRunResult<AggregationTriggerRunResult>,
-                alerts: HashMap<String?, Alert>? = null):
+    constructor(monitor: Monitor, trigger: AggregationTrigger, monitorRunResult: MonitorRunResult<AggregationTriggerRunResult>, alerts: HashMap<String?, Alert>? = null):
             this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart,
-            monitorRunResult.periodEnd, alerts, monitorRunResult.scriptContextError(trigger))
+                monitorRunResult.periodEnd, alerts, monitorRunResult.scriptContextError(trigger))
 
     /**
      * Mustache templates need special permissions to reflectively introspect field names. To avoid doing this we

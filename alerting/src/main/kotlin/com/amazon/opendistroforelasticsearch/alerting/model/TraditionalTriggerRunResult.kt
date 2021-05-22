@@ -23,13 +23,12 @@ import org.elasticsearch.script.ScriptException
 import java.io.IOException
 import java.time.Instant
 
-data class TraditionalTriggerRunResult (
+data class TraditionalTriggerRunResult(
     override var triggerName: String,
     var triggered: Boolean,
     override var error: Exception?,
     var actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
 ) : TriggerRunResult(triggerName, error) {
-
 
     @Throws(IOException::class)
     @Suppress("UNCHECKED_CAST")

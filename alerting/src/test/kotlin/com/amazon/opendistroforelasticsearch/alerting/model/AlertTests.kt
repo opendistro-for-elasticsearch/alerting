@@ -53,7 +53,6 @@ class AlertTests : ESTestCase() {
         assertEquals("Template args severity does not match", templateArgs[Alert.SEVERITY_FIELD], alert.severity)
         Assert.assertEquals("Template args bucketKey does not match", templateArgs[Alert.BUCKET_KEY], alert.aggregationResultBucket?.bucketKey)
         Assert.assertEquals("Template args parentBucketPath does not match", templateArgs[Alert.PARENTS_BUCKET_PATH], alert.aggregationResultBucket?.parentBucketPath)
-
     }
     fun `test alert acknowledged`() {
         val ackAlert = randomAlert().copy(state = Alert.State.ACKNOWLEDGED)

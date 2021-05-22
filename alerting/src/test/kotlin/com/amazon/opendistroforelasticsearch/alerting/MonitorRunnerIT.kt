@@ -860,7 +860,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     fun `test LocalUriInput monitor with alert triggered`() {
         // GIVEN
         putAlertMappings()
-        val trigger = randomTrigger(condition = Script("""
+        val trigger = randomTraditionalTrigger(condition = Script("""
             return ctx.results[0].number_of_pending_tasks < 1
         """.trimIndent()), destinationId = createDestination().id)
         val path = "/_cluster/health"
@@ -892,7 +892,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     fun `test LocalUriInput monitor with no alert triggered`() {
         // GIVEN
         putAlertMappings()
-        val trigger = randomTrigger(condition = Script("""
+        val trigger = randomTraditionalTrigger(condition = Script("""
             return ctx.results[0].status.equals("red")
         """.trimIndent()))
         val path = "/_cluster/stats"

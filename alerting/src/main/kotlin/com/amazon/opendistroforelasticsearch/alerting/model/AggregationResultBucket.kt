@@ -29,7 +29,7 @@ data class AggregationResultBucket(
     val parentBucketPath: String?,
     val bucketKey: String?,
     val bucket: Map<String, Any>?
-): Writeable, ToXContent {
+) : Writeable, ToXContent {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(sin.readString(), sin.readString(), sin.readMap())

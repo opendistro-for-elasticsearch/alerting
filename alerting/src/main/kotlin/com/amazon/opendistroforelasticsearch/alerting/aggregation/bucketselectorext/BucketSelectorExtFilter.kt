@@ -27,10 +27,8 @@ import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude
 import java.io.IOException
 
 class BucketSelectorExtFilter : ToXContentObject, Writeable {
-    val filtersMap // used for composite aggregations
-            : HashMap<String, IncludeExclude>?
-    val filters // used for filtering string term aggregation
-            : IncludeExclude?
+    val filtersMap: HashMap<String, IncludeExclude>? // used for composite aggregations
+    val filters: IncludeExclude? // used for filtering string term aggregation
 
     constructor(filters: IncludeExclude?) {
         filtersMap = null
@@ -101,7 +99,8 @@ class BucketSelectorExtFilter : ToXContentObject, Writeable {
 
         @Throws(IOException::class)
         fun parse(
-            reducerName: String, isCompositeAggregation: Boolean,
+            reducerName: String,
+            isCompositeAggregation: Boolean,
             parser: XContentParser
         ): BucketSelectorExtFilter {
             var token: XContentParser.Token

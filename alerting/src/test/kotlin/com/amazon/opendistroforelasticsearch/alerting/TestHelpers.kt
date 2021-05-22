@@ -136,10 +136,10 @@ fun randomAggregationTrigger(
 fun randomBucketSelectorExtAggregationBuilder(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     bucketsPathsMap: MutableMap<String, String> = mutableMapOf("avg" to "10"),
-    script: Script = randomBucketSelectorScript(params=bucketsPathsMap),
+    script: Script = randomBucketSelectorScript(params = bucketsPathsMap),
     parentBucketPath: String = "testPath",
     filter: BucketSelectorExtFilter = BucketSelectorExtFilter(IncludeExclude("foo*", "bar*"))
-    ) : BucketSelectorExtAggregationBuilder {
+): BucketSelectorExtAggregationBuilder {
     return BucketSelectorExtAggregationBuilder(name, bucketsPathsMap, script, parentBucketPath, filter)
 }
 

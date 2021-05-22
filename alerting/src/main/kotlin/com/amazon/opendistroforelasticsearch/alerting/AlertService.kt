@@ -25,7 +25,6 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import org.apache.logging.log4j.LogManager
