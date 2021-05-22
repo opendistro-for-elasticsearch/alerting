@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.instant
-import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalStringList
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MONITOR_MAX_INPUTS
@@ -31,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSetti
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
+import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
@@ -44,6 +44,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.time.Instant
+import java.util.Locale
 
 /**
  * A value object that represents a Monitor. Monitors are used to periodically execute a source query and check the
@@ -57,12 +58,12 @@ data class Monitor(
     override val schedule: Schedule,
     override val lastUpdateTime: Instant,
     override val enabledTime: Instant?,
+    // TODO: Check how this behaves during rolling upgrade/multi-version cluster
+    //  Can read/write and parsing break if it's done from an old -> new version of the plugin?
+    val monitorType: MonitorType,
     val user: User?,
     val schemaVersion: Int = NO_SCHEMA_VERSION,
     val inputs: List<Input>,
-    // TODO: Check how this behaves during rolling upgrade/multi-version cluster
-    //  Can read/write and parsing break if it's done from an old -> new version of the plugin?
-    val groupByFields: List<String>?,
     val triggers: List<Trigger>,
     val uiMetadata: Map<String, Any>
 ) : ScheduledJob {
@@ -74,6 +75,7 @@ data class Monitor(
         val triggerIds = mutableSetOf<String>()
         triggers.forEach { trigger ->
             require(triggerIds.add(trigger.id)) { "Duplicate trigger id: ${trigger.id}. Trigger ids must be unique." }
+            // TODO: Verify Trigger type based on Monitor type
         }
         if (enabled) {
             requireNotNull(enabledTime)
@@ -82,6 +84,9 @@ data class Monitor(
         }
         require(inputs.size <= MONITOR_MAX_INPUTS) { "Monitors can only have $MONITOR_MAX_INPUTS search input." }
         require(triggers.size <= MONITOR_MAX_TRIGGERS) { "Monitors can only support up to $MONITOR_MAX_TRIGGERS triggers." }
+        if (this.isAggregationMonitor()) {
+            // TODO: Add a verification on Inputs when there is an Aggregation Monitor
+        }
     }
 
     @Throws(IOException::class)
@@ -93,15 +98,26 @@ data class Monitor(
         schedule = Schedule.readFrom(sin),
         lastUpdateTime = sin.readInstant(),
         enabledTime = sin.readOptionalInstant(),
+        monitorType = sin.readEnum(MonitorType::class.java),
         user = if (sin.readBoolean()) {
             User(sin)
         } else null,
         schemaVersion = sin.readInt(),
         inputs = sin.readList(::SearchInput),
-        groupByFields = sin.readOptionalStringList(),
-        triggers = sin.readList(::Trigger),
+        triggers = sin.readList((Trigger)::readFrom),
         uiMetadata = suppressWarning(sin.readMap())
     )
+
+    // This enum classifies different Monitors
+    // This is different from 'type' which denotes the Scheduled Job type
+    enum class MonitorType(val value: String) {
+        TRADITIONAL_MONITOR("traditional_monitor"),
+        AGGREGATION_MONITOR("aggregation_monitor");
+
+        override fun toString(): String {
+            return value
+        }
+    }
 
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -116,16 +132,16 @@ data class Monitor(
         builder.startObject()
         if (params.paramAsBoolean("with_type", false)) builder.startObject(type)
         builder.field(TYPE_FIELD, type)
-                .field(SCHEMA_VERSION_FIELD, schemaVersion)
-                .field(NAME_FIELD, name)
-                .optionalUserField(USER_FIELD, user)
-                .field(ENABLED_FIELD, enabled)
-                .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
-                .field(SCHEDULE_FIELD, schedule)
-                .field(INPUTS_FIELD, inputs.toTypedArray())
-                .optionalStringList(GROUP_BY_FIELD, groupByFields)
-                .field(TRIGGERS_FIELD, triggers.toTypedArray())
-                .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
+            .field(SCHEMA_VERSION_FIELD, schemaVersion)
+            .field(NAME_FIELD, name)
+            .field(MONITOR_TYPE_FIELD, monitorType)
+            .optionalUserField(USER_FIELD, user)
+            .field(ENABLED_FIELD, enabled)
+            .optionalTimeField(ENABLED_TIME_FIELD, enabledTime)
+            .field(SCHEDULE_FIELD, schedule)
+            .field(INPUTS_FIELD, inputs.toTypedArray())
+            .field(TRIGGERS_FIELD, triggers.toTypedArray())
+            .optionalTimeField(LAST_UPDATE_TIME_FIELD, lastUpdateTime)
         if (uiMetadata.isNotEmpty()) builder.field(UI_METADATA_FIELD, uiMetadata)
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
@@ -147,18 +163,26 @@ data class Monitor(
         schedule.writeTo(out)
         out.writeInstant(lastUpdateTime)
         out.writeOptionalInstant(enabledTime)
+        out.writeEnum(monitorType)
         out.writeBoolean(user != null)
         user?.writeTo(out)
         out.writeInt(schemaVersion)
         out.writeCollection(inputs)
-        out.writeOptionalStringCollection(groupByFields)
-        out.writeCollection(triggers)
+        // Outputting type with each Trigger so that the generic Trigger.readFrom() can read it
+        // TODO: Could probably move this out somewhere else to clean this up
+        out.writeVInt(triggers.size)
+        triggers.forEach {
+            if (it is TraditionalTrigger) out.writeEnum(Trigger.Type.TRADITIONAL_TRIGGER)
+            else out.writeEnum(Trigger.Type.AGGREGATION_TRIGGER)
+            it.writeTo(out)
+        }
         out.writeMap(uiMetadata)
     }
 
     companion object {
         const val MONITOR_TYPE = "monitor"
         const val TYPE_FIELD = "type"
+        const val MONITOR_TYPE_FIELD = "monitor_type"
         const val SCHEMA_VERSION_FIELD = "schema_version"
         const val NAME_FIELD = "name"
         const val USER_FIELD = "user"
@@ -168,7 +192,6 @@ data class Monitor(
         const val NO_ID = ""
         const val NO_VERSION = 1L
         const val INPUTS_FIELD = "inputs"
-        const val GROUP_BY_FIELD = "group_by_fields"
         const val LAST_UPDATE_TIME_FIELD = "last_update_time"
         const val UI_METADATA_FIELD = "ui_metadata"
         const val ENABLED_TIME_FIELD = "enabled_time"
@@ -184,6 +207,8 @@ data class Monitor(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
             lateinit var name: String
+            // Default to TRADITIONAL_MONITOR to cover Monitors that existed before the addition of MonitorType
+            var monitorType: String = MonitorType.TRADITIONAL_MONITOR.toString()
             var user: User? = null
             lateinit var schedule: Schedule
             var lastUpdateTime: Instant? = null
@@ -193,7 +218,6 @@ data class Monitor(
             var schemaVersion = NO_SCHEMA_VERSION
             val triggers: MutableList<Trigger> = mutableListOf()
             val inputs: MutableList<Input> = mutableListOf()
-            var groupByFields: MutableList<String>? = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -203,6 +227,13 @@ data class Monitor(
                 when (fieldName) {
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.intValue()
                     NAME_FIELD -> name = xcp.text()
+                    MONITOR_TYPE_FIELD -> {
+                        monitorType = xcp.text()
+                        val allowedTypes = MonitorType.values().map { it.value }
+                        if (!allowedTypes.contains(monitorType)) {
+                            throw IllegalStateException("Monitor type should be one of $allowedTypes")
+                        }
+                    }
                     USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = Schedule.parse(xcp)
@@ -214,16 +245,6 @@ data class Monitor(
                                 SupportedApiSettings.validatePath(input.toConstructedUri().path)
                             }
                             inputs.add(input)
-                        }
-                    }
-                    GROUP_BY_FIELD -> {
-                        if (xcp.currentToken() == Token.VALUE_NULL) {
-                            groupByFields = null
-                        } else {
-                            ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
-                            while (xcp.nextToken() != Token.END_ARRAY) {
-                                groupByFields?.add(xcp.text())
-                            }
                         }
                     }
                     TRIGGERS_FIELD -> {
@@ -253,10 +274,10 @@ data class Monitor(
                     requireNotNull(schedule) { "Monitor schedule is null" },
                     lastUpdateTime ?: Instant.now(),
                     enabledTime,
+                    MonitorType.valueOf(monitorType.toUpperCase(Locale.ROOT)),
                     user,
                     schemaVersion,
                     inputs.toList(),
-                    groupByFields?.toList(),
                     triggers.toList(),
                     uiMetadata)
         }

@@ -44,24 +44,25 @@ class GetAlertsResponseTests : ESTestCase() {
 
     fun `test get alerts response with alerts`() {
         val alert = Alert(
-                "id",
-                0L,
-                0,
-                "monitorId",
-                "monitorName",
-                0L,
-                randomUser(),
-                "triggerId",
-                "triggerName",
-                Alert.State.ACKNOWLEDGED,
-                Instant.MIN,
-                null,
-                null,
-                null,
-                null,
-                Collections.emptyList(),
-                "severity",
-                Collections.emptyList()
+            "id",
+            0L,
+            0,
+            "monitorId",
+            "monitorName",
+            0L,
+            randomUser(),
+            "triggerId",
+            "triggerName",
+            Alert.State.ACKNOWLEDGED,
+            Instant.MIN,
+            null,
+            null,
+            null,
+            null,
+            Collections.emptyList(),
+            "severity",
+            Collections.emptyList(),
+            null
         )
         val req = GetAlertsResponse(listOf(alert), 1)
         assertNotNull(req)
@@ -79,24 +80,25 @@ class GetAlertsResponseTests : ESTestCase() {
         val now = Instant.now()
 
         val alert = Alert(
-                "id",
-                0L,
-                0,
-                "monitorId",
-                "monitorName",
-                0L,
-                User("admin", listOf(), listOf(), listOf()),
-                "triggerId",
-                "triggerName",
-                Alert.State.ACKNOWLEDGED,
-                now,
-                null,
-                null,
-                null,
-                null,
-                Collections.emptyList(),
-                "severity",
-                Collections.emptyList()
+            "id",
+            0L,
+            0,
+            "monitorId",
+            "monitorName",
+            0L,
+            User("admin", listOf(), listOf(), listOf()),
+            "triggerId",
+            "triggerName",
+            Alert.State.ACKNOWLEDGED,
+            now,
+            null,
+            null,
+            null,
+            null,
+            Collections.emptyList(),
+            "severity",
+            Collections.emptyList(),
+            null
         )
         val req = GetAlertsResponse(listOf(alert), 1)
         var actualXContentString = req.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()

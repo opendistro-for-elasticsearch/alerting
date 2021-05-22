@@ -14,6 +14,8 @@
  */
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorExtAggregationBuilder
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorExtFilter
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
@@ -22,12 +24,16 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.model.TriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
@@ -54,6 +60,7 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.SearchModule
+import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomInt
@@ -66,50 +73,81 @@ fun randomMonitor(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     user: User = randomUser(),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
-    groupByFields: List<String>? = (1..randomInt(3)).map { ESRestTestCase.randomAlphaOfLength(10) },
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
-    triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
+    triggers: List<Trigger> = (1..randomInt(10)).map { randomTraditionalTrigger() },
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
 ): Monitor {
-    return Monitor(name = name, enabled = enabled, inputs = inputs, groupByFields = groupByFields, schedule = schedule, triggers = triggers,
-            enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
-            user = user, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+    return Monitor(name = name, monitorType = Monitor.MonitorType.TRADITIONAL_MONITOR, enabled = enabled, inputs = inputs,
+        schedule = schedule, triggers = triggers, enabledTime = enabledTime, lastUpdateTime = lastUpdateTime, user = user,
+        uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
 // Monitor of older versions without security.
 fun randomMonitorWithoutUser(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
-    groupByFields: List<String> = (1..randomInt(3)).map { ESRestTestCase.randomAlphaOfLength(10) },
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
-    triggers: List<Trigger> = (1..randomInt(10)).map { randomTrigger() },
+    triggers: List<Trigger> = (1..randomInt(10)).map { randomTraditionalTrigger() },
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
 ): Monitor {
-    return Monitor(name = name, enabled = enabled, inputs = inputs, groupByFields = groupByFields, schedule = schedule, triggers = triggers,
-            enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
-            user = null, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+    return Monitor(name = name, monitorType = Monitor.MonitorType.TRADITIONAL_MONITOR, enabled = enabled, inputs = inputs,
+        schedule = schedule, triggers = triggers, enabledTime = enabledTime, lastUpdateTime = lastUpdateTime, user = null,
+        uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
-fun randomTrigger(
+fun randomTraditionalTrigger(
     id: String = UUIDs.base64UUID(),
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     severity: String = "1",
     condition: Script = randomScript(),
     actions: List<Action> = mutableListOf(),
     destinationId: String = ""
-): Trigger {
-    return Trigger(
+): TraditionalTrigger {
+    return TraditionalTrigger(
         id = id,
         name = name,
         severity = severity,
         condition = condition,
         actions = if (actions.isEmpty()) (0..randomInt(10)).map { randomAction(destinationId = destinationId) } else actions)
+}
+
+fun randomAggregationTrigger(
+    id: String = UUIDs.base64UUID(),
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    severity: String = "1",
+    bucketSelector: BucketSelectorExtAggregationBuilder = randomBucketSelectorExtAggregationBuilder(name = name),
+    actions: List<Action> = mutableListOf(),
+    destinationId: String = ""
+): AggregationTrigger {
+    return AggregationTrigger(
+        id = id,
+        name = name,
+        severity = severity,
+        bucketSelector = bucketSelector,
+        actions = if (actions.isEmpty()) (0..randomInt(10)).map { randomAction(destinationId = destinationId) } else actions)
+}
+
+fun randomBucketSelectorExtAggregationBuilder(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    bucketsPathsMap: MutableMap<String, String> = mutableMapOf("avg" to "10"),
+    script: Script = randomBucketSelectorScript(params=bucketsPathsMap),
+    parentBucketPath: String = "testPath",
+    filter: BucketSelectorExtFilter = BucketSelectorExtFilter(IncludeExclude("foo*", "bar*"))
+    ) : BucketSelectorExtAggregationBuilder {
+    return BucketSelectorExtAggregationBuilder(name, bucketsPathsMap, script, parentBucketPath, filter)
+}
+
+fun randomBucketSelectorScript(
+    idOrCode: String = "params.avg >= 0",
+    params: Map<String, String> = mutableMapOf("avg" to "10")
+): Script {
+    return Script(Script.DEFAULT_SCRIPT_TYPE, Script.DEFAULT_SCRIPT_LANG, idOrCode, emptyMap<String, String>(), params)
 }
 
 fun randomEmailAccount(
@@ -166,10 +204,18 @@ fun randomThrottle(
 ) = Throttle(value, unit)
 
 fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
-    val trigger = randomTrigger()
+    val trigger = randomTraditionalTrigger()
     val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
     return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
             actionExecutionResults = actionExecutionResults)
+}
+
+fun randomAlertWithAggregationResultBucket(monitor: Monitor = randomMonitor()): Alert {
+    val trigger = randomAggregationTrigger()
+    val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
+    return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
+        actionExecutionResults = actionExecutionResults, aggregationResultBucket = AggregationResultBucket("parent_bucket_path_1", "bucket_key_1",
+            mapOf("k1" to "val1", "k2" to "val2")))
 }
 
 fun randomEmailAccountMethod(): EmailAccount.MethodType {
@@ -184,9 +230,24 @@ fun randomActionExecutionResult(
     throttledCount: Int = randomInt()
 ) = ActionExecutionResult(actionId, lastExecutionTime, throttledCount)
 
-fun randomMonitorRunResult(): MonitorRunResult {
-    val triggerResults = mutableMapOf<String, TriggerRunResult>()
-    val triggerRunResult = randomTriggerRunResult()
+fun randomTraditionalMonitorRunResult(): MonitorRunResult<TraditionalTriggerRunResult> {
+    val triggerResults = mutableMapOf<String, TraditionalTriggerRunResult>()
+    val triggerRunResult = randomTraditionalTriggerRunResult()
+    triggerResults.plus(Pair("test", triggerRunResult))
+
+    return MonitorRunResult(
+        "test-monitor",
+        Instant.now(),
+        Instant.now(),
+        null,
+        randomInputRunResults(),
+        triggerResults
+    )
+}
+
+fun randomAggregationMonitorRunResult(): MonitorRunResult<AggregationTriggerRunResult> {
+    val triggerResults = mutableMapOf<String, AggregationTriggerRunResult>()
+    val triggerRunResult = randomAggregationTriggerRunResult()
     triggerResults.plus(Pair("test", triggerRunResult))
 
     return MonitorRunResult(
@@ -203,11 +264,29 @@ fun randomInputRunResults(): InputRunResults {
     return InputRunResults(listOf(), null)
 }
 
-fun randomTriggerRunResult(): TriggerRunResult {
+fun randomTraditionalTriggerRunResult(): TraditionalTriggerRunResult {
     val map = mutableMapOf<String, ActionRunResult>()
     map.plus(Pair("key1", randomActionRunResult()))
     map.plus(Pair("key2", randomActionRunResult()))
-    return TriggerRunResult("trigger-name", true, null, map)
+    return TraditionalTriggerRunResult("trigger-name", true, null, map)
+}
+
+fun randomAggregationTriggerRunResult(): AggregationTriggerRunResult {
+    val map = mutableMapOf<String, ActionRunResult>()
+    map.plus(Pair("key1", randomActionRunResult()))
+    map.plus(Pair("key2", randomActionRunResult()))
+
+    val aggBcuket1 = AggregationResultBucket("parent_bucket_path_1", "bucket_key_1",
+        mapOf("k1" to "val1", "k2" to "val2"))
+    val aggBcuket2 = AggregationResultBucket("parent_bucket_path_2", "bucket_key_2",
+        mapOf("k1" to "val1", "k2" to "val2"))
+
+    val actionResultsMap: MutableMap<String?, MutableMap<String, ActionRunResult>> = mutableMapOf()
+    actionResultsMap[aggBcuket1.bucketKey] = map
+    actionResultsMap[aggBcuket2.bucketKey] = map
+
+    return AggregationTriggerRunResult("trigger-name", null,
+        mapOf(aggBcuket1.bucketKey to aggBcuket1, aggBcuket2.bucketKey to aggBcuket2), actionResultsMap)
 }
 
 fun randomActionRunResult(): ActionRunResult {
@@ -317,6 +396,6 @@ fun parser(xc: String): XContentParser {
 
 fun xContentRegistry(): NamedXContentRegistry {
     return NamedXContentRegistry(listOf(
-            SearchInput.XCONTENT_REGISTRY) +
+            SearchInput.XCONTENT_REGISTRY, TraditionalTrigger.XCONTENT_REGISTRY, AggregationTrigger.XCONTENT_REGISTRY) +
             SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
 }

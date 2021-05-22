@@ -4,7 +4,7 @@
     "required": true
   },
   "_meta" : {
-    "schema_version": 2
+    "schema_version": 3
   },
   "properties": {
     "schema_version": {
@@ -123,6 +123,17 @@
         },
         "throttled_count": {
           "type": "integer"
+        }
+      }
+    },
+    "agg_alert_content": {
+      "dynamic": true,
+      "properties": {
+        "parent_bucket_path": {
+          "type": "text"
+        },
+        "bucket_key": {
+          "type": "text"
         }
       }
     }

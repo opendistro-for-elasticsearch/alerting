@@ -11,7 +11,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomTemplateScript
-import com.amazon.opendistroforelasticsearch.alerting.randomTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
 import org.apache.http.entity.ContentType
@@ -413,12 +413,13 @@ class SecureMonitorRestApiIT : AlertingRestTestCase() {
 
         val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name}}"), destinationId = createDestination().id)
         val inputs = listOf(
-                SearchInput(
-                        indices = kotlin.collections.listOf("not_hr_data"),
-                        query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery())
-                )
+            SearchInput(
+                indices = listOf("not_hr_data"),
+                query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery())
+            )
         )
-        val monitor = randomMonitor(triggers = listOf(randomTrigger(condition = ALWAYS_RUN, actions = listOf(action))), inputs = inputs)
+        val monitor = randomMonitor(
+            triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))), inputs = inputs)
 
         // Make sure the elevating the permissions fails execute.
         val adminUser = User("admin", listOf("admin"), listOf("all_access"), listOf())

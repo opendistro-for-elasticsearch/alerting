@@ -18,6 +18,9 @@
             }
           }
         },
+        "monitor_type": {
+          "type": "keyword"
+        },
         "user": {
           "properties": {
             "name": {
@@ -176,6 +179,64 @@
                     },
                     "unit": {
                       "type": "keyword"
+                    }
+                  }
+                }
+              }
+            },
+            "traditional_trigger": {
+              "properties": {
+                "name": {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    }
+                  }
+                },
+                "min_time_between_executions": {
+                  "type": "integer"
+                },
+                "condition": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "actions": {
+                  "type": "nested",
+                  "properties": {
+                    "name": {
+                      "type": "text",
+                      "fields": {
+                        "keyword": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        }
+                      }
+                    },
+                    "destination_id": {
+                      "type": "keyword"
+                    },
+                    "subject_template": {
+                      "type": "object",
+                      "enabled": false
+                    },
+                    "message_template": {
+                      "type": "object",
+                      "enabled": false
+                    },
+                    "throttle_enabled": {
+                      "type": "boolean"
+                    },
+                    "throttle": {
+                      "properties": {
+                        "value": {
+                          "type": "integer"
+                        },
+                        "unit": {
+                          "type": "keyword"
+                        }
+                      }
                     }
                   }
                 }

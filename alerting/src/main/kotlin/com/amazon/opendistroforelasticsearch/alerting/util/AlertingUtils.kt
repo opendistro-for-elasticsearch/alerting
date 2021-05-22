@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
+import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -115,3 +116,5 @@ fun <T : Any> checkUserFilterByPermissions(
     }
     return true
 }
+
+fun Monitor.isAggregationMonitor(): Boolean = this.monitorType == Monitor.MonitorType.AGGREGATION_MONITOR

@@ -28,23 +28,24 @@ import org.elasticsearch.script.ScriptException
 import java.io.IOException
 import java.time.Instant
 
-data class MonitorRunResult(
+data class MonitorRunResult<TriggerResult: TriggerRunResult>(
     val monitorName: String,
     val periodStart: Instant,
     val periodEnd: Instant,
     val error: Exception? = null,
     val inputResults: InputRunResults = InputRunResults(),
-    val triggerResults: Map<String, TriggerRunResult> = mapOf()
+    val triggerResults: Map<String, TriggerResult> = mapOf()
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
     constructor(sin: StreamInput): this(
         sin.readString(), // monitorName
         sin.readInstant(), // periodStart
         sin.readInstant(), // periodEnd
         sin.readException(), // error
         InputRunResults.readFrom(sin), // inputResults
-        suppressWarning(sin.readMap()) // triggerResults
+        suppressWarning(sin.readMap()) as Map<String, TriggerResult> // triggerResults
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -77,7 +78,7 @@ data class MonitorRunResult(
     companion object {
         @JvmStatic
         @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): MonitorRunResult {
+        fun readFrom(sin: StreamInput): MonitorRunResult<TriggerRunResult> {
             return MonitorRunResult(sin)
         }
 
@@ -131,67 +132,6 @@ data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val e
         @Suppress("UNCHECKED_CAST")
         fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, Any> {
             return map as Map<String, Any>
-        }
-    }
-}
-
-data class TriggerRunResult(
-    val triggerName: String,
-    val triggered: Boolean,
-    val error: Exception? = null,
-    val actionResults: MutableMap<String, ActionRunResult> = mutableMapOf()
-) : Writeable, ToXContent {
-
-    @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
-        sin.readString(), // triggerName
-        sin.readBoolean(), // triggered
-        sin.readException(), // error
-        suppressWarning(sin.readMap()) // actionResults
-    )
-
-    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        var msg = error?.message
-        if (error is ScriptException) msg = error.toJsonString()
-        return builder.startObject()
-                .field("name", triggerName)
-                .field("triggered", triggered)
-                .field("error", msg)
-                .field("action_results", actionResults as Map<String, ActionRunResult>)
-                .endObject()
-    }
-
-    /** Returns error information to store in the Alert. Currently it's just the stack trace but it can be more */
-    fun alertError(): AlertError? {
-        if (error != null) {
-            return AlertError(Instant.now(), "Failed evaluating trigger:\n${error.userErrorMessage()}")
-        }
-        for (actionResult in actionResults.values) {
-            if (actionResult.error != null) {
-                return AlertError(Instant.now(), "Failed running action:\n${actionResult.error.userErrorMessage()}")
-            }
-        }
-        return null
-    }
-
-    @Throws(IOException::class)
-    override fun writeTo(out: StreamOutput) {
-        out.writeString(triggerName)
-        out.writeBoolean(triggered)
-        out.writeException(error)
-        out.writeMap(actionResults as Map<String, ActionRunResult>)
-    }
-
-    companion object {
-        @JvmStatic
-        @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): TriggerRunResult {
-            return TriggerRunResult(sin)
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, ActionRunResult> {
-            return map as MutableMap<String, ActionRunResult>
         }
     }
 }
@@ -253,7 +193,7 @@ data class ActionRunResult(
 private val logger = LogManager.getLogger(MonitorRunResult::class.java)
 
 /** Constructs an error message from an exception suitable for human consumption. */
-private fun Throwable.userErrorMessage(): String {
+fun Throwable.userErrorMessage(): String {
     return when {
         this is ScriptException -> this.scriptStack.joinToString(separator = "\n", limit = 100)
         this is ElasticsearchException -> this.detailedMessage
