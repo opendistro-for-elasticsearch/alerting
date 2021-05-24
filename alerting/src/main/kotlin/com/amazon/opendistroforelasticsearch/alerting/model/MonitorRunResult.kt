@@ -99,7 +99,11 @@ data class MonitorRunResult<TriggerResult : TriggerRunResult>(
     }
 }
 
-data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val error: Exception? = null) : Writeable, ToXContent {
+data class InputRunResults(
+    val results: List<Map<String, Any>> = listOf(),
+    val error: Exception? = null,
+    val aggTriggersAfterKey: MutableMap<String, Map<String, Any>?>? = null
+) : Writeable, ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
@@ -133,6 +137,15 @@ data class InputRunResults(val results: List<Map<String, Any>> = listOf(), val e
         fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, Any> {
             return map as Map<String, Any>
         }
+    }
+
+    fun afterKeysPresent(): Boolean {
+        aggTriggersAfterKey?.forEach {
+            if (it.value != null) {
+                return true
+            }
+        }
+        return false
     }
 }
 
