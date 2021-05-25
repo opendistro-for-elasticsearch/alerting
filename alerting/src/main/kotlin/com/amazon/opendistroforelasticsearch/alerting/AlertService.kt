@@ -162,7 +162,9 @@ class AlertService(
         }
     }
 
-    // TODO: Change the parameters to use result: AggTriggerRunResult instead of currentAlerts and aggResultBuckets after integration
+    // TODO: Can change the parameters to use ctx: AggregationTriggerExecutionContext instead of monitor/trigger and
+    //  result: AggTriggerRunResult for aggResultBuckets
+    // TODO: Can refactor this method to use Sets instead which can cleanup some of the categorization logic (like getting completed alerts)
     fun getCategorizedAlertsForAggregationMonitor(
         monitor: Monitor,
         trigger: AggregationTrigger,
@@ -179,7 +181,7 @@ class AlertService(
             val currentAlert = currentAlerts?.get(aggAlertBucket.getBucketKeysHash())
             if (currentAlert != null) {
                 // De-duped Alert
-                dedupedAlerts.add(currentAlert.copy(lastNotificationTime = currentTime))
+                dedupedAlerts.add(currentAlert.copy(lastNotificationTime = currentTime, aggregationResultBucket = aggAlertBucket))
             } else {
                 // New Alert
                 // TODO: Setting lastNotificationTime is deceiving since the actions haven't run yet, maybe it should be null here
@@ -207,7 +209,6 @@ class AlertService(
                 }
         }
 
-        // TODO: Should dedupedAlerts and newAlerts be converted to unmodifiableList to ensure the CategorizedAlerts object isn't changed?
         return mapOf(
             AlertCategory.DEDUPED to dedupedAlerts,
             AlertCategory.NEW to newAlerts,
