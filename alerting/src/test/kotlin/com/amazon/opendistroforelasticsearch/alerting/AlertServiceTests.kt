@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBuc
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.elasticsearch.Version
@@ -86,12 +87,12 @@ class AlertServiceTests : ESTestCase() {
         ))
 
         val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
-        assertEquals(listOf<Alert>(), categorizedAlerts.dedupedAlerts)
+        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.DEDUPED])
         assertAlertsExistForBucketKeys(listOf(
             listOf("a"),
             listOf("b")
-        ), categorizedAlerts.newAlerts)
-        assertEquals(listOf<Alert>(), categorizedAlerts.completedAlerts)
+        ), categorizedAlerts[AlertCategory.NEW] ?: error("New alerts not found"))
+        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.COMPLETED])
     }
 
     fun `test getting categorized alerts for aggregation monitor with de-duped alerts`() {
@@ -111,9 +112,9 @@ class AlertServiceTests : ESTestCase() {
         assertAlertsExistForBucketKeys(listOf(
             listOf("a"),
             listOf("b")
-        ), categorizedAlerts.dedupedAlerts)
-        assertEquals(listOf<Alert>(), categorizedAlerts.newAlerts)
-        assertEquals(listOf<Alert>(), categorizedAlerts.completedAlerts)
+        ), categorizedAlerts[AlertCategory.DEDUPED] ?: error("Deduped alerts not found"))
+        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.NEW])
+        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.COMPLETED])
     }
 
     fun `test getting categorized alerts for aggregation monitor with completed alerts`() {
@@ -127,12 +128,12 @@ class AlertServiceTests : ESTestCase() {
         val aggResultBuckets = listOf<AggregationResultBucket>()
 
         val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
-        assertEquals(listOf<Alert>(), categorizedAlerts.dedupedAlerts)
-        assertEquals(listOf<Alert>(), categorizedAlerts.newAlerts)
+        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.DEDUPED])
+        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.NEW])
         assertAlertsExistForBucketKeys(listOf(
             listOf("a"),
             listOf("b")
-        ), categorizedAlerts.completedAlerts)
+        ), categorizedAlerts[AlertCategory.COMPLETED] ?: error("Completed alerts not found"))
     }
 
     fun `test getting categorized alerts for aggregation monitor with de-duped and completed alerts`() {
@@ -149,9 +150,10 @@ class AlertServiceTests : ESTestCase() {
         ))
 
         val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
-        assertAlertsExistForBucketKeys(listOf(listOf("b")), categorizedAlerts.dedupedAlerts)
-        assertAlertsExistForBucketKeys(listOf(listOf("c")), categorizedAlerts.newAlerts)
-        assertAlertsExistForBucketKeys(listOf(listOf("a")), categorizedAlerts.completedAlerts)
+        assertAlertsExistForBucketKeys(listOf(listOf("b")), categorizedAlerts[AlertCategory.DEDUPED] ?: error("Deduped alerts not found"))
+        assertAlertsExistForBucketKeys(listOf(listOf("c")), categorizedAlerts[AlertCategory.NEW] ?: error("New alerts not found"))
+        assertAlertsExistForBucketKeys(listOf(listOf("a")),
+            categorizedAlerts[AlertCategory.COMPLETED] ?: error("Completed alerts not found"))
     }
 
     private fun createCurrentAlertsFromBucketKeys(

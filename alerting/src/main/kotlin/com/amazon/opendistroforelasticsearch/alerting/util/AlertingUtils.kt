@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -128,3 +130,6 @@ fun Monitor.isAggregationMonitor(): Boolean = this.monitorType == Monitor.Monito
  * as the key for a HashMap to easily retrieve [AggregationResultBucket] based on the bucket key values.
  */
 fun AggregationResultBucket.getBucketKeysHash(): String = this.bucketKeys.joinToString(separator = "#")
+
+fun Action.getActionFrequency(): ActionExecutionFrequency.Type =
+    this.actionExecutionPolicy.actionExecutionFrequency.getExecutionFrequency()

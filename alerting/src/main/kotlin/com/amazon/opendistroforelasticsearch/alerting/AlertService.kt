@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
@@ -167,7 +168,7 @@ class AlertService(
         trigger: AggregationTrigger,
         currentAlerts: Map<String, Alert>?,
         aggResultBuckets: List<AggregationResultBucket>
-    ): CategorizedAlerts {
+    ): Map<AlertCategory, List<Alert>> {
         val dedupedAlerts = mutableListOf<Alert>()
         val newAlerts = mutableListOf<Alert>()
         var completedAlerts = listOf<Alert>()
@@ -207,7 +208,11 @@ class AlertService(
         }
 
         // TODO: Should dedupedAlerts and newAlerts be converted to unmodifiableList to ensure the CategorizedAlerts object isn't changed?
-        return CategorizedAlerts(dedupedAlerts, newAlerts, completedAlerts)
+        return mapOf(
+            AlertCategory.DEDUPED to dedupedAlerts,
+            AlertCategory.NEW to newAlerts,
+            AlertCategory.COMPLETED to completedAlerts
+        )
     }
 
     suspend fun saveAlerts(alerts: List<Alert>, retryPolicy: BackoffPolicy) {
