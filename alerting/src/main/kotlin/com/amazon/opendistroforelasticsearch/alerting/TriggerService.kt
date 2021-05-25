@@ -15,10 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import org.apache.logging.log4j.LogManager
@@ -36,7 +39,11 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
         return result.triggered && !suppress
     }
 
-    fun runTraditionalTrigger(monitor: Monitor, trigger: TraditionalTrigger, ctx: TraditionalTriggerExecutionContext): TraditionalTriggerRunResult {
+    fun runTraditionalTrigger(
+        monitor: Monitor,
+        trigger: TraditionalTrigger,
+        ctx: TraditionalTriggerExecutionContext
+    ): TraditionalTriggerRunResult {
         return try {
             val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
                 .newInstance(trigger.condition.params)
@@ -47,5 +54,14 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
             // if the script fails we need to send an alert so set triggered = true
             TraditionalTriggerRunResult(trigger.name, true, e)
         }
+    }
+
+    // TODO: This is a placeholder to write MonitorRunner logic, it can be replaced with the actual implementation when available
+    fun runAggregationTrigger(
+        monitor: Monitor,
+        trigger: AggregationTrigger,
+        ctx: AggregationTriggerExecutionContext
+    ): AggregationTriggerRunResult {
+        return AggregationTriggerRunResult(triggerName = trigger.name, error = null, aggregationResultBuckets = mapOf())
     }
 }

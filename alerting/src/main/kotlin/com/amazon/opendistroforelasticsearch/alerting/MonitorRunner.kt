@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
@@ -34,7 +36,9 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Compan
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
+import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MOVE_ALERTS_BACKOFF_COUNT
@@ -45,6 +49,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST_NONE
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
+import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
@@ -333,17 +338,55 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             monitorResult = monitorResult.copy(inputResults = inputService.collectInputResults(monitor, periodStart, periodEnd))
         }
 
-        // TODO: Iterate through buckets and execute Trigger scripts against each bucket creating a Trigger -> buckets mappings for alert
-        //  creation.
+        for (trigger in monitor.triggers) {
+            val currentAlertsForTrigger = currentAlerts[trigger]
+            val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
+            val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
+            // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
+            //  be refactored to use a map instead
+            val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
+                triggerResult.aggregationResultBuckets.values as List<AggregationResultBucket>)
+            val dedupedAlerts = categorizedAlerts.dedupedAlerts
+            val newAlerts = categorizedAlerts.newAlerts
+            val completedAlerts = categorizedAlerts.completedAlerts
 
-        // TODO: Separate buckets/alerts into categories so that the alerts can be created/updated accordingly:
-        //  * De-duped alerts = currentAlerts U filteredBuckets
-        //  * Completed alerts = currentAlerts - de-duped alerts
-        //  * New alerts = filteredBuckets - de-duped alerts
+            // Index alerts here so they are available at the time the Actions are executed.
+            // Note: Index operations can fail for various reasons (such as write blocks on cluster). In this case, the Actions will still
+            // execute with the alert information in the ctx but the alerts will not be visible or have been stored.
+            alertService.saveAlerts(dedupedAlerts, retryPolicy)
+            alertService.saveAlerts(newAlerts, retryPolicy)
+            alertService.saveAlerts(completedAlerts, retryPolicy)
 
-        // TODO: Run Actions for a Trigger and compose alerts
+            // TODO: For now Actions are being executed for each Alert (de-duped or new).
+            //  This will be extended to include suppression logic and supporting executing Actions per run and will be cleaned up as well.
+            for (alert in dedupedAlerts) {
+                val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(alert), newAlerts = listOf(), completedAlerts = completedAlerts,
+                    error = monitorResult.error ?: triggerResult.error)
+                // TODO: AggregationResultBucket shouldn't be null here, but is there a better way than using the non-null assertion operator?
+                val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
+                for (action in trigger.actions) {
+                    val actionResult = runAction(action, actionCtx, dryrun)
+                    triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                }
+            }
 
-        // TODO: Update alerts in alerting config index
+            for (alert in newAlerts) {
+                // TODO: This is a duplicate of the above aside from the difference in actionCtx, should be combined when adding suppression logic
+                val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(), newAlerts = listOf(alert), completedAlerts = completedAlerts,
+                    error = monitorResult.error ?: triggerResult.error)
+                val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
+                for (action in trigger.actions) {
+                    val actionResult = runAction(action, actionCtx, dryrun)
+                    triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                }
+            }
+
+            // TODO: Originally, only Alerts that had Action failures would have another round of index operations here.
+            //  However, after taking a closer look, it seems that all Alerts will need their actionExecutionResults updated no matter what.
+            //  Will need to take another look at this and see how Alert composition and update logic can be made cleaner.
+        }
 
         return monitorResult
     }
@@ -416,7 +459,39 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
     }
 
-    private fun compileTemplate(template: Script, ctx: TraditionalTriggerExecutionContext): String {
+    // TODO: This is largely a duplicate of runAction above for AggregationTriggerExecutionContext for now.
+    //   After suppression logic implementation, if this remains mostly the same, it can be refactored.
+    private suspend fun runAction(action: Action, ctx: AggregationTriggerExecutionContext, dryrun: Boolean): ActionRunResult {
+        return try {
+            val actionOutput = mutableMapOf<String, String>()
+            actionOutput[SUBJECT] = if (action.subjectTemplate != null) compileTemplate(action.subjectTemplate, ctx) else ""
+            actionOutput[MESSAGE] = compileTemplate(action.messageTemplate, ctx)
+            if (Strings.isNullOrEmpty(actionOutput[MESSAGE])) {
+                throw IllegalStateException("Message content missing in the Destination with id: ${action.destinationId}")
+            }
+            if (!dryrun) {
+                withContext(Dispatchers.IO) {
+                    val destination = AlertingConfigAccessor.getDestinationInfo(client, xContentRegistry, action.destinationId)
+                    if (!destination.isAllowed(allowList)) {
+                        throw IllegalStateException("Monitor contains a Destination type that is not allowed: ${destination.type}")
+                    }
+
+                    val destinationCtx = destinationContextFactory.getDestinationContext(destination)
+                    actionOutput[MESSAGE_ID] = destination.publish(
+                        actionOutput[SUBJECT],
+                        actionOutput[MESSAGE]!!,
+                        destinationCtx,
+                        hostDenyList
+                    )
+                }
+            }
+            ActionRunResult(action.id, action.name, actionOutput, false, currentTime(), null)
+        } catch (e: Exception) {
+            ActionRunResult(action.id, action.name, mapOf(), false, currentTime(), e)
+        }
+    }
+
+    private fun compileTemplate(template: Script, ctx: TriggerExecutionContext): String {
         return scriptService.compile(template, TemplateScript.CONTEXT)
                 .newInstance(template.params + mapOf("ctx" to ctx.asTemplateArg()))
                 .execute()

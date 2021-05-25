@@ -23,8 +23,8 @@ import java.io.IOException
 data class AggregationTriggerRunResult(
     override var triggerName: String,
     override var error: Exception? = null,
-    var aggregationResultBuckets: Map<String?, AggregationResultBucket>,
-    var actionResultsMap: MutableMap<String?, MutableMap<String, ActionRunResult>> = mutableMapOf()
+    var aggregationResultBuckets: Map<String, AggregationResultBucket>,
+    var actionResultsMap: MutableMap<String, MutableMap<String, ActionRunResult>> = mutableMapOf()
 ) : TriggerRunResult(triggerName, error) {
 
     @Throws(IOException::class)
@@ -33,23 +33,23 @@ data class AggregationTriggerRunResult(
         sin.readString(),
         sin.readException() as Exception?, // error
         sin.readMap(StreamInput::readString, ::AggregationResultBucket),
-        sin.readMap() as MutableMap<String?, MutableMap<String, ActionRunResult>>
+        sin.readMap() as MutableMap<String, MutableMap<String, ActionRunResult>>
     )
 
     override fun internalXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder
             .field(AGG_RESULT_BUCKETS, aggregationResultBuckets)
-            .field(ACTIONS_RESULTS, actionResultsMap as Map<String?, Any>?)
+            .field(ACTIONS_RESULTS, actionResultsMap as Map<String, Any>)
     }
 
     @Throws(IOException::class)
     @Suppress("UNCHECKED_CAST")
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeMap<String?, AggregationResultBucket>(aggregationResultBuckets, StreamOutput::writeString) {
-                valueOut: StreamOutput, aggResultBucket: AggregationResultBucket -> aggResultBucket.writeTo(valueOut)
+        out.writeMap(aggregationResultBuckets, StreamOutput::writeString) {
+            valueOut: StreamOutput, aggResultBucket: AggregationResultBucket -> aggResultBucket.writeTo(valueOut)
         }
-        out.writeMap(actionResultsMap as Map<String, Any>?)
+        out.writeMap(actionResultsMap as Map<String, Any>)
     }
 
     companion object {

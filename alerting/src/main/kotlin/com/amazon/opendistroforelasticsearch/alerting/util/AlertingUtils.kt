@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
@@ -121,3 +122,9 @@ fun <T : Any> checkUserFilterByPermissions(
 }
 
 fun Monitor.isAggregationMonitor(): Boolean = this.monitorType == Monitor.MonitorType.AGGREGATION_MONITOR
+
+/**
+ * Since buckets can have multi-value keys, this converts the bucket key values to a string that can be used
+ * as the key for a HashMap to easily retrieve [AggregationResultBucket] based on the bucket key values.
+ */
+fun AggregationResultBucket.getBucketKeysHash(): String = this.bucketKeys.joinToString(separator = "#")

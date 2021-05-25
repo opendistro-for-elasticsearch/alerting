@@ -32,10 +32,13 @@ data class TraditionalTriggerExecutionContext(
     override val error: Exception? = null
 ) : TriggerExecutionContext(monitor, results, periodStart, periodEnd, error) {
 
-    constructor(monitor: Monitor, trigger: TraditionalTrigger, monitorRunResult: MonitorRunResult<TraditionalTriggerRunResult>,
-                alert: Alert? = null):
-            this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart,
-            monitorRunResult.periodEnd, alert, monitorRunResult.scriptContextError(trigger))
+    constructor(
+        monitor: Monitor,
+        trigger: TraditionalTrigger,
+        monitorRunResult: MonitorRunResult<TraditionalTriggerRunResult>,
+        alert: Alert? = null
+    ) : this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart, monitorRunResult.periodEnd,
+        alert, monitorRunResult.scriptContextError(trigger))
 
     /**
      * Mustache templates need special permissions to reflectively introspect field names. To avoid doing this we
