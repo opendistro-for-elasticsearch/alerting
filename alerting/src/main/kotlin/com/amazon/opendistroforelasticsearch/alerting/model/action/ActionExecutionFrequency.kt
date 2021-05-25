@@ -47,7 +47,7 @@ sealed class ActionExecutionFrequency : Writeable, ToXContentObject {
             val alertFilter = mutableSetOf<AlertCategory>()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
-            while(xcp.nextToken() != Token.END_OBJECT) {
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 
@@ -130,7 +130,7 @@ data class PerAlertActionFrequency(
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeCollection(actionableAlerts, StreamOutput::writeEnum)
+        out.writeCollection(actionableAlerts) { o, v -> o.writeEnum(v) }
     }
 
     companion object {
@@ -146,6 +146,18 @@ class PerExecutionActionFrequency() : ActionExecutionFrequency() {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this()
+
+    override fun hashCode(): Int {
+        return javaClass.hashCode()
+    }
+
+    // Creating an equals method that just checks class type rather than reference since this is currently stateless.
+    // Otherwise, it would have been a dataclass which would have handled this.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other?.javaClass != javaClass) return false
+        return true
+    }
 
     override fun getExecutionFrequency(): Type = Type.PER_EXECUTION
 

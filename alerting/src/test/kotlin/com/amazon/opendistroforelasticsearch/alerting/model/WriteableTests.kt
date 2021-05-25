@@ -17,10 +17,12 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionPolicy
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
+import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionPolicy
 import com.amazon.opendistroforelasticsearch.alerting.randomActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomAggregationMonitorRunResult
@@ -212,5 +214,14 @@ class WriteableTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newEmailGroup = EmailGroup.readFrom(sin)
         assertEquals("Round tripping EmailGroup doesn't work", emailGroup, newEmailGroup)
+    }
+
+    fun `test action execution policy as stream`() {
+        val actionExecutionPolicy = randomActionExecutionPolicy()
+        val out = BytesStreamOutput()
+        actionExecutionPolicy.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newActionExecutionPolicy = ActionExecutionPolicy.readFrom(sin)
+        assertEquals("Round tripping ActionExecutionPolicy doesn't work", actionExecutionPolicy, newActionExecutionPolicy)
     }
 }

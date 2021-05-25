@@ -58,6 +58,11 @@ data class ActionExecutionPolicy(
         } else {
             out.writeBoolean(false)
         }
+        if (actionExecutionFrequency is PerAlertActionFrequency) {
+            out.writeEnum(ActionExecutionFrequency.Type.PER_ALERT)
+        } else {
+            out.writeEnum(ActionExecutionFrequency.Type.PER_EXECUTION)
+        }
         actionExecutionFrequency.writeTo(out)
     }
 
@@ -72,7 +77,7 @@ data class ActionExecutionPolicy(
             lateinit var actionExecutionFrequency: ActionExecutionFrequency
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
-            while(xcp.nextToken() != Token.END_OBJECT) {
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 

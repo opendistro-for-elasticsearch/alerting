@@ -34,6 +34,11 @@ import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionPolicy
+import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerAlertActionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerExecutionActionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
@@ -63,6 +68,7 @@ import org.elasticsearch.search.SearchModule
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.ESTestCase.randomBoolean
 import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.ESTestCase.randomIntBetween
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -211,13 +217,29 @@ fun randomAction(
     template: Script = randomTemplateScript("Hello World"),
     destinationId: String = "",
     throttleEnabled: Boolean = false,
-    throttle: Throttle = randomThrottle()
-) = Action(name, destinationId, template, template, throttleEnabled, throttle)
+    throttle: Throttle = randomThrottle(),
+    actionExecutionPolicy: ActionExecutionPolicy = randomActionExecutionPolicy()
+) = Action(name, destinationId, template, template, throttleEnabled, throttle, actionExecutionPolicy = actionExecutionPolicy)
 
 fun randomThrottle(
     value: Int = randomIntBetween(60, 120),
     unit: ChronoUnit = ChronoUnit.MINUTES
 ) = Throttle(value, unit)
+
+fun randomActionExecutionPolicy(
+    throttle: Throttle = randomThrottle(),
+    actionExecutionFrequency: ActionExecutionFrequency = randomActionExecutionFrequency()
+) = ActionExecutionPolicy(throttle, actionExecutionFrequency)
+
+fun randomActionExecutionFrequency(): ActionExecutionFrequency {
+    return if (randomBoolean()) {
+        val alertCategories = AlertCategory.values()
+        PerAlertActionFrequency(
+            actionableAlerts = (1..randomInt(alertCategories.size)).map { alertCategories[it - 1] }.toSet())
+    } else {
+        PerExecutionActionFrequency()
+    }
+}
 
 fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
     val trigger = randomTraditionalTrigger()

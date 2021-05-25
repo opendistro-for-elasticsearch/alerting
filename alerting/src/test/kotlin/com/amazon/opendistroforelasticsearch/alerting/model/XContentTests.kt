@@ -18,11 +18,13 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 import com.amazon.opendistroforelasticsearch.alerting.builder
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionPolicy
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.parser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
+import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionPolicy
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
@@ -46,21 +48,21 @@ class XContentTests : ESTestCase() {
         val action = randomAction()
         val actionString = action.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedAction = Action.parse(parser(actionString))
-        assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
+        assertEquals("Round tripping Action doesn't work", action, parsedAction)
     }
 
     fun `test action parsing with null subject template`() {
         val action = randomAction().copy(subjectTemplate = null)
         val actionString = action.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedAction = Action.parse(parser(actionString))
-        assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
+        assertEquals("Round tripping Action doesn't work", action, parsedAction)
     }
 
     fun `test action parsing with null throttle`() {
         val action = randomAction().copy(throttle = null)
         val actionString = action.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedAction = Action.parse(parser(actionString))
-        assertEquals("Round tripping Monitor doesn't work", action, parsedAction)
+        assertEquals("Round tripping Action doesn't work", action, parsedAction)
     }
 
     fun `test action parsing with throttled enabled and null throttle`() {
@@ -289,5 +291,19 @@ class XContentTests : ESTestCase() {
         val trigger = parsedMonitor.triggers.first()
         assertTrue("Incorrect trigger type", trigger is TraditionalTrigger)
         assertEquals("Incorrect name for parsed trigger", "abc", trigger.name)
+    }
+
+    fun `test action execution policy`() {
+        val actionExecutionPolicy = randomActionExecutionPolicy()
+        val actionExecutionPolicyString = actionExecutionPolicy.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedActionExecutionPolicy = ActionExecutionPolicy.parse(parser(actionExecutionPolicyString))
+        assertEquals("Round tripping ActionExecutionPolicy doesn't work", actionExecutionPolicy, parsedActionExecutionPolicy)
+    }
+
+    fun `test action execution policy with null throttle`() {
+        val actionExecutionPolicy = randomActionExecutionPolicy().copy(throttle = null)
+        val actionExecutionPolicyString = actionExecutionPolicy.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
+        val parsedActionExecutionPolicy = ActionExecutionPolicy.parse(parser(actionExecutionPolicyString))
+        assertEquals("Round tripping ActionExecutionPolicy doesn't work", actionExecutionPolicy, parsedActionExecutionPolicy)
     }
 }
