@@ -18,8 +18,11 @@ package com.amazon.opendistroforelasticsearch.alerting
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.util.AggregationQueryRewriter
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchRequest
@@ -32,6 +35,12 @@ import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.script.TemplateScript
+import org.elasticsearch.search.aggregations.AggregationBuilder
+import org.elasticsearch.search.aggregations.AggregatorFactories
+import org.elasticsearch.search.aggregations.bucket.SingleBucketAggregation
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder
+import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
+import org.elasticsearch.search.aggregations.support.AggregationPath
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 
@@ -44,15 +53,18 @@ class InputService(
 
     private val logger = LogManager.getLogger(InputService::class.java)
 
-    suspend fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
+    suspend fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant, prevResult: InputRunResults? = null): InputRunResults {
         return try {
             val results = mutableListOf<Map<String, Any>>()
+            val aggTriggerAfterKeys: MutableMap<String, Map<String, Any>?> = mutableMapOf()
+
             monitor.inputs.forEach { input ->
                 when (input) {
                     is SearchInput -> {
                         // TODO: Figure out a way to use SearchTemplateRequest without bringing in the entire TransportClient
                         val searchParams = mapOf("period_start" to periodStart.toEpochMilli(),
                             "period_end" to periodEnd.toEpochMilli())
+                        AggregationQueryRewriter.rewriteQuery(input.query, prevResult, monitor.triggers)
                         val searchSource = scriptService.compile(Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG,
                             input.query.toString(), searchParams), TemplateScript.CONTEXT)
                             .newInstance(searchParams)
@@ -63,6 +75,7 @@ class InputService(
                             searchRequest.source(SearchSourceBuilder.fromXContent(it))
                         }
                         val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
+                        aggTriggerAfterKeys += AggregationQueryRewriter.getAfterKeysFromSearchResponse(searchResponse, monitor.triggers)
                         results += searchResponse.convertToMap()
                     }
                     else -> {
@@ -70,7 +83,7 @@ class InputService(
                     }
                 }
             }
-            InputRunResults(results.toList())
+            InputRunResults(results.toList(), aggTriggersAfterKey = aggTriggerAfterKeys)
         } catch (e: Exception) {
             logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
             InputRunResults(emptyList(), e)

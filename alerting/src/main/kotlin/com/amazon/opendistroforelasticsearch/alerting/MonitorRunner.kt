@@ -329,65 +329,70 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             logger.error("Error loading alerts for monitor: $id", e)
             return monitorResult.copy(error = e)
         }
-
-        // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
-        //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
-        //  the buckets until we hit that threshold. In that case, we'd want to exit the execution without creating any alerts since the
-        //  buckets we iterate over before hitting the limit is not deterministic. Is there a better way to fail faster in this case?
-        runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
-            monitorResult = monitorResult.copy(inputResults = inputService.collectInputResults(monitor, periodStart, periodEnd))
-        }
-
-        for (trigger in monitor.triggers) {
-            val currentAlertsForTrigger = currentAlerts[trigger]
-            val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
-            val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
-            // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
-            //  be refactored to use a map instead
-            val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
-                triggerResult.aggregationResultBuckets.values as List<AggregationResultBucket>)
-            val dedupedAlerts = categorizedAlerts.dedupedAlerts
-            val newAlerts = categorizedAlerts.newAlerts
-            val completedAlerts = categorizedAlerts.completedAlerts
-
-            // Index alerts here so they are available at the time the Actions are executed.
-            // Note: Index operations can fail for various reasons (such as write blocks on cluster). In this case, the Actions will still
-            // execute with the alert information in the ctx but the alerts will not be visible or have been stored.
-            alertService.saveAlerts(dedupedAlerts, retryPolicy)
-            alertService.saveAlerts(newAlerts, retryPolicy)
-            alertService.saveAlerts(completedAlerts, retryPolicy)
-
-            // TODO: For now Actions are being executed for each Alert (de-duped or new).
-            //  This will be extended to include suppression logic and supporting executing Actions per run and will be cleaned up as well.
-            for (alert in dedupedAlerts) {
-                val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(alert), newAlerts = listOf(), completedAlerts = completedAlerts,
-                    error = monitorResult.error ?: triggerResult.error)
-                // TODO: AggregationResultBucket shouldn't be null here, but is there a better way than using the non-null assertion operator?
-                val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
-                triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
-                for (action in trigger.actions) {
-                    val actionResult = runAction(action, actionCtx, dryrun)
-                    triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
-                }
+        do {
+            // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
+            //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
+            //  the buckets until we hit that threshold. In that case, we'd want to exit the execution without creating any alerts since the
+            //  buckets we iterate over before hitting the limit is not deterministic. Is there a better way to fail faster in this case?
+            runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
+                monitorResult = monitorResult.copy(inputResults = inputService.collectInputResults(monitor, periodStart, periodEnd,
+                    monitorResult.inputResults))
             }
 
-            for (alert in newAlerts) {
-                // TODO: This is a duplicate of the above aside from the difference in actionCtx, should be combined when adding suppression logic
-                val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(), newAlerts = listOf(alert), completedAlerts = completedAlerts,
-                    error = monitorResult.error ?: triggerResult.error)
-                val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
-                triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
-                for (action in trigger.actions) {
-                    val actionResult = runAction(action, actionCtx, dryrun)
-                    triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+            for (trigger in monitor.triggers) {
+                val currentAlertsForTrigger = currentAlerts[trigger]
+                val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
+                val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
+                // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
+                //  be refactored to use a map instead
+                val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
+                    triggerResult.aggregationResultBuckets.values as List<AggregationResultBucket>)
+                val dedupedAlerts = categorizedAlerts.dedupedAlerts
+                val newAlerts = categorizedAlerts.newAlerts
+                val completedAlerts = categorizedAlerts.completedAlerts
+
+                // Index alerts here so they are available at the time the Actions are executed.
+                // Note: Index operations can fail for various reasons (such as write blocks on cluster). In this case, the Actions will
+                // still
+                // execute with the alert information in the ctx but the alerts will not be visible or have been stored.
+                alertService.saveAlerts(dedupedAlerts, retryPolicy)
+                alertService.saveAlerts(newAlerts, retryPolicy)
+                alertService.saveAlerts(completedAlerts, retryPolicy)
+
+                // TODO: For now Actions are being executed for each Alert (de-duped or new).
+                //  This will be extended to include suppression logic and supporting executing Actions per run and will be cleaned up as
+                //  well.
+                for (alert in dedupedAlerts) {
+                    val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(alert), newAlerts = listOf(), completedAlerts = completedAlerts,
+                        error = monitorResult.error ?: triggerResult.error)
+                    // TODO: AggregationResultBucket shouldn't be null here, but is there a better way than using the non-null assertion
+                    //  operator?
+                    val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                    triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
+                    for (action in trigger.actions) {
+                        val actionResult = runAction(action, actionCtx, dryrun)
+                        triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                    }
                 }
+
+                for (alert in newAlerts) {
+                    // TODO: This is a duplicate of the above aside from the difference in actionCtx, should be combined when adding
+                        //  suppression logic
+                    val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(), newAlerts = listOf(alert), completedAlerts = completedAlerts,
+                        error = monitorResult.error ?: triggerResult.error)
+                    val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                    triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
+                    for (action in trigger.actions) {
+                        val actionResult = runAction(action, actionCtx, dryrun)
+                        triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                    }
+                }
+
+                // TODO: Originally, only Alerts that had Action failures would have another round of index operations here.
+                //  However, after taking a closer look, it seems that all Alerts will need their actionExecutionResults updated no matter what.
+                //  Will need to take another look at this and see how Alert composition and update logic can be made cleaner.
             }
-
-            // TODO: Originally, only Alerts that had Action failures would have another round of index operations here.
-            //  However, after taking a closer look, it seems that all Alerts will need their actionExecutionResults updated no matter what.
-            //  Will need to take another look at this and see how Alert composition and update logic can be made cleaner.
-        }
-
+        } while (monitorResult.inputResults.afterKeysPresent())
         return monitorResult
     }
 
