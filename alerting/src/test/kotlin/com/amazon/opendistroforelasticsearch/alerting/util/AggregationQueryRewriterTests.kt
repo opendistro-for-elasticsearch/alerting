@@ -128,9 +128,7 @@ class AggregationQueryRewriterTests: ESTestCase() {
     }
 
     override fun xContentRegistry(): NamedXContentRegistry {
-        super.xContentRegistry()
         val entries = ClusterModule.getNamedXWriteables()
-        CompositeAggregationBuilder.PARSER
         entries.add(
             NamedXContentRegistry.Entry(
                 Aggregation::class.java, ParseField(CompositeAggregationBuilder.NAME),
