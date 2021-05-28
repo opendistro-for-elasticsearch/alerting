@@ -143,7 +143,7 @@ fun randomAggregationTrigger(
     id: String = UUIDs.base64UUID(),
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     severity: String = "1",
-    bucketSelector: BucketSelectorExtAggregationBuilder = randomBucketSelectorExtAggregationBuilder(name = name),
+    bucketSelector: BucketSelectorExtAggregationBuilder = randomBucketSelectorExtAggregationBuilder(name = id),
     actions: List<Action> = mutableListOf(),
     destinationId: String = ""
 ): AggregationTrigger {
