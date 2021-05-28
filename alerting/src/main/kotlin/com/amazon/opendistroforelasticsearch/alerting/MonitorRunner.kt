@@ -354,7 +354,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                 // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
                 //  be refactored to use a map instead
                 val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
-                    triggerResult.aggregationResultBuckets.values as List<AggregationResultBucket>)
+                    triggerResult.aggregationResultBuckets.values.toList())
                 val dedupedAlerts = categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList())
                 val newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
                 val completedAlerts = categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList())

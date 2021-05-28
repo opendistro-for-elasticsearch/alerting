@@ -90,9 +90,12 @@ class AlertService(
     // TODO: For now this is largely a duplicate of the regular loadCurrentAlerts()
     //  The original method could be refactored to support Set if this is the final usage
     suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, Map<String, Alert>?> {
+        val alertQuery = SearchSourceBuilder.searchSource()
+            .size(500) // TODO: This should be limited based on the circuit breaker that limits Alerts
+            .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitor.id))
         val request = SearchRequest(AlertIndices.ALERT_INDEX)
             .routing(monitor.id)
-            .source(alertQuery(monitor))
+            .source(alertQuery)
         val response: SearchResponse = client.suspendUntil { client.search(request, it) }
         if (response.status() != RestStatus.OK) {
             throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
