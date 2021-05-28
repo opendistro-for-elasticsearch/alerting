@@ -332,7 +332,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             return monitorResult.copy(error = e)
         }
 
-        var triggerResults = mutableMapOf<String, AggregationTriggerRunResult>()
+        var triggerResults: MutableMap<String, AggregationTriggerRunResult>
         do {
             // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
             //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
@@ -391,8 +391,8 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                         // If all categories of Alerts are empty, there is nothing to message on and we can skip the Action
                         if (dedupedAlerts.isEmpty() && newAlerts.isEmpty() && completedAlerts.isEmpty()) continue
 
-                        val actionCtx = triggerCtx.copy(dedupedAlerts = dedupedAlerts, newAlerts = newAlerts, completedAlerts = completedAlerts,
-                            error = monitorResult.error ?: triggerResult.error)
+                        val actionCtx = triggerCtx.copy(dedupedAlerts = dedupedAlerts, newAlerts = newAlerts,
+                            completedAlerts = completedAlerts, error = monitorResult.error ?: triggerResult.error)
                         val actionResult = runAction(action, actionCtx, dryrun)
                         // Save the Action run result for every Alert
                         for (alert in (dedupedAlerts + newAlerts + completedAlerts)) {

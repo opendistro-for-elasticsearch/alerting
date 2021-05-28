@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
@@ -24,9 +25,12 @@ import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRu
 import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
+import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
 import org.elasticsearch.script.ScriptService
+import org.elasticsearch.search.aggregations.support.AggregationPath
+import java.lang.IllegalArgumentException
 
 /** Service that handles executing Triggers */
 class TriggerService(val client: Client, val scriptService: ScriptService) {
@@ -57,11 +61,48 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
     }
 
     // TODO: This is a placeholder to write MonitorRunner logic, it can be replaced with the actual implementation when available
+    @Suppress("UNCHECKED_CAST")
     fun runAggregationTrigger(
         monitor: Monitor,
         trigger: AggregationTrigger,
         ctx: AggregationTriggerExecutionContext
     ): AggregationTriggerRunResult {
-        return AggregationTriggerRunResult(triggerName = trigger.name, error = null, aggregationResultBuckets = mapOf())
+        return try {
+            val bucketIndices =
+                ((ctx.results[0]["aggregations"] as HashMap<*, *>)[trigger.id] as HashMap<*, *>)["bucket_indices"] as List<*>
+            val parentBucketPath =
+                ((ctx.results[0]["aggregations"] as HashMap<*, *>)[trigger.id] as HashMap<*, *>)["parent_bucket_path"] as String
+            val aggregationPath = AggregationPath.parse(parentBucketPath)
+            // TODO test this part by passing sub-aggregation path
+            var parentAgg = (ctx.results[0].get("aggregations") as HashMap<*, *>)
+            aggregationPath.pathElementsAsStringList.forEach { sub_agg ->
+                parentAgg = (parentAgg[sub_agg] as HashMap<*, *>)
+            }
+            val buckets = parentAgg["buckets"] as List<*>
+            val selectedBuckets = mutableMapOf<String, AggregationResultBucket>()
+            for (bucketIndex in bucketIndices) {
+                val bucketDict = buckets[bucketIndex as Int] as Map<String, Any>
+                val bucketKeyValuesList = getBucketKeyValuesList(bucketDict)
+                val aggResultBucket = AggregationResultBucket(parentBucketPath, bucketKeyValuesList, bucketDict)
+                selectedBuckets[aggResultBucket.getBucketKeysHash()] = aggResultBucket
+            }
+            AggregationTriggerRunResult(trigger.name, null, selectedBuckets)
+        } catch (e: Exception) {
+            logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
+            // TODO empty map here with error should be treated in the same way as TraditionTrigger with error running script
+            AggregationTriggerRunResult(trigger.name, e, emptyMap())
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun getBucketKeyValuesList(bucket: Map<String, Any>): List<String> {
+        val keyValuesList = mutableListOf<String>()
+        when {
+            bucket["key"] is String -> keyValuesList.add(bucket["key"] as String)
+            bucket["key"] is Map<*, *> -> (bucket["key"] as Map<String, Any>).values.map { keyValuesList.add(it as String) }
+            else -> throw IllegalArgumentException("Unexpected format for key in bucket [$bucket]")
+        }
+
+        return keyValuesList
     }
 }

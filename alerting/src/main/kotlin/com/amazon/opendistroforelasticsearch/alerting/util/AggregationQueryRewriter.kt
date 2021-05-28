@@ -49,7 +49,6 @@ class AggregationQueryRewriter {
                             factory.aggregateAfter(afterKey)
                         } else {
                             throw IllegalStateException("AfterKeys are not expected to be present in non CompositeAggregationBuilder")
-
                         }
                     }
                 }
