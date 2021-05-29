@@ -19,6 +19,7 @@ import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -29,8 +30,8 @@ import java.util.Locale
 data class AggregationResultBucket(
     val parentBucketPath: String?,
     val bucketKeys: List<String>,
-    val bucket: Map<String, Any>?
-) : Writeable, ToXContent {
+    val bucket: Map<String, Any>? // TODO: Should reduce contents to only top-level to not include sub-aggs here
+) : Writeable, ToXContentObject {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(sin.readString(), sin.readStringList(), sin.readMap())
@@ -42,6 +43,12 @@ data class AggregationResultBucket(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        builder.startObject()
+        innerXContent(builder)
+        return builder.endObject()
+    }
+
+    fun innerXContent(builder: XContentBuilder): XContentBuilder {
         builder.startObject(CONFIG_NAME)
             .field(PARENTS_BUCKET_PATH, parentBucketPath)
             .field(BUCKET_KEYS, bucketKeys.toTypedArray())

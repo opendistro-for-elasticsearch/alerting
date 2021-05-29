@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorIndices.Fields.BUCKET_INDICES
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorIndices.Fields.PARENT_BUCKET_PATH
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
@@ -28,7 +30,10 @@ import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
+import org.elasticsearch.common.ParseField
 import org.elasticsearch.script.ScriptService
+import org.elasticsearch.search.aggregations.Aggregation
+import org.elasticsearch.search.aggregations.Aggregations
 import org.elasticsearch.search.aggregations.support.AggregationPath
 import java.lang.IllegalArgumentException
 
@@ -69,16 +74,16 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
     ): AggregationTriggerRunResult {
         return try {
             val bucketIndices =
-                ((ctx.results[0]["aggregations"] as HashMap<*, *>)[trigger.id] as HashMap<*, *>)["bucket_indices"] as List<*>
-            val parentBucketPath =
-                ((ctx.results[0]["aggregations"] as HashMap<*, *>)[trigger.id] as HashMap<*, *>)["parent_bucket_path"] as String
+                ((ctx.results[0][Aggregations.AGGREGATIONS_FIELD] as HashMap<*, *>)[trigger.id] as HashMap<*, *>)[BUCKET_INDICES] as List<*>
+            val parentBucketPath = ((ctx.results[0][Aggregations.AGGREGATIONS_FIELD] as HashMap<*, *>)
+                .get(trigger.id) as HashMap<*, *>)[PARENT_BUCKET_PATH] as String
             val aggregationPath = AggregationPath.parse(parentBucketPath)
             // TODO test this part by passing sub-aggregation path
-            var parentAgg = (ctx.results[0].get("aggregations") as HashMap<*, *>)
+            var parentAgg = (ctx.results[0][Aggregations.AGGREGATIONS_FIELD] as HashMap<*, *>)
             aggregationPath.pathElementsAsStringList.forEach { sub_agg ->
                 parentAgg = (parentAgg[sub_agg] as HashMap<*, *>)
             }
-            val buckets = parentAgg["buckets"] as List<*>
+            val buckets = parentAgg[Aggregation.CommonFields.BUCKETS.preferredName] as List<*>
             val selectedBuckets = mutableMapOf<String, AggregationResultBucket>()
             for (bucketIndex in bucketIndices) {
                 val bucketDict = buckets[bucketIndex as Int] as Map<String, Any>
@@ -96,10 +101,11 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
 
     @Suppress("UNCHECKED_CAST")
     private fun getBucketKeyValuesList(bucket: Map<String, Any>): List<String> {
+        val keyField = Aggregation.CommonFields.KEY.preferredName
         val keyValuesList = mutableListOf<String>()
         when {
-            bucket["key"] is String -> keyValuesList.add(bucket["key"] as String)
-            bucket["key"] is Map<*, *> -> (bucket["key"] as Map<String, Any>).values.map { keyValuesList.add(it as String) }
+            bucket[keyField] is String -> keyValuesList.add(bucket[keyField] as String)
+            bucket[keyField] is Map<*, *> -> (bucket[keyField] as Map<String, Any>).values.map { keyValuesList.add(it as String) }
             else -> throw IllegalArgumentException("Unexpected format for key in bucket [$bucket]")
         }
 
