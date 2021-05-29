@@ -32,15 +32,15 @@ import java.util.Objects
 
 class BucketSelectorExtAggregationBuilder :
     AbstractPipelineAggregationBuilder<BucketSelectorExtAggregationBuilder> {
-    private val bucketsPathsMap: MutableMap<String, String>
+    private val bucketsPathsMap: Map<String, String>
     val parentBucketPath: String
     val script: Script
     val filter: BucketSelectorExtFilter?
     private var gapPolicy = GapPolicy.SKIP
 
     constructor(
-        name: String?,
-        bucketsPathsMap: MutableMap<String, String>,
+        name: String,
+        bucketsPathsMap: Map<String, String>,
         script: Script,
         parentBucketPath: String,
         filter: BucketSelectorExtFilter?
@@ -67,7 +67,7 @@ class BucketSelectorExtAggregationBuilder :
 
     @Throws(IOException::class)
     override fun doWriteTo(out: StreamOutput) {
-        out.writeMap(bucketsPathsMap as Map<String, String>)
+        out.writeMap(bucketsPathsMap)
         script.writeTo(out)
         gapPolicy.writeTo(out)
         out.writeString(parentBucketPath)
@@ -129,9 +129,9 @@ class BucketSelectorExtAggregationBuilder :
         if (other == null || javaClass != other.javaClass) return false
         if (!super.equals(other)) return false
         val otherCast = other as BucketSelectorExtAggregationBuilder
-        return (bucketsPathsMap == otherCast.bucketsPathsMap
-                && script == otherCast.script
-                && gapPolicy == otherCast.gapPolicy)
+        return (bucketsPathsMap == otherCast.bucketsPathsMap &&
+            script == otherCast.script &&
+            gapPolicy == otherCast.gapPolicy)
     }
 
     override fun getWriteableName(): String {
@@ -227,21 +227,21 @@ class BucketSelectorExtAggregationBuilder :
             }
             if (bucketsPathsMap == null) {
                 throw ParsingException(
-                    parser.tokenLocation, "Missing required field [" + PipelineAggregator.Parser.BUCKETS_PATH.preferredName
-                            + "] for bucket_selector aggregation [" + reducerName + "]"
+                    parser.tokenLocation, "Missing required field [" + PipelineAggregator.Parser.BUCKETS_PATH.preferredName +
+                    "] for bucket_selector aggregation [" + reducerName + "]"
                 )
             }
             if (script == null) {
                 throw ParsingException(
-                    parser.tokenLocation, "Missing required field [" + Script.SCRIPT_PARSE_FIELD.preferredName
-                            + "] for bucket_selector aggregation [" + reducerName + "]"
+                    parser.tokenLocation, "Missing required field [" + Script.SCRIPT_PARSE_FIELD.preferredName +
+                    "] for bucket_selector aggregation [" + reducerName + "]"
                 )
             }
 
             if (parentBucketPath == null) {
                 throw ParsingException(
-                    parser.tokenLocation, "Missing required field [" + PARENT_BUCKET_PATH
-                            + "] for bucket_selector aggregation [" + reducerName + "]"
+                    parser.tokenLocation, "Missing required field [" + PARENT_BUCKET_PATH +
+                    "] for bucket_selector aggregation [" + reducerName + "]"
                 )
             }
             val factory = BucketSelectorExtAggregationBuilder(reducerName, bucketsPathsMap, script, parentBucketPath, filter)

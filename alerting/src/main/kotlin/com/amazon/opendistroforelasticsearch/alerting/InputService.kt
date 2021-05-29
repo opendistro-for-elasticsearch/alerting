@@ -18,10 +18,8 @@ package com.amazon.opendistroforelasticsearch.alerting
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.util.AggregationQueryRewriter
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
 import org.apache.logging.log4j.LogManager
@@ -35,12 +33,6 @@ import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.script.TemplateScript
-import org.elasticsearch.search.aggregations.AggregationBuilder
-import org.elasticsearch.search.aggregations.AggregatorFactories
-import org.elasticsearch.search.aggregations.bucket.SingleBucketAggregation
-import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder
-import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
-import org.elasticsearch.search.aggregations.support.AggregationPath
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 
@@ -53,7 +45,12 @@ class InputService(
 
     private val logger = LogManager.getLogger(InputService::class.java)
 
-    suspend fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant, prevResult: InputRunResults? = null): InputRunResults {
+    suspend fun collectInputResults(
+        monitor: Monitor,
+        periodStart: Instant,
+        periodEnd: Instant,
+        prevResult: InputRunResults? = null
+    ): InputRunResults {
         return try {
             val results = mutableListOf<Map<String, Any>>()
             val aggTriggerAfterKeys: MutableMap<String, Map<String, Any>?> = mutableMapOf()

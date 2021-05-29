@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
@@ -89,9 +90,12 @@ class AlertService(
     // TODO: For now this is largely a duplicate of the regular loadCurrentAlerts()
     //  The original method could be refactored to support Set if this is the final usage
     suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, Map<String, Alert>?> {
+        val alertQuery = SearchSourceBuilder.searchSource()
+            .size(500) // TODO: This should be limited based on the circuit breaker that limits Alerts
+            .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitor.id))
         val request = SearchRequest(AlertIndices.ALERT_INDEX)
             .routing(monitor.id)
-            .source(alertQuery(monitor))
+            .source(alertQuery)
         val response: SearchResponse = client.suspendUntil { client.search(request, it) }
         if (response.status() != RestStatus.OK) {
             throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
@@ -161,13 +165,15 @@ class AlertService(
         }
     }
 
-    // TODO: Change the parameters to use result: AggTriggerRunResult instead of currentAlerts and aggResultBuckets after integration
+    // TODO: Can change the parameters to use ctx: AggregationTriggerExecutionContext instead of monitor/trigger and
+    //  result: AggTriggerRunResult for aggResultBuckets
+    // TODO: Can refactor this method to use Sets instead which can cleanup some of the categorization logic (like getting completed alerts)
     fun getCategorizedAlertsForAggregationMonitor(
         monitor: Monitor,
         trigger: AggregationTrigger,
         currentAlerts: Map<String, Alert>?,
         aggResultBuckets: List<AggregationResultBucket>
-    ): CategorizedAlerts {
+    ): Map<AlertCategory, List<Alert>> {
         val dedupedAlerts = mutableListOf<Alert>()
         val newAlerts = mutableListOf<Alert>()
         var completedAlerts = listOf<Alert>()
@@ -178,7 +184,7 @@ class AlertService(
             val currentAlert = currentAlerts?.get(aggAlertBucket.getBucketKeysHash())
             if (currentAlert != null) {
                 // De-duped Alert
-                dedupedAlerts.add(currentAlert.copy(lastNotificationTime = currentTime))
+                dedupedAlerts.add(currentAlert.copy(lastNotificationTime = currentTime, aggregationResultBucket = aggAlertBucket))
             } else {
                 // New Alert
                 // TODO: Setting lastNotificationTime is deceiving since the actions haven't run yet, maybe it should be null here
@@ -206,8 +212,11 @@ class AlertService(
                 }
         }
 
-        // TODO: Should dedupedAlerts and newAlerts be converted to unmodifiableList to ensure the CategorizedAlerts object isn't changed?
-        return CategorizedAlerts(dedupedAlerts, newAlerts, completedAlerts)
+        return mapOf(
+            AlertCategory.DEDUPED to dedupedAlerts,
+            AlertCategory.NEW to newAlerts,
+            AlertCategory.COMPLETED to completedAlerts
+        )
     }
 
     suspend fun saveAlerts(alerts: List<Alert>, retryPolicy: BackoffPolicy) {

@@ -1,0 +1,104 @@
+POST localhost:9200/kibana_sample_data_ecommerce/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggregations": {
+    "composite_agg": {
+      "composite": {
+        "sources": [
+          { "category": { "terms": { "field": "category.keyword" } } }
+        ]
+      },
+      "aggs": {
+        "avg_total_price": {
+          "avg": { "field": "taxful_total_price" }
+        }
+      }
+    }
+  }
+}
+###
+POST localhost:9200/_opendistro/_alerting/monitors
+Content-Type: application/json
+
+{
+  "type": "monitor",
+  "monitor_type": "aggregation_monitor",
+  "name": "test-monitor",
+  "enabled": false,
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [{
+    "search": {
+      "indices": ["kibana_sample_data_ecommerce"],
+      "query": {
+        "size": 0,
+        "query": {
+          "bool": {
+            "filter": {
+              "range": {
+                "order_date": {
+                  "gte": "now-1d/d",
+                  "lte": "now",
+                  "format": "epoch_millis"
+                }
+              }
+            }
+          }
+        },
+        "aggregations": {
+          "composite_agg": {
+            "composite": {
+              "sources": [
+                { "category": { "terms": { "field": "category.keyword" } } }
+              ]
+            },
+            "aggs": {
+              "avg_total_price": {
+                "avg": { "field": "taxful_total_price" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }],
+  "triggers": [{
+    "aggregation_trigger": {
+      "name": "test-trigger",
+      "severity": "1",
+      "condition": {
+        "parent_bucket_path": "composite_agg",
+        "buckets_path": {
+          "avg_price": "avg_total_price"
+        },
+        "script": {
+          "source": "params.avg_price >= 80"
+        }
+      },
+      "actions": [{
+        "name": "test-action",
+        "destination_id": "ld7912sBlQ5JUWWFThoW",
+        "subject_template": {
+          "source": "TheSubject"
+        },
+        "message_template": {
+          "source" : "Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.\n- Trigger: {{ctx.trigger.name}}\n- Severity: {{ctx.trigger.severity}}\n- Period start: {{ctx.periodStart}}\n- Period end: {{ctx.periodEnd}}\n- Deduped Alerts: \n{{#ctx.dedupedAlerts}}\n  * {{id}} : {{bucket_keys}}\n{{/ctx.dedupedAlerts}}\n- New Alerts:\n{{#ctx.newAlerts}}\n  * {{id}} : {{bucket_keys}}\n{{/ctx.newAlerts}}\n- Completed Alerts:\n{{#ctx.completedAlerts}}\n  * {{id}} : {{bucket_keys}}\n{{/ctx.completedAlerts}}",
+          "lang" : "mustache"
+        },
+        "throttle_enabled": true,
+        "throttle": {
+          "value": 5,
+          "unit": "MINUTES"
+        }
+      }]
+    }
+  }]
+}
+###
+POST localhost:9200/_opendistro/_alerting/monitors/<monitor_id>/_execute

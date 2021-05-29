@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorExtAggregationBuilder
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertError
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedule
@@ -39,6 +40,8 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder
+import org.elasticsearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.junit.Assert
 import java.time.Instant
@@ -805,6 +808,74 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             val total = searchResult.stringMap("hits")?.get("total") as Map<String, String>
             assertEquals("Incorrect search result", 0, total["value"])
         }
+    }
+
+    // TODO: The regular query seems to be returning data but the composite agg is empty
+    //  Need to revisit this test
+    fun `skip test execute aggregation monitor returns search result`() {
+        val testIndex = createTestIndex()
+        insertSampleTimeSerializedData(
+            testIndex,
+            listOf(
+                "test_value_1",
+                "test_value_1", // adding duplicate to verify aggregation
+                "test_value_2"
+            )
+        )
+
+        val query = QueryBuilders.rangeQuery("test_strict_date_time")
+            .gt("{{period_end}}||-10d")
+            .lte("{{period_end}}")
+            .format("epoch_millis")
+        val compositeSources = listOf(
+            TermsValuesSourceBuilder("test_field").field("test_field")
+        )
+        val compositeAgg = CompositeAggregationBuilder("composite_agg", compositeSources)
+        val input = SearchInput(indices = listOf(testIndex), query = SearchSourceBuilder().size(0).query(query).aggregation(compositeAgg))
+        val triggerScript = """
+            params.docCount > 0
+        """.trimIndent()
+
+        var trigger = randomAggregationTrigger()
+        trigger = trigger.copy(
+            bucketSelector = BucketSelectorExtAggregationBuilder(
+                name = trigger.id,
+                bucketsPathsMap = mapOf("docCount" to "_count"),
+                script = Script(triggerScript),
+                parentBucketPath = "composite_agg",
+                filter = null
+            )
+        )
+        val monitor = randomAggregationMonitor(inputs = listOf(input), triggers = listOf(trigger))
+        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
+        val output = entityAsMap(response)
+
+        assertEquals(monitor.name, output["monitor_name"])
+        @Suppress("UNCHECKED_CAST")
+        val searchResult = (output.objectMap("input_results")["results"] as List<Map<String, Any>>).first()
+        @Suppress("UNCHECKED_CAST")
+        val buckets = searchResult.stringMap("aggregations")?.stringMap("composite_agg")?.get("buckets") as List<Map<String, Any>>
+        assertEquals("Incorrect search result", 2, buckets.size)
+    }
+
+    fun `skip test execute aggregation monitor alert creation`() {}
+
+    fun `skip test execute aggregation monitor alert completion`() {
+        // create index
+
+        // load index with data
+
+        // define monitor
+
+        // execute monitor
+
+        // check created alerts
+
+        // delete data of a certain value
+
+        // execute monitor
+
+        // verify alert was completed
     }
 
     private fun prepareTestAnomalyResult(detectorId: String, user: User) {

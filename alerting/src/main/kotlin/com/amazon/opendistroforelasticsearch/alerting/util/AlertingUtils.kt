@@ -17,7 +17,10 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -128,3 +131,22 @@ fun Monitor.isAggregationMonitor(): Boolean = this.monitorType == Monitor.Monito
  * as the key for a HashMap to easily retrieve [AggregationResultBucket] based on the bucket key values.
  */
 fun AggregationResultBucket.getBucketKeysHash(): String = this.bucketKeys.joinToString(separator = "#")
+
+fun Action.getActionFrequency(): ActionExecutionFrequency.Type =
+    this.actionExecutionPolicy.actionExecutionFrequency.getExecutionFrequency()
+
+fun AggregationTriggerRunResult.getCombinedTriggerRunResult(
+    prevTriggerRunResult: AggregationTriggerRunResult?
+): AggregationTriggerRunResult {
+    if (prevTriggerRunResult == null) return this
+
+    // The aggregation results and action results across to two trigger run results should not have overlapping keys
+    // since they represent different pages of aggregations so a simple concatenation will combine them
+    val mergedAggregationResultBuckets = prevTriggerRunResult.aggregationResultBuckets + this.aggregationResultBuckets
+    val mergedActionResultsMap = (prevTriggerRunResult.actionResultsMap + this.actionResultsMap).toMutableMap()
+
+    // Update to the most recent error if it's not null, otherwise keep the old one
+    val error = this.error ?: prevTriggerRunResult.error
+
+    return this.copy(aggregationResultBuckets = mergedAggregationResultBuckets, actionResultsMap = mergedActionResultsMap, error = error)
+}

@@ -35,6 +35,9 @@ import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerAlertActionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
 import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
@@ -49,7 +52,9 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.HOST_DENY_LIST_NONE
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
+import com.amazon.opendistroforelasticsearch.alerting.util.getActionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
+import com.amazon.opendistroforelasticsearch.alerting.util.getCombinedTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
@@ -316,8 +321,6 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
 
-        // TODO: Should we use MonitorRunResult for both Monitor types or create an AggregationMonitorRunResult
-        //  to store InternalComposite instead of Map<String, Any>?
         var monitorResult = MonitorRunResult<AggregationTriggerRunResult>(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
@@ -329,6 +332,8 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             logger.error("Error loading alerts for monitor: $id", e)
             return monitorResult.copy(error = e)
         }
+
+        val triggerResults = mutableMapOf<String, AggregationTriggerRunResult>()
         do {
             // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
             //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
@@ -343,57 +348,67 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                 val currentAlertsForTrigger = currentAlerts[trigger]
                 val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
                 val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
+                triggerResults[trigger.id] = triggerResult.getCombinedTriggerRunResult(triggerResults[trigger.id])
                 // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
                 //  be refactored to use a map instead
                 val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
-                    triggerResult.aggregationResultBuckets.values as List<AggregationResultBucket>)
-                val dedupedAlerts = categorizedAlerts.dedupedAlerts
-                val newAlerts = categorizedAlerts.newAlerts
-                val completedAlerts = categorizedAlerts.completedAlerts
+                    triggerResult.aggregationResultBuckets.values.toList())
+                val dedupedAlerts = categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList())
+                val newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
+                val completedAlerts = categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList())
 
                 // Index alerts here so they are available at the time the Actions are executed.
-                // Note: Index operations can fail for various reasons (such as write blocks on cluster). In this case, the Actions will
-                // still
-                // execute with the alert information in the ctx but the alerts will not be visible or have been stored.
-                alertService.saveAlerts(dedupedAlerts, retryPolicy)
-                alertService.saveAlerts(newAlerts, retryPolicy)
-                alertService.saveAlerts(completedAlerts, retryPolicy)
+                // Note: Index operations can fail for various reasons (such as write blocks on cluster). In this case, the Actions will still
+                // execute with the alert information in the ctx but the alerts may not be visible or have been stored.
+                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList()), retryPolicy)
+                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList()), retryPolicy)
+                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList()), retryPolicy)
 
-                // TODO: For now Actions are being executed for each Alert (de-duped or new).
-                //  This will be extended to include suppression logic and supporting executing Actions per run and will be cleaned up as
-                //  well.
-                for (alert in dedupedAlerts) {
-                    val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(alert), newAlerts = listOf(), completedAlerts = completedAlerts,
-                        error = monitorResult.error ?: triggerResult.error)
-                    // TODO: AggregationResultBucket shouldn't be null here, but is there a better way than using the non-null assertion
-                    //  operator?
-                    val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
-                    triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
-                    for (action in trigger.actions) {
+                for (action in trigger.actions) {
+                    if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_ALERT) {
+                        val perAlertActionFrequency = action.actionExecutionPolicy.actionExecutionFrequency as PerAlertActionFrequency
+                        for (alertCategory in perAlertActionFrequency.actionableAlerts) {
+                            for (alert in categorizedAlerts.getOrDefault(alertCategory, emptyList())) {
+                                if (isAggregationTriggerActionThrottled(action, alert)) continue
+
+                                val actionCtx = getActionContextForAlertCategory(alertCategory, alert, triggerCtx,
+                                    monitorResult.error ?: triggerResult.error)
+                                // AggregationResultBucket should not be null here
+                                val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                                if (!triggerResult.actionResultsMap.containsKey(alertBucketKeysHash)) {
+                                    triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
+                                }
+
+                                val actionResult = runAction(action, actionCtx, dryrun)
+                                triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                            }
+                        }
+                    } else if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_EXECUTION) {
+                        // TODO: PER_EXECUTION logic will need to be lifted out of the do-while loop since currently
+                        //  the Actions will be executed per page instead of once per run
+                        // If all categories of Alerts are empty, there is nothing to message on and we can skip the Action
+                        if (dedupedAlerts.isEmpty() && newAlerts.isEmpty() && completedAlerts.isEmpty()) continue
+
+                        val actionCtx = triggerCtx.copy(dedupedAlerts = dedupedAlerts, newAlerts = newAlerts,
+                            completedAlerts = completedAlerts, error = monitorResult.error ?: triggerResult.error)
                         val actionResult = runAction(action, actionCtx, dryrun)
-                        triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                        // Save the Action run result for every Alert
+                        for (alert in (dedupedAlerts + newAlerts + completedAlerts)) {
+                            val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                            if (!triggerResult.actionResultsMap.containsKey(alertBucketKeysHash)) {
+                                triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
+                            }
+                            triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                        }
                     }
-                }
 
-                for (alert in newAlerts) {
-                    // TODO: This is a duplicate of the above aside from the difference in actionCtx, should be combined when adding
-                        //  suppression logic
-                    val actionCtx = triggerCtx.copy(dedupedAlerts = listOf(), newAlerts = listOf(alert), completedAlerts = completedAlerts,
-                        error = monitorResult.error ?: triggerResult.error)
-                    val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
-                    triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
-                    for (action in trigger.actions) {
-                        val actionResult = runAction(action, actionCtx, dryrun)
-                        triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
-                    }
+                    // TODO: Originally, only Alerts that had Action failures would have another round of index operations here.
+                    //  However, after taking a closer look, it seems that all Alerts will need their actionExecutionResults updated no matter what.
+                    //  Will need to take another look at this and see how Alert composition and update logic can be made cleaner.
                 }
-
-                // TODO: Originally, only Alerts that had Action failures would have another round of index operations here.
-                //  However, after taking a closer look, it seems that all Alerts will need their actionExecutionResults updated no matter what.
-                //  Will need to take another look at this and see how Alert composition and update logic can be made cleaner.
             }
         } while (monitorResult.inputResults.afterKeysPresent())
-        return monitorResult
+        return monitorResult.copy(triggerResults = triggerResults)
     }
 
     private fun getRolesForMonitor(monitor: Monitor): List<String> {
@@ -429,6 +444,37 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             return (lastExecutionTime == null || lastExecutionTime.isBefore(throttledTimeBound))
         }
         return true
+    }
+
+    // TODO: Add unit test for this method (or at least cover it in MonitorRunnerIT)
+    // Aggregation Monitors use the throttle configurations defined in ActionExecutionPolicy, this method evaluates that configuration.
+    private fun isAggregationTriggerActionThrottled(action: Action, alert: Alert): Boolean {
+        if (action.actionExecutionPolicy.throttle == null) return false
+        // TODO: This will need to be updated if throttleEnabled is moved to ActionExecutionPolicy
+        if (action.throttleEnabled) {
+            val result = alert.actionExecutionResults.firstOrNull { r -> r.actionId == action.id }
+            val lastExecutionTime: Instant? = result?.lastExecutionTime
+            val throttledTimeBound = currentTime().minus(action.actionExecutionPolicy.throttle.value.toLong(),
+                action.actionExecutionPolicy.throttle.unit)
+            return !(lastExecutionTime == null || lastExecutionTime.isBefore(throttledTimeBound))
+        }
+        return false
+    }
+
+    private fun getActionContextForAlertCategory(
+        alertCategory: AlertCategory,
+        alert: Alert,
+        ctx: AggregationTriggerExecutionContext,
+        error: Exception?
+    ): AggregationTriggerExecutionContext {
+        return when (alertCategory) {
+            AlertCategory.DEDUPED ->
+                ctx.copy(dedupedAlerts = listOf(alert), newAlerts = emptyList(), completedAlerts = emptyList(), error = error)
+            AlertCategory.NEW ->
+                ctx.copy(dedupedAlerts = emptyList(), newAlerts = listOf(alert), completedAlerts = emptyList(), error = error)
+            AlertCategory.COMPLETED ->
+                ctx.copy(dedupedAlerts = emptyList(), newAlerts = emptyList(), completedAlerts = listOf(alert), error = error)
+        }
     }
 
     private suspend fun runAction(action: Action, ctx: TraditionalTriggerExecutionContext, dryrun: Boolean): ActionRunResult {

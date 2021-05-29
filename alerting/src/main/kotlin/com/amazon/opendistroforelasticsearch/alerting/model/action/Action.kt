@@ -37,14 +37,15 @@ data class Action(
     val messageTemplate: Script,
     val throttleEnabled: Boolean,
     val throttle: Throttle?,
-    val id: String = UUIDs.base64UUID()
+    val id: String = UUIDs.base64UUID(),
+    val actionExecutionPolicy: ActionExecutionPolicy = ActionExecutionPolicy.getDefaultConfiguration()
 ) : Writeable, ToXContentObject {
 
     init {
         if (subjectTemplate != null) {
-            require(subjectTemplate.lang == Action.MUSTACHE) { "subject_template must be a mustache script" }
+            require(subjectTemplate.lang == MUSTACHE) { "subject_template must be a mustache script" }
         }
-        require(messageTemplate.lang == Action.MUSTACHE) { "message_template must be a mustache script" }
+        require(messageTemplate.lang == MUSTACHE) { "message_template must be a mustache script" }
     }
 
     @Throws(IOException::class)
@@ -55,16 +56,18 @@ data class Action(
         Script(sin), // messageTemplate
         sin.readBoolean(), // throttleEnabled
         sin.readOptionalWriteable(::Throttle), // throttle
-        sin.readString() // id
+        sin.readString(), // id
+        ActionExecutionPolicy(sin) // actionExecutionPolicy
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         val xContentBuilder = builder.startObject()
-                .field(ID_FIELD, id)
-                .field(NAME_FIELD, name)
-                .field(DESTINATION_ID_FIELD, destinationId)
-                .field(MESSAGE_TEMPLATE_FIELD, messageTemplate)
-                .field(THROTTLE_ENABLED_FIELD, throttleEnabled)
+            .field(ID_FIELD, id)
+            .field(NAME_FIELD, name)
+            .field(DESTINATION_ID_FIELD, destinationId)
+            .field(MESSAGE_TEMPLATE_FIELD, messageTemplate)
+            .field(THROTTLE_ENABLED_FIELD, throttleEnabled)
+            .field(ACTION_EXECUTION_POLICY_FIELD, actionExecutionPolicy)
         if (subjectTemplate != null) {
             xContentBuilder.field(SUBJECT_TEMPLATE_FIELD, subjectTemplate)
         }
@@ -97,6 +100,7 @@ data class Action(
             out.writeBoolean(false)
         }
         out.writeString(id)
+        actionExecutionPolicy.writeTo(out)
     }
 
     companion object {
@@ -107,6 +111,7 @@ data class Action(
         const val MESSAGE_TEMPLATE_FIELD = "message_template"
         const val THROTTLE_ENABLED_FIELD = "throttle_enabled"
         const val THROTTLE_FIELD = "throttle"
+        const val ACTION_EXECUTION_POLICY_FIELD = "action_execution_policy"
         const val MUSTACHE = "mustache"
         const val SUBJECT = "subject"
         const val MESSAGE = "message"
@@ -122,6 +127,7 @@ data class Action(
             lateinit var messageTemplate: Script
             var throttleEnabled = false
             var throttle: Throttle? = null
+            var actionExecutionPolicy: ActionExecutionPolicy = ActionExecutionPolicy.getDefaultConfiguration()
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -142,7 +148,9 @@ data class Action(
                     THROTTLE_ENABLED_FIELD -> {
                         throttleEnabled = xcp.booleanValue()
                     }
-
+                    ACTION_EXECUTION_POLICY_FIELD -> {
+                        actionExecutionPolicy = ActionExecutionPolicy.parse(xcp)
+                    }
                     else -> {
                         throw IllegalStateException("Unexpected field: $fieldName, while parsing action")
                     }
@@ -153,13 +161,16 @@ data class Action(
                 requireNotNull(throttle, { "Action throttle enabled but not set throttle value" })
             }
 
-            return Action(requireNotNull(name) { "Action name is null" },
-                    requireNotNull(destinationId) { "Destination id is null" },
-                    subjectTemplate,
-                    requireNotNull(messageTemplate) { "Action message template is null" },
-                    throttleEnabled,
-                    throttle,
-                    id = requireNotNull(id))
+            return Action(
+                requireNotNull(name) { "Action name is null" },
+                requireNotNull(destinationId) { "Destination id is null" },
+                subjectTemplate,
+                requireNotNull(messageTemplate) { "Action message template is null" },
+                throttleEnabled,
+                throttle,
+                id = requireNotNull(id),
+                actionExecutionPolicy = requireNotNull(actionExecutionPolicy) { "Action execution policy is null" }
+            )
         }
 
         @JvmStatic

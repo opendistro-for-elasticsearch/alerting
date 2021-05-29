@@ -63,6 +63,9 @@ import java.net.URLEncoder
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 import javax.management.MBeanServerInvocationHandler
 import javax.management.ObjectName
@@ -487,7 +490,8 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     protected fun createTestIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
         createIndex(index, Settings.EMPTY, """
           "properties" : {
-             "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" }
+             "test_strict_date_time" : { "type" : "date", "format" : "strict_date_time" },
+             "test_field" : { "type" : "keyword" }
           }
         """.trimIndent())
         return index
@@ -509,6 +513,21 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
             // ignore
         }
         return index
+    }
+
+    protected fun insertSampleTimeSerializedData(index: String, data: List<String>) {
+        data.forEachIndexed { i, value ->
+            val twoMinsAgo = ZonedDateTime.now().minus(2, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.MILLIS)
+            val testTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(twoMinsAgo)
+            val testDoc = """
+                {
+                  "test_strict_date_time": "$testTime",
+                  "test_field": "$value"
+                }
+            """.trimIndent()
+            // Indexing documents with deterministic doc id to allow for easy selected deletion during testing
+            indexDoc(index, (i + 1).toString(), testDoc)
+        }
     }
 
     fun putAlertMappings(mapping: String? = null) {
