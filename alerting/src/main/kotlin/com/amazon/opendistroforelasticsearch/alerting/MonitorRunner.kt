@@ -54,6 +54,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettin
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings.Companion.loadDestinationSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.getActionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
+import com.amazon.opendistroforelasticsearch.alerting.util.getCombinedTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
@@ -332,7 +333,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             return monitorResult.copy(error = e)
         }
 
-        var triggerResults: MutableMap<String, AggregationTriggerRunResult>
+        val triggerResults = mutableMapOf<String, AggregationTriggerRunResult>()
         do {
             // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
             //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
@@ -343,14 +344,11 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                     monitorResult.inputResults))
             }
 
-            // TODO: Should triggerResults be appended to during the do-while (at the very least the actionResultsMap so the monitorResult
-            //  has the complete contents?
-            triggerResults = mutableMapOf()
             for (trigger in monitor.triggers) {
                 val currentAlertsForTrigger = currentAlerts[trigger]
                 val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
                 val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
-                triggerResults[trigger.id] = triggerResult
+                triggerResults[trigger.id] = triggerResult.getCombinedTriggerRunResult(triggerResults[trigger.id])
                 // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
                 //  be refactored to use a map instead
                 val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
@@ -448,6 +446,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         return true
     }
 
+    // TODO: Add unit test for this method (or at least cover it in MonitorRunnerIT)
     // Aggregation Monitors use the throttle configurations defined in ActionExecutionPolicy, this method evaluates that configuration.
     private fun isAggregationTriggerActionThrottled(action: Action, alert: Alert): Boolean {
         if (action.actionExecutionPolicy.throttle == null) return false
