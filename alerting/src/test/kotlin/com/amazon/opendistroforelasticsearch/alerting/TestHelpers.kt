@@ -35,10 +35,16 @@ import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionPolicy
+import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerAlertActionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerExecutionActionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailEntry
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
+import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.apache.http.Header
 import org.apache.http.HttpEntity
@@ -63,6 +69,7 @@ import org.elasticsearch.search.SearchModule
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.ESTestCase.randomBoolean
 import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.ESTestCase.randomIntBetween
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -101,6 +108,22 @@ fun randomMonitorWithoutUser(
         uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }
 
+fun randomAggregationMonitor(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    user: User = randomUser(),
+    inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
+    schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
+    enabled: Boolean = ESTestCase.randomBoolean(),
+    triggers: List<Trigger> = (1..randomInt(10)).map { randomAggregationTrigger() },
+    enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
+    lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+    withMetadata: Boolean = false
+): Monitor {
+    return Monitor(name = name, monitorType = Monitor.MonitorType.AGGREGATION_MONITOR, enabled = enabled, inputs = inputs,
+        schedule = schedule, triggers = triggers, enabledTime = enabledTime, lastUpdateTime = lastUpdateTime, user = user,
+        uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
+}
+
 fun randomTraditionalTrigger(
     id: String = UUIDs.base64UUID(),
     name: String = ESRestTestCase.randomAlphaOfLength(10),
@@ -121,7 +144,7 @@ fun randomAggregationTrigger(
     id: String = UUIDs.base64UUID(),
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     severity: String = "1",
-    bucketSelector: BucketSelectorExtAggregationBuilder = randomBucketSelectorExtAggregationBuilder(name = name),
+    bucketSelector: BucketSelectorExtAggregationBuilder = randomBucketSelectorExtAggregationBuilder(name = id),
     actions: List<Action> = mutableListOf(),
     destinationId: String = ""
 ): AggregationTrigger {
@@ -195,13 +218,29 @@ fun randomAction(
     template: Script = randomTemplateScript("Hello World"),
     destinationId: String = "",
     throttleEnabled: Boolean = false,
-    throttle: Throttle = randomThrottle()
-) = Action(name, destinationId, template, template, throttleEnabled, throttle)
+    throttle: Throttle = randomThrottle(),
+    actionExecutionPolicy: ActionExecutionPolicy = randomActionExecutionPolicy()
+) = Action(name, destinationId, template, template, throttleEnabled, throttle, actionExecutionPolicy = actionExecutionPolicy)
 
 fun randomThrottle(
     value: Int = randomIntBetween(60, 120),
     unit: ChronoUnit = ChronoUnit.MINUTES
 ) = Throttle(value, unit)
+
+fun randomActionExecutionPolicy(
+    throttle: Throttle = randomThrottle(),
+    actionExecutionFrequency: ActionExecutionFrequency = randomActionExecutionFrequency()
+) = ActionExecutionPolicy(throttle, actionExecutionFrequency)
+
+fun randomActionExecutionFrequency(): ActionExecutionFrequency {
+    return if (randomBoolean()) {
+        val alertCategories = AlertCategory.values()
+        PerAlertActionFrequency(
+            actionableAlerts = (1..randomInt(alertCategories.size)).map { alertCategories[it - 1] }.toSet())
+    } else {
+        PerExecutionActionFrequency()
+    }
+}
 
 fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
     val trigger = randomTraditionalTrigger()
@@ -214,8 +253,8 @@ fun randomAlertWithAggregationResultBucket(monitor: Monitor = randomMonitor()): 
     val trigger = randomAggregationTrigger()
     val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
     return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
-        actionExecutionResults = actionExecutionResults, aggregationResultBucket = AggregationResultBucket("parent_bucket_path_1", "bucket_key_1",
-            mapOf("k1" to "val1", "k2" to "val2")))
+        actionExecutionResults = actionExecutionResults, aggregationResultBucket = AggregationResultBucket("parent_bucket_path_1",
+        listOf("bucket_key_1"), mapOf("k1" to "val1", "k2" to "val2")))
 }
 
 fun randomEmailAccountMethod(): EmailAccount.MethodType {
@@ -276,17 +315,17 @@ fun randomAggregationTriggerRunResult(): AggregationTriggerRunResult {
     map.plus(Pair("key1", randomActionRunResult()))
     map.plus(Pair("key2", randomActionRunResult()))
 
-    val aggBcuket1 = AggregationResultBucket("parent_bucket_path_1", "bucket_key_1",
+    val aggBucket1 = AggregationResultBucket("parent_bucket_path_1", listOf("bucket_key_1"),
         mapOf("k1" to "val1", "k2" to "val2"))
-    val aggBcuket2 = AggregationResultBucket("parent_bucket_path_2", "bucket_key_2",
+    val aggBucket2 = AggregationResultBucket("parent_bucket_path_2", listOf("bucket_key_2"),
         mapOf("k1" to "val1", "k2" to "val2"))
 
-    val actionResultsMap: MutableMap<String?, MutableMap<String, ActionRunResult>> = mutableMapOf()
-    actionResultsMap[aggBcuket1.bucketKey] = map
-    actionResultsMap[aggBcuket2.bucketKey] = map
+    val actionResultsMap: MutableMap<String, MutableMap<String, ActionRunResult>> = mutableMapOf()
+    actionResultsMap[aggBucket1.getBucketKeysHash()] = map
+    actionResultsMap[aggBucket2.getBucketKeysHash()] = map
 
     return AggregationTriggerRunResult("trigger-name", null,
-        mapOf(aggBcuket1.bucketKey to aggBcuket1, aggBcuket2.bucketKey to aggBcuket2), actionResultsMap)
+        mapOf(aggBucket1.getBucketKeysHash() to aggBucket1, aggBucket2.getBucketKeysHash() to aggBucket2), actionResultsMap)
 }
 
 fun randomActionRunResult(): ActionRunResult {

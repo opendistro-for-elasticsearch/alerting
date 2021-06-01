@@ -28,13 +28,21 @@ data class AggregationTriggerExecutionContext(
     override val results: List<Map<String, Any>>,
     override val periodStart: Instant,
     override val periodEnd: Instant,
-    val alerts: HashMap<String?, Alert>? = null,
+    val dedupedAlerts: List<Alert> = listOf(),
+    val newAlerts: List<Alert> = listOf(),
+    val completedAlerts: List<Alert> = listOf(),
     override val error: Exception? = null
 ) : TriggerExecutionContext(monitor, results, periodStart, periodEnd, error) {
 
-    constructor(monitor: Monitor, trigger: AggregationTrigger, monitorRunResult: MonitorRunResult<AggregationTriggerRunResult>, alerts: HashMap<String?, Alert>? = null):
-            this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart,
-                monitorRunResult.periodEnd, alerts, monitorRunResult.scriptContextError(trigger))
+    constructor(
+        monitor: Monitor,
+        trigger: AggregationTrigger,
+        monitorRunResult: MonitorRunResult<AggregationTriggerRunResult>,
+        dedupedAlerts: List<Alert> = listOf(),
+        newAlerts: List<Alert> = listOf(),
+        completedAlerts: List<Alert> = listOf()
+    ) : this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart, monitorRunResult.periodEnd,
+        dedupedAlerts, newAlerts, completedAlerts, monitorRunResult.scriptContextError(trigger))
 
     /**
      * Mustache templates need special permissions to reflectively introspect field names. To avoid doing this we
@@ -43,7 +51,9 @@ data class AggregationTriggerExecutionContext(
     override fun asTemplateArg(): Map<String, Any?> {
         val tempArg = super.asTemplateArg().toMutableMap()
         tempArg["trigger"] = trigger.asTemplateArg()
-        tempArg["alerts"] = alerts?.map { it.key to it.value.asTemplateArg() }
+        tempArg["dedupedAlerts"] = dedupedAlerts.map { it.asTemplateArg() }
+        tempArg["newAlerts"] = newAlerts.map { it.asTemplateArg() }
+        tempArg["completedAlerts"] = completedAlerts.map { it.asTemplateArg() }
         return tempArg
     }
 }

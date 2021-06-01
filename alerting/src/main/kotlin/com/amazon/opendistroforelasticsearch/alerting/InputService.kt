@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
+import com.amazon.opendistroforelasticsearch.alerting.util.AggregationQueryRewriter
 import com.amazon.opendistroforelasticsearch.alerting.util.addUserBackendRolesFilter
 import com.amazon.opendistroforelasticsearch.alerting.util.executeTransportAction
 import com.amazon.opendistroforelasticsearch.alerting.util.toMap
@@ -49,15 +50,23 @@ class InputService(
 
     private val logger = LogManager.getLogger(InputService::class.java)
 
-    suspend fun collectInputResults(monitor: Monitor, periodStart: Instant, periodEnd: Instant): InputRunResults {
+    suspend fun collectInputResults(
+        monitor: Monitor,
+        periodStart: Instant,
+        periodEnd: Instant,
+        prevResult: InputRunResults? = null
+    ): InputRunResults {
         return try {
             val results = mutableListOf<Map<String, Any>>()
+            val aggTriggerAfterKeys: MutableMap<String, Map<String, Any>?> = mutableMapOf()
+
             monitor.inputs.forEach { input ->
                 when (input) {
                     is SearchInput -> {
                         // TODO: Figure out a way to use SearchTemplateRequest without bringing in the entire TransportClient
                         val searchParams = mapOf("period_start" to periodStart.toEpochMilli(),
                             "period_end" to periodEnd.toEpochMilli())
+                        AggregationQueryRewriter.rewriteQuery(input.query, prevResult, monitor.triggers)
                         val searchSource = scriptService.compile(Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG,
                             input.query.toString(), searchParams), TemplateScript.CONTEXT)
                             .newInstance(searchParams)
@@ -68,6 +77,7 @@ class InputService(
                             searchRequest.source(SearchSourceBuilder.fromXContent(it))
                         }
                         val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
+                        aggTriggerAfterKeys += AggregationQueryRewriter.getAfterKeysFromSearchResponse(searchResponse, monitor.triggers)
                         results += searchResponse.convertToMap()
                     }
                     is LocalUriInput -> {
@@ -82,7 +92,7 @@ class InputService(
                     }
                 }
             }
-            InputRunResults(results.toList())
+            InputRunResults(results.toList(), aggTriggersAfterKey = aggTriggerAfterKeys)
         } catch (e: Exception) {
             logger.info("Error collecting inputs for monitor: ${monitor.id}", e)
             InputRunResults(emptyList(), e)

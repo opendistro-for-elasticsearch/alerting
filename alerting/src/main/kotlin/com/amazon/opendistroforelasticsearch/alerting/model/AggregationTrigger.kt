@@ -124,7 +124,11 @@ data class AggregationTrigger(
                     NAME_FIELD -> name = xcp.text()
                     SEVERITY_FIELD -> severity = xcp.text()
                     CONDITION_FIELD -> {
-                        bucketSelector = BucketSelectorExtAggregationBuilder.parse(name, xcp)
+                        // Using the trigger id as the name in the bucket selector since it is validated for uniqueness within Monitors
+                        // and the id is not given by users when making API requests so it should be set before this is called.
+                        // On the other hand, trigger name could potentially be given in any order in the JSON request and may not precede
+                        // the condition field.
+                        bucketSelector = BucketSelectorExtAggregationBuilder.parse(id, xcp)
                     }
                     ACTIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)

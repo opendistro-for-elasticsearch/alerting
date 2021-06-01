@@ -166,7 +166,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         client().updateSettings(AlertingSettings.ALERT_HISTORY_RETENTION_PERIOD.key, "1s")
 
         // Give some time for history to be rolled over and cleared
-        Thread.sleep(2000)
+        Thread.sleep(5000)
 
         // Given the max_docs and retention settings above, the history index will rollover and the non-write index will be deleted.
         // This leaves two indices: alert index and an empty history write index

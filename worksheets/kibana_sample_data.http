@@ -1,0 +1,9 @@
+# This will ingest the kibana sample ecommerce data into the cluster iff kibana
+# is running on 5601. If using local dev kibana make sure to pass yarn start --no-base-path
+POST localhost:5601/api/sample_data/ecommerce
+Connection: keep-alive
+kbn-version: 7.9.1
+Accept: */*
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36
+Content-Type: application/json
+###

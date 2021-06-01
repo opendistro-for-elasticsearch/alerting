@@ -21,12 +21,16 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrN
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
+import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
@@ -85,10 +89,13 @@ class AlertService(
 
     // TODO: For now this is largely a duplicate of the regular loadCurrentAlerts()
     //  The original method could be refactored to support Set if this is the final usage
-    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, Set<Alert>?> {
+    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, Map<String, Alert>?> {
+        val alertQuery = SearchSourceBuilder.searchSource()
+            .size(500) // TODO: This should be limited based on the circuit breaker that limits Alerts
+            .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitor.id))
         val request = SearchRequest(AlertIndices.ALERT_INDEX)
             .routing(monitor.id)
-            .source(alertQuery(monitor))
+            .source(alertQuery)
         val response: SearchResponse = client.suspendUntil { client.search(request, it) }
         if (response.status() != RestStatus.OK) {
             throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
@@ -97,12 +104,18 @@ class AlertService(
         val foundAlerts = response.hits.map { Alert.parse(contentParser(it.sourceRef), it.id, it.version) }
             .groupBy { it.triggerId }
 
-        return monitor.triggers.associate { trigger ->
-            trigger to (foundAlerts[trigger.id]?.toSet())
+        return monitor.triggers.associateWith { trigger ->
+            foundAlerts[trigger.id]?.mapNotNull { alert ->
+                alert.aggregationResultBucket?.let { it.getBucketKeysHash() to alert }
+            }?.toMap()
         }
     }
 
-    fun composeTraditionalAlert(ctx: TraditionalTriggerExecutionContext, result: TraditionalTriggerRunResult, alertError: AlertError?): Alert? {
+    fun composeTraditionalAlert(
+        ctx: TraditionalTriggerExecutionContext,
+        result: TraditionalTriggerRunResult,
+        alertError: AlertError?
+    ): Alert? {
         val currentTime = Instant.now()
         val currentAlert = ctx.alert
 
@@ -123,11 +136,11 @@ class AlertService(
                 }
             }
             // add action execution results which not exist in current alert
-            updatedActionExecutionResults.addAll(result.actionResults.filter { it -> !currentActionIds.contains(it.key) }
-                .map { it -> ActionExecutionResult(it.key, it.value.executionTime, if (it.value.throttled) 1 else 0) })
+            updatedActionExecutionResults.addAll(result.actionResults.filter { !currentActionIds.contains(it.key) }
+                .map { ActionExecutionResult(it.key, it.value.executionTime, if (it.value.throttled) 1 else 0) })
         } else {
-            updatedActionExecutionResults.addAll(result.actionResults.map { it -> ActionExecutionResult(it.key, it.value.executionTime,
-                if (it.value.throttled) 1 else 0) })
+            updatedActionExecutionResults.addAll(result.actionResults.map {
+                ActionExecutionResult(it.key, it.value.executionTime, if (it.value.throttled) 1 else 0) })
         }
 
         // Merge the alert's error message to the current alert's history
@@ -150,6 +163,60 @@ class AlertService(
                 errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
                 schemaVersion = IndexUtils.alertIndexSchemaVersion)
         }
+    }
+
+    // TODO: Can change the parameters to use ctx: AggregationTriggerExecutionContext instead of monitor/trigger and
+    //  result: AggTriggerRunResult for aggResultBuckets
+    // TODO: Can refactor this method to use Sets instead which can cleanup some of the categorization logic (like getting completed alerts)
+    fun getCategorizedAlertsForAggregationMonitor(
+        monitor: Monitor,
+        trigger: AggregationTrigger,
+        currentAlerts: Map<String, Alert>?,
+        aggResultBuckets: List<AggregationResultBucket>
+    ): Map<AlertCategory, List<Alert>> {
+        val dedupedAlerts = mutableListOf<Alert>()
+        val newAlerts = mutableListOf<Alert>()
+        var completedAlerts = listOf<Alert>()
+        val currentTime = Instant.now()
+
+        // TODO: Need to update errorHistory and actionExecutionResults after Actions are run for these alerts (likely in MonitorRunner)
+        aggResultBuckets.forEach { aggAlertBucket ->
+            val currentAlert = currentAlerts?.get(aggAlertBucket.getBucketKeysHash())
+            if (currentAlert != null) {
+                // De-duped Alert
+                dedupedAlerts.add(currentAlert.copy(lastNotificationTime = currentTime, aggregationResultBucket = aggAlertBucket))
+            } else {
+                // New Alert
+                // TODO: Setting lastNotificationTime is deceiving since the actions haven't run yet, maybe it should be null here
+                val newAlert = Alert(monitor = monitor, trigger = trigger, startTime = currentTime,
+                    lastNotificationTime = currentTime, state = Alert.State.ACTIVE, errorMessage = null,
+                    errorHistory = mutableListOf(), actionExecutionResults = mutableListOf(),
+                    schemaVersion = IndexUtils.alertIndexSchemaVersion, aggregationResultBucket = aggAlertBucket)
+                newAlerts.add(newAlert)
+            }
+        }
+
+        // The completed alerts can be determined by getting the difference of the current alerts and the de-duped alerts
+        if (currentAlerts != null) {
+            // Creating a set of the deduped Alert bucketKeys hashes for easy checking against currentAlerts
+            // These Alerts should always contain an aggregationResultBucket
+            val dedupedAlertsKeys = dedupedAlerts.map { it.aggregationResultBucket!!.getBucketKeysHash() }.toSet()
+            // Take all Alerts from currentAlerts that do not contain their bucketKeys hashes in dedupedAlerts to get the difference between
+            // the two
+            completedAlerts = currentAlerts.filterNot { dedupedAlertsKeys.contains(it.key) }
+                .map {
+                    // TODO: errorHistory and actionExecutionResults will need to be updated after Action execution when sending
+                    //  messages on COMPLETED alerts is supported
+                    it.value.copy(state = Alert.State.COMPLETED, endTime = currentTime, errorMessage = null,
+                        schemaVersion = IndexUtils.alertIndexSchemaVersion)
+                }
+        }
+
+        return mapOf(
+            AlertCategory.DEDUPED to dedupedAlerts,
+            AlertCategory.NEW to newAlerts,
+            AlertCategory.COMPLETED to completedAlerts
+        )
     }
 
     suspend fun saveAlerts(alerts: List<Alert>, retryPolicy: BackoffPolicy) {
@@ -222,4 +289,6 @@ class AlertService(
             else -> throw IllegalStateException("Unreachable code reached!")
         }
     }
+
+    data class CategorizedAlerts(val dedupedAlerts: List<Alert>, val newAlerts: List<Alert>, val completedAlerts: List<Alert>)
 }

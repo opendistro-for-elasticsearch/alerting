@@ -15,15 +15,27 @@
 
 package com.amazon.opendistroforelasticsearch.alerting
 
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorIndices.Fields.BUCKET_INDICES
+import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorIndices.Fields.PARENT_BUCKET_PATH
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
+import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
+import org.elasticsearch.common.ParseField
 import org.elasticsearch.script.ScriptService
+import org.elasticsearch.search.aggregations.Aggregation
+import org.elasticsearch.search.aggregations.Aggregations
+import org.elasticsearch.search.aggregations.support.AggregationPath
+import java.lang.IllegalArgumentException
 
 /** Service that handles executing Triggers */
 class TriggerService(val client: Client, val scriptService: ScriptService) {
@@ -36,7 +48,11 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
         return result.triggered && !suppress
     }
 
-    fun runTraditionalTrigger(monitor: Monitor, trigger: TraditionalTrigger, ctx: TraditionalTriggerExecutionContext): TraditionalTriggerRunResult {
+    fun runTraditionalTrigger(
+        monitor: Monitor,
+        trigger: TraditionalTrigger,
+        ctx: TraditionalTriggerExecutionContext
+    ): TraditionalTriggerRunResult {
         return try {
             val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
                 .newInstance(trigger.condition.params)
@@ -47,5 +63,52 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
             // if the script fails we need to send an alert so set triggered = true
             TraditionalTriggerRunResult(trigger.name, true, e)
         }
+    }
+
+    // TODO: This is a placeholder to write MonitorRunner logic, it can be replaced with the actual implementation when available
+    @Suppress("UNCHECKED_CAST")
+    fun runAggregationTrigger(
+        monitor: Monitor,
+        trigger: AggregationTrigger,
+        ctx: AggregationTriggerExecutionContext
+    ): AggregationTriggerRunResult {
+        return try {
+            val bucketIndices =
+                ((ctx.results[0][Aggregations.AGGREGATIONS_FIELD] as HashMap<*, *>)[trigger.id] as HashMap<*, *>)[BUCKET_INDICES] as List<*>
+            val parentBucketPath = ((ctx.results[0][Aggregations.AGGREGATIONS_FIELD] as HashMap<*, *>)
+                .get(trigger.id) as HashMap<*, *>)[PARENT_BUCKET_PATH] as String
+            val aggregationPath = AggregationPath.parse(parentBucketPath)
+            // TODO test this part by passing sub-aggregation path
+            var parentAgg = (ctx.results[0][Aggregations.AGGREGATIONS_FIELD] as HashMap<*, *>)
+            aggregationPath.pathElementsAsStringList.forEach { sub_agg ->
+                parentAgg = (parentAgg[sub_agg] as HashMap<*, *>)
+            }
+            val buckets = parentAgg[Aggregation.CommonFields.BUCKETS.preferredName] as List<*>
+            val selectedBuckets = mutableMapOf<String, AggregationResultBucket>()
+            for (bucketIndex in bucketIndices) {
+                val bucketDict = buckets[bucketIndex as Int] as Map<String, Any>
+                val bucketKeyValuesList = getBucketKeyValuesList(bucketDict)
+                val aggResultBucket = AggregationResultBucket(parentBucketPath, bucketKeyValuesList, bucketDict)
+                selectedBuckets[aggResultBucket.getBucketKeysHash()] = aggResultBucket
+            }
+            AggregationTriggerRunResult(trigger.name, null, selectedBuckets)
+        } catch (e: Exception) {
+            logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
+            // TODO empty map here with error should be treated in the same way as TraditionTrigger with error running script
+            AggregationTriggerRunResult(trigger.name, e, emptyMap())
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun getBucketKeyValuesList(bucket: Map<String, Any>): List<String> {
+        val keyField = Aggregation.CommonFields.KEY.preferredName
+        val keyValuesList = mutableListOf<String>()
+        when {
+            bucket[keyField] is String -> keyValuesList.add(bucket[keyField] as String)
+            bucket[keyField] is Map<*, *> -> (bucket[keyField] as Map<String, Any>).values.map { keyValuesList.add(it as String) }
+            else -> throw IllegalArgumentException("Unexpected format for key in bucket [$bucket]")
+        }
+
+        return keyValuesList
     }
 }

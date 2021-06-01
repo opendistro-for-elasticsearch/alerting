@@ -63,6 +63,10 @@ configurations.all {
     }
 }
 
+configurations.testCompile {
+    exclude module: "securemock"
+}
+
 dependencies {
     compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
 
@@ -76,6 +80,7 @@ dependencies {
     implementation "com.github.seancfoley:ipaddress:5.3.3"
 
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+    testCompile "org.mockito:mockito-core:2.23.0"
 }
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
