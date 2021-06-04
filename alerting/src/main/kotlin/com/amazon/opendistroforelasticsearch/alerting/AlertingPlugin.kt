@@ -38,6 +38,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.JobSweeper
 import com.amazon.opendistroforelasticsearch.alerting.core.ScheduledJobIndices
 import com.amazon.opendistroforelasticsearch.alerting.core.action.node.ScheduledJobsStatsAction
 import com.amazon.opendistroforelasticsearch.alerting.core.action.node.ScheduledJobsStatsTransportAction
+import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.resthandler.RestScheduledJobStatsHandler
@@ -124,7 +125,7 @@ import java.util.function.Supplier
  * Entry point of the OpenDistro for Elasticsearch alerting plugin
  * This class initializes the [RestGetMonitorAction], [RestDeleteMonitorAction], [RestIndexMonitorAction] rest handlers.
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [TraditionalTrigger.XCONTENT_REGISTRY],
- * [AggregationTrigger.XCONTENT_REGISTRY] to the [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
+ * [AggregationTrigger.XCONTENT_REGISTRY], [LocalUriInput.XCONTENT_REGISTRY] to the [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
 internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, ReloadablePlugin, SearchPlugin, Plugin() {
     override fun getContextWhitelists(): Map<ScriptContext<*>, List<Whitelist>> {
@@ -210,7 +211,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
             Monitor.XCONTENT_REGISTRY,
             SearchInput.XCONTENT_REGISTRY,
             TraditionalTrigger.XCONTENT_REGISTRY,
-            AggregationTrigger.XCONTENT_REGISTRY)
+            AggregationTrigger.XCONTENT_REGISTRY,
+            LocalUriInput.XCONTENT_REGISTRY)
     }
 
     override fun createComponents(

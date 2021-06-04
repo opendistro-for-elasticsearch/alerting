@@ -28,8 +28,6 @@ import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.rest.RestStatus
 import inet.ipaddr.IPAddressString
-import java.net.InetAddress
-import org.elasticsearch.transport.TransportChannel.logger
 
 /**
  * RFC 5322 compliant pattern matching: https://www.ietf.org/rfc/rfc5322.txt
@@ -55,7 +53,6 @@ fun BaseMessage.isHostInDenylist(networks: List<String>): Boolean {
     for (network in networks) {
         val netStr = IPAddressString(network)
         if (netStr.contains(ipStr)) {
-            logger.error("Host: {} resolves to: {} which is in denylist: {}.", uri.getHost(), InetAddress.getByName(uri.getHost()), netStr)
             return true
         }
     }
