@@ -153,7 +153,8 @@ class LocalUriInputTests {
 
         // WHEN + THEN
         assertFailsWith<IllegalArgumentException>(
-            "Connection timeout: $connectionTimeout is not in the range of ${LocalUriInput.MIN_CONNECTION_TIMEOUT} - ${LocalUriInput.MIN_CONNECTION_TIMEOUT}") {
+            "Connection timeout: $connectionTimeout " +
+                "is not in the range of ${LocalUriInput.MIN_CONNECTION_TIMEOUT} - ${LocalUriInput.MIN_CONNECTION_TIMEOUT}") {
             LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
     }
 
@@ -164,7 +165,8 @@ class LocalUriInputTests {
 
         // WHEN + THEN
         assertFailsWith<IllegalArgumentException>(
-            "Connection timeout: $connectionTimeout is not in the range of ${LocalUriInput.MIN_CONNECTION_TIMEOUT} - ${LocalUriInput.MIN_CONNECTION_TIMEOUT}") {
+            "Connection timeout: $connectionTimeout " +
+                "is not in the range of ${LocalUriInput.MIN_CONNECTION_TIMEOUT} - ${LocalUriInput.MIN_CONNECTION_TIMEOUT}") {
             LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
     }
 
@@ -175,7 +177,8 @@ class LocalUriInputTests {
 
         // WHEN + THEN
         assertFailsWith<IllegalArgumentException>(
-            "Socket timeout: $socketTimeout is not in the range of ${LocalUriInput.MIN_SOCKET_TIMEOUT} - ${LocalUriInput.MAX_SOCKET_TIMEOUT}") {
+            "Socket timeout: $socketTimeout " +
+                "is not in the range of ${LocalUriInput.MIN_SOCKET_TIMEOUT} - ${LocalUriInput.MAX_SOCKET_TIMEOUT}") {
             LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
     }
 
@@ -186,7 +189,8 @@ class LocalUriInputTests {
 
         // WHEN + THEN
         assertFailsWith<IllegalArgumentException>(
-            "Socket timeout: $socketTimeout is not in the range of ${LocalUriInput.MIN_SOCKET_TIMEOUT} - ${LocalUriInput.MAX_SOCKET_TIMEOUT}") {
+            "Socket timeout: $socketTimeout " +
+                "is not in the range of ${LocalUriInput.MIN_SOCKET_TIMEOUT} - ${LocalUriInput.MAX_SOCKET_TIMEOUT}") {
             LocalUriInput(scheme, host, port, path, queryParams, url, connectionTimeout, socketTimeout) }
     }
 

@@ -44,7 +44,10 @@ fun ActionResponse.toMap(): Map<String, Any> {
  * Populates a [HashMap] with only the values that support being exposed to users.
  */
 @Suppress("UNCHECKED_CAST")
-fun redactFieldsFromResponse(mappedActionResponse: Map<String, Any>, supportedJsonPayload: Map<String, ArrayList<String>>): Map<String, Any> {
+fun redactFieldsFromResponse(
+    mappedActionResponse: Map<String, Any>,
+    supportedJsonPayload: Map<String, ArrayList<String>>
+): Map<String, Any> {
     return when {
         supportedJsonPayload.isEmpty() -> mappedActionResponse
         else -> {

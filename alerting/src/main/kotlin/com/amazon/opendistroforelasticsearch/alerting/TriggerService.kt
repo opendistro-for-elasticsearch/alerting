@@ -30,7 +30,6 @@ import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
-import org.elasticsearch.common.ParseField
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.aggregations.Aggregation
 import org.elasticsearch.search.aggregations.Aggregations
