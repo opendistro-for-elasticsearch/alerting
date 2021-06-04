@@ -287,11 +287,7 @@ data class Alert(
             .optionalTimeField(LAST_NOTIFICATION_TIME_FIELD, lastNotificationTime)
             .optionalTimeField(END_TIME_FIELD, endTime)
             .optionalTimeField(ACKNOWLEDGED_TIME_FIELD, acknowledgedTime)
-        if (aggregationResultBucket == null) {
-            builder.nullField(AggregationResultBucket.CONFIG_NAME)
-        } else {
-            aggregationResultBucket.innerXContent(builder, params)
-        }
+        aggregationResultBucket?.innerXContent(builder)
         builder.endObject()
         return builder
     }
