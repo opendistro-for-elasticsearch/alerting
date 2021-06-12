@@ -486,6 +486,13 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
         return response
     }
 
+    protected fun deleteDoc(index: String, id: String, refresh: Boolean = true): Response {
+        val params = if (refresh) mapOf("refresh" to "true") else mapOf()
+        val response = client().makeRequest("DELETE", "$index/_doc/$id", params)
+        assertTrue("Unable to delete doc with ID $id in index: '$index'", listOf(RestStatus.OK).contains(response.restStatus()))
+        return response
+    }
+
     /** A test index that can be used across tests. Feel free to add new fields but don't remove any. */
     protected fun createTestIndex(index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)): String {
         createIndex(index, Settings.EMPTY, """
@@ -527,6 +534,12 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
             """.trimIndent()
             // Indexing documents with deterministic doc id to allow for easy selected deletion during testing
             indexDoc(index, (i + 1).toString(), testDoc)
+        }
+    }
+
+    protected fun deleteDataWithDocIds(index: String, docIds: List<String>) {
+        docIds.forEach {
+            deleteDoc(index, it)
         }
     }
 

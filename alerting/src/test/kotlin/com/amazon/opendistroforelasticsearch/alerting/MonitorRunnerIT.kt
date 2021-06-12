@@ -34,9 +34,12 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.client.WarningFailureException
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
@@ -929,8 +932,10 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     //  This will likely involve adding an API to the list before creating the monitor, and then removing
     //  the API from the list before executing the monitor.
 
-    // TODO: The regular query seems to be returning data but the composite agg is empty
-    //  Need to revisit this test
+    // TODO: The composite aggregation will paginate through all results during the Aggregation Monitor run.
+    //  The last page (when after_key is null) is empty if all the contents fit on the previous page, meaning the
+    //  input results returned by the monitor execution is empty.
+    //  Skipping this test for now until this is resolved to show a non-empty result.
     fun `skip test execute aggregation monitor returns search result`() {
         val testIndex = createTestIndex()
         insertSampleTimeSerializedData(
@@ -965,9 +970,10 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 filter = null
             )
         )
-        val monitor = randomAggregationMonitor(inputs = listOf(input), triggers = listOf(trigger))
-        val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
+        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+        val response = executeMonitor(monitor.id, params = DRYRUN_MONITOR)
         val output = entityAsMap(response)
+        // print("Output is: $output")
 
         assertEquals(monitor.name, output["monitor_name"])
         @Suppress("UNCHECKED_CAST")
@@ -977,24 +983,80 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         assertEquals("Incorrect search result", 2, buckets.size)
     }
 
-    fun `skip test execute aggregation monitor alert creation`() {}
+    fun `test execute aggregation monitor alert creation and completion`() {
+        val testIndex = createTestIndex()
+        insertSampleTimeSerializedData(
+            testIndex,
+            listOf(
+                "test_value_1",
+                "test_value_1", // adding duplicate to verify aggregation
+                "test_value_2"
+            )
+        )
 
-    fun `skip test execute aggregation monitor alert completion`() {
-        // create index
+        val query = QueryBuilders.rangeQuery("test_strict_date_time")
+            .gt("{{period_end}}||-10d")
+            .lte("{{period_end}}")
+            .format("epoch_millis")
+        val compositeSources = listOf(
+            TermsValuesSourceBuilder("test_field").field("test_field")
+        )
+        val compositeAgg = CompositeAggregationBuilder("composite_agg", compositeSources)
+        val input = SearchInput(indices = listOf(testIndex), query = SearchSourceBuilder().size(0).query(query).aggregation(compositeAgg))
+        val triggerScript = """
+            params.docCount > 0
+        """.trimIndent()
 
-        // load index with data
+        var trigger = randomAggregationTrigger()
+        trigger = trigger.copy(
+            bucketSelector = BucketSelectorExtAggregationBuilder(
+                name = trigger.id,
+                bucketsPathsMap = mapOf("docCount" to "_count"),
+                script = Script(triggerScript),
+                parentBucketPath = "composite_agg",
+                filter = null
+            )
+        )
+        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+        executeMonitor(monitor.id, params = DRYRUN_MONITOR)
 
-        // define monitor
+        // Check created alerts
+        var alerts = searchAlerts(monitor)
+        assertEquals("Alerts not saved", 2, alerts.size)
+        alerts.forEach {
+            verifyAlert(it, monitor, ACTIVE)
+        }
 
-        // execute monitor
+        // Delete documents of a particular value
+        deleteDataWithDocIds(
+            testIndex,
+            listOf(
+                "1", // test_value_1
+                "2" // test_value_1
+            )
+        )
 
-        // check created alerts
+        // TODO: Test, remove
+        val request = """
+                {
+                  "query" : { "match_all": {} }
+                }
+                """.trimIndent()
+        val httpResponse = adminClient().makeRequest("GET", "/$testIndex/_search", StringEntity(request, ContentType.APPLICATION_JSON))
+        assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
+        val output = createParser(JsonXContent.jsonXContent, httpResponse.entity.content).map()
+        print("Index after deletes: $output")
 
-        // delete data of a certain value
+        // Execute monitor again
+        executeMonitor(monitor.id, params = DRYRUN_MONITOR)
 
-        // execute monitor
-
-        // verify alert was completed
+        // Verify expected alert was completed
+        alerts = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN)
+        print("Alerts are: $alerts")
+        val activeAlerts = alerts.filter { it.state == ACTIVE }
+        val completedAlerts = alerts.filter { it.state == COMPLETED }
+        assertEquals("Incorrect number of active alerts", 1, activeAlerts.size)
+        assertEquals("Incorrect number of completed alerts", 1, completedAlerts.size)
     }
 
     private fun prepareTestAnomalyResult(detectorId: String, user: User) {
