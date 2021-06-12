@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.firstFailureOrN
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
@@ -65,16 +66,13 @@ class AlertService(
 
     private val logger = LogManager.getLogger(AlertService::class.java)
 
-    suspend fun loadCurrentAlerts(monitor: Monitor): Map<Trigger, Alert?> {
-        val request = SearchRequest(AlertIndices.ALERT_INDEX)
-            .routing(monitor.id)
-            .source(alertQuery(monitor))
-        val response: SearchResponse = client.suspendUntil { client.search(request, it) }
-        if (response.status() != RestStatus.OK) {
-            throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
-        }
+    suspend fun loadCurrentAlertsForTraditionalMonitor(monitor: Monitor): Map<Trigger, Alert?> {
+        val searchAlertsResponse: SearchResponse = searchAlerts(
+            monitorId = monitor.id,
+            size = monitor.triggers.size * 2 // We expect there to be only a single in-progress alert so fetch 2 to check
+        )
 
-        val foundAlerts = response.hits.map { Alert.parse(contentParser(it.sourceRef), it.id, it.version) }
+        val foundAlerts = searchAlertsResponse.hits.map { Alert.parse(contentParser(it.sourceRef), it.id, it.version) }
             .groupBy { it.triggerId }
         foundAlerts.values.forEach { alerts ->
             if (alerts.size > 1) {
@@ -87,21 +85,13 @@ class AlertService(
         }
     }
 
-    // TODO: For now this is largely a duplicate of the regular loadCurrentAlerts()
-    //  The original method could be refactored to support Set if this is the final usage
     suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, Map<String, Alert>?> {
-        val alertQuery = SearchSourceBuilder.searchSource()
-            .size(500) // TODO: This should be limited based on the circuit breaker that limits Alerts
-            .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitor.id))
-        val request = SearchRequest(AlertIndices.ALERT_INDEX)
-            .routing(monitor.id)
-            .source(alertQuery)
-        val response: SearchResponse = client.suspendUntil { client.search(request, it) }
-        if (response.status() != RestStatus.OK) {
-            throw (response.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
-        }
+        val searchAlertsResponse: SearchResponse = searchAlerts(
+            monitorId = monitor.id,
+            size = 500 // TODO: This should be a constant and limited based on the circuit breaker that limits Alerts
+        )
 
-        val foundAlerts = response.hits.map { Alert.parse(contentParser(it.sourceRef), it.id, it.version) }
+        val foundAlerts = searchAlertsResponse.hits.map { Alert.parse(contentParser(it.sourceRef), it.id, it.version) }
             .groupBy { it.triggerId }
 
         return monitor.triggers.associateWith { trigger ->
@@ -162,6 +152,46 @@ class AlertService(
                 lastNotificationTime = currentTime, state = alertState, errorMessage = alertError?.message,
                 errorHistory = updatedHistory, actionExecutionResults = updatedActionExecutionResults,
                 schemaVersion = IndexUtils.alertIndexSchemaVersion)
+        }
+    }
+
+    fun updateActionResultsForAggregationAlert(
+        currentAlert: Alert,
+        actionResults: Map<String, ActionRunResult>,
+        alertError: AlertError?
+    ): Alert {
+        val updatedActionExecutionResults = mutableListOf<ActionExecutionResult>()
+        val currentActionIds = mutableSetOf<String>()
+        // Update alert's existing action execution results
+        for (actionExecutionResult in currentAlert.actionExecutionResults) {
+            val actionId = actionExecutionResult.actionId
+            currentActionIds.add(actionId)
+            val actionRunResult = actionResults[actionId]
+            when {
+                actionRunResult == null -> updatedActionExecutionResults.add(actionExecutionResult)
+                actionRunResult.throttled ->
+                    updatedActionExecutionResults.add(actionExecutionResult.copy(
+                        throttledCount = actionExecutionResult.throttledCount + 1))
+                else -> updatedActionExecutionResults.add(actionExecutionResult.copy(lastExecutionTime = actionRunResult.executionTime))
+            }
+        }
+
+        // Add action execution results not currently present in the alert
+        updatedActionExecutionResults.addAll(
+            actionResults.filter { !currentActionIds.contains(it.key) }
+                .map { ActionExecutionResult(it.key, it.value.executionTime, if (it.value.throttled) 1 else 0) }
+        )
+
+        val updatedErrorHistory = currentAlert.errorHistory.update(alertError)
+        return if (alertError == null) {
+            currentAlert.copy(errorHistory = updatedErrorHistory, actionExecutionResults = updatedActionExecutionResults)
+        } else {
+            currentAlert.copy(
+                state = Alert.State.ERROR,
+                errorMessage = alertError.message,
+                errorHistory = updatedErrorHistory,
+                actionExecutionResults = updatedActionExecutionResults
+            )
         }
     }
 
@@ -267,6 +297,68 @@ class AlertService(
         }
     }
 
+    /**
+     * This is a separate method created specifically for saving new Alerts during the Aggregation Monitor run.
+     * Alerts are saved in two batches during the execution of an Aggregation Monitor, once before the Actions are executed
+     * and once afterwards. This method saves Alerts to the [AlertIndices.ALERT_INDEX] but returns the same Alerts with their document IDs.
+     *
+     * The Alerts are required with their indexed ID so that when the new Alerts are updated after the Action execution,
+     * the ID is available for the index request so that the existing Alert can be updated, instead of creating a duplicate Alert document.
+     */
+    suspend fun saveNewAlerts(alerts: List<Alert>, retryPolicy: BackoffPolicy): List<Alert> {
+        val savedAlerts = mutableListOf<Alert>()
+        var alertsBeingIndexed = alerts
+        var requestsToRetry: MutableList<IndexRequest> = alerts.map { alert ->
+            if (alert.state != Alert.State.ACTIVE) {
+                throw IllegalStateException("Unexpected attempt to save new alert [$alert] with state [${alert.state}]")
+            }
+            if (alert.id != Alert.NO_ID) {
+                throw IllegalStateException("Unexpected attempt to save new alert [$alert] with an existing alert ID [${alert.id}]")
+            }
+            IndexRequest(AlertIndices.ALERT_INDEX)
+                .routing(alert.monitorId)
+                .source(alert.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+        }.toMutableList()
+
+        if (requestsToRetry.isEmpty()) return listOf()
+
+        // Retry Bulk requests if there was any 429 response.
+        // The responses of a bulk request will be in the same order as the individual requests.
+        // If the index request succeeded for an Alert, the document ID from the response is taken and saved in the Alert.
+        // If the index request is to be retried, the Alert is saved separately as well so that its relative ordering is maintained in
+        // relation to index request in the retried bulk request for when it eventually succeeds.
+        retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
+            val bulkRequest = BulkRequest().add(requestsToRetry)
+            val bulkResponse: BulkResponse = client.suspendUntil { client.bulk(bulkRequest, it) }
+            // TODO: This is only used to retrieve the retryCause, could instead fetch it from the bulkResponse iteration below
+            val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
+
+            requestsToRetry = mutableListOf()
+            val alertsBeingRetried = mutableListOf<Alert>()
+            bulkResponse.items.forEach { item ->
+                if (item.isFailed) {
+                    // TODO: What if the failure cause was not TOO_MANY_REQUESTS, should these be saved and logged?
+                    if (item.status() == RestStatus.TOO_MANY_REQUESTS) {
+                        requestsToRetry.add(bulkRequest.requests()[item.itemId] as IndexRequest)
+                        alertsBeingRetried.add(alertsBeingIndexed[item.itemId])
+                    }
+                } else {
+                    // The ID of the BulkItemResponse in this case is the document ID resulting from the DocWriteRequest operation
+                    savedAlerts.add(alertsBeingIndexed[item.itemId].copy(id = item.id))
+                }
+            }
+
+            alertsBeingIndexed = alertsBeingRetried
+
+            if (requestsToRetry.isNotEmpty()) {
+                val retryCause = failedResponses.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
+                throw ExceptionsHelper.convertToElastic(retryCause)
+            }
+        }
+
+        return savedAlerts
+    }
+
     private fun contentParser(bytesReference: BytesReference): XContentParser {
         val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
             bytesReference, XContentType.JSON)
@@ -274,10 +366,29 @@ class AlertService(
         return xcp
     }
 
-    private fun alertQuery(monitor: Monitor): SearchSourceBuilder {
-        return SearchSourceBuilder.searchSource()
-            .size(monitor.triggers.size * 2) // We expect there to be only a single in-progress alert so fetch 2 to check
-            .query(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitor.id))
+    /**
+     * Searches for Alerts in the [AlertIndices.ALERT_INDEX].
+     *
+     * @param monitorId The Monitor to get Alerts for
+     * @param size The number of search hits (Alerts) to return
+     */
+    private suspend fun searchAlerts(monitorId: String, size: Int): SearchResponse {
+        val queryBuilder = QueryBuilders.boolQuery()
+            .filter(QueryBuilders.termQuery(Alert.MONITOR_ID_FIELD, monitorId))
+
+        val searchSourceBuilder = SearchSourceBuilder()
+            .size(size)
+            .query(queryBuilder)
+
+        val searchRequest = SearchRequest(AlertIndices.ALERT_INDEX)
+            .routing(monitorId)
+            .source(searchSourceBuilder)
+        val searchResponse: SearchResponse = client.suspendUntil { client.search(searchRequest, it) }
+        if (searchResponse.status() != RestStatus.OK) {
+            throw (searchResponse.firstFailureOrNull()?.cause ?: RuntimeException("Unknown error loading alerts"))
+        }
+
+        return searchResponse
     }
 
     private fun List<AlertError>?.update(alertError: AlertError?): List<AlertError> {
@@ -289,6 +400,4 @@ class AlertService(
             else -> throw IllegalStateException("Unreachable code reached!")
         }
     }
-
-    data class CategorizedAlerts(val dedupedAlerts: List<Alert>, val newAlerts: List<Alert>, val completedAlerts: List<Alert>)
 }

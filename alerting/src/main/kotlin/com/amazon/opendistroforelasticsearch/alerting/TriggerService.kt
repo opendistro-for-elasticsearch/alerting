@@ -64,7 +64,6 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
         }
     }
 
-    // TODO: This is a placeholder to write MonitorRunner logic, it can be replaced with the actual implementation when available
     @Suppress("UNCHECKED_CAST")
     fun runAggregationTrigger(
         monitor: Monitor,

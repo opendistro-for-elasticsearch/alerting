@@ -265,7 +265,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
             alertIndices.createOrUpdateInitialHistoryIndex()
-            alertService.loadCurrentAlerts(monitor)
+            alertService.loadCurrentAlertsForTraditionalMonitor(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
             val id = if (monitor.id.trim().isEmpty()) "_na_" else monitor.id
@@ -343,6 +343,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                     monitorResult.inputResults))
             }
 
+            val alertsToUpdate = mutableSetOf<Alert>()
             for (trigger in monitor.triggers) {
                 val currentAlertsForTrigger = currentAlerts[trigger]
                 val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
@@ -351,17 +352,23 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                 // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
                 //  be refactored to use a map instead
                 val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
-                    triggerResult.aggregationResultBuckets.values.toList())
+                    triggerResult.aggregationResultBuckets.values.toList()).toMutableMap()
                 val dedupedAlerts = categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList())
-                val newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
                 val completedAlerts = categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList())
 
                 // Index alerts here so they are available at the time the Actions are executed.
-                // Note: Index operations can fail for various reasons (such as write blocks on cluster). In this case, the Actions will still
-                // execute with the alert information in the ctx but the alerts may not be visible or have been stored.
+                // Note: Index operations can fail for various reasons (such as write blocks on cluster), in such a case, the Actions
+                // will still execute with the alert information in the ctx but the alerts may not be visible or have been stored.
                 alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList()), retryPolicy)
-                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList()), retryPolicy)
-                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList()), retryPolicy)
+                // TODO: Might not be able to save COMPLETED alerts here if there is going to be another update operation because
+                //  COMPLETED alerts are deleted (and optionally saved in the history index).
+//                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList()), retryPolicy)
+
+                // The new Alerts have to be returned and saved back with their indexed doc ID to prevent duplicate documents
+                // when the Alerts are updated again after Action execution
+                var newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
+                categorizedAlerts[AlertCategory.NEW] = newAlerts
+                newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
 
                 for (action in trigger.actions) {
                     if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_ALERT) {
@@ -380,6 +387,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
                                 val actionResult = runAction(action, actionCtx, dryrun)
                                 triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                                alertsToUpdate.add(alert)
                             }
                         }
                     } else if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_EXECUTION) {
@@ -398,13 +406,26 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                                 triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
                             }
                             triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                            alertsToUpdate.add(alert)
                         }
                     }
-
-                    // TODO: Originally, only Alerts that had Action failures would have another round of index operations here.
-                    //  However, after taking a closer look, it seems that all Alerts will need their actionExecutionResults updated no matter what.
-                    //  Will need to take another look at this and see how Alert composition and update logic can be made cleaner.
                 }
+
+                // Alerts are only added to alertsToUpdate after Action execution meaning the action results for it should be present
+                // in the actionResultsMap but returning a default value when accessing the map to be safe.
+                val updatedAlerts = alertsToUpdate.map { alert ->
+                    val bucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                    val actionResults = triggerResult.actionResultsMap.getOrDefault(bucketKeysHash, emptyMap<String, ActionRunResult>())
+                    alertService.updateActionResultsForAggregationAlert(
+                        alert,
+                        actionResults,
+                        // TODO: Update AggregationTriggerRunResult.alertError() to retrieve error based on the first failed Action
+                        monitorResult.alertError() ?: triggerResult.alertError()
+                    )
+                }
+
+                // Update Alerts with action execution results
+                alertService.saveAlerts(updatedAlerts, retryPolicy)
             }
         } while (monitorResult.inputResults.afterKeysPresent())
         return monitorResult.copy(triggerResults = triggerResults)
