@@ -27,6 +27,8 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Alert.State.ERROR
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionPolicy
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerExecutionActionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
@@ -34,12 +36,9 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Recipient
 import com.amazon.opendistroforelasticsearch.alerting.util.DestinationType
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
-import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.client.WarningFailureException
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
@@ -983,7 +982,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         assertEquals("Incorrect search result", 2, buckets.size)
     }
 
-    fun `test execute aggregation monitor alert creation and completion`() {
+    fun `test aggregation monitor alert creation and completion`() {
         val testIndex = createTestIndex()
         insertSampleTimeSerializedData(
             testIndex,
@@ -1036,27 +1035,162 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             )
         )
 
-        // TODO: Test, remove
-        val request = """
-                {
-                  "query" : { "match_all": {} }
-                }
-                """.trimIndent()
-        val httpResponse = adminClient().makeRequest("GET", "/$testIndex/_search", StringEntity(request, ContentType.APPLICATION_JSON))
-        assertEquals("Search failed", RestStatus.OK, httpResponse.restStatus())
-        val output = createParser(JsonXContent.jsonXContent, httpResponse.entity.content).map()
-        print("Index after deletes: $output")
-
         // Execute monitor again
         executeMonitor(monitor.id, params = DRYRUN_MONITOR)
 
         // Verify expected alert was completed
         alerts = searchAlerts(monitor, AlertIndices.ALL_INDEX_PATTERN)
-        print("Alerts are: $alerts")
         val activeAlerts = alerts.filter { it.state == ACTIVE }
         val completedAlerts = alerts.filter { it.state == COMPLETED }
         assertEquals("Incorrect number of active alerts", 1, activeAlerts.size)
         assertEquals("Incorrect number of completed alerts", 1, completedAlerts.size)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun `test aggregation monitor with one good action and one bad action`() {
+        val testIndex = createTestIndex()
+        insertSampleTimeSerializedData(
+            testIndex,
+            listOf(
+                "test_value_1",
+                "test_value_1",
+                "test_value_3",
+                "test_value_2",
+                "test_value_2"
+            )
+        )
+
+        val query = QueryBuilders.rangeQuery("test_strict_date_time")
+            .gt("{{period_end}}||-10d")
+            .lte("{{period_end}}")
+            .format("epoch_millis")
+        val compositeSources = listOf(
+            TermsValuesSourceBuilder("test_field").field("test_field")
+        )
+        val compositeAgg = CompositeAggregationBuilder("composite_agg", compositeSources)
+        val input = SearchInput(indices = listOf(testIndex), query = SearchSourceBuilder().size(0).query(query).aggregation(compositeAgg))
+        // Trigger script should only create Alerts for 'test_value_1' and 'test_value_2'
+        val triggerScript = """
+            params.docCount > 1
+        """.trimIndent()
+
+        val goodAction = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name}}"), destinationId = createDestination().id)
+        val syntaxErrorAction = randomAction(
+            name = "bad syntax",
+            template = randomTemplateScript("{{foo"),
+            destinationId = createDestination().id)
+        val actions = listOf(goodAction, syntaxErrorAction)
+
+        var trigger = randomAggregationTrigger(actions = actions)
+        trigger = trigger.copy(
+            bucketSelector = BucketSelectorExtAggregationBuilder(
+                name = trigger.id,
+                bucketsPathsMap = mapOf("docCount" to "_count"),
+                script = Script(triggerScript),
+                parentBucketPath = "composite_agg",
+                filter = null
+            )
+        )
+        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+
+        val output = entityAsMap(executeMonitor(monitor.id))
+        // The 'events' in this case are the bucketKeys hashes representing the Alert events
+        val expectedEvents = setOf("test_value_1", "test_value_2")
+
+        assertEquals(monitor.name, output["monitor_name"])
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            for (alertEvent in triggerResult.objectMap("action_results")) {
+                assertTrue(expectedEvents.contains(alertEvent.key))
+                val actionResults = alertEvent.value.values as Collection<Map<String, Any>>
+                for (actionResult in actionResults) {
+                    val actionOutput = actionResult["output"] as Map<String, String>
+                    if (actionResult["name"] == goodAction.name) {
+                        assertEquals("Hello ${monitor.name}", actionOutput["message"])
+                    } else if (actionResult["name"] == syntaxErrorAction.name) {
+                        assertTrue("Missing action error message", (actionResult["error"] as String).isNotEmpty())
+                    } else {
+                        fail("Unknown action: ${actionResult["name"]}")
+                    }
+                }
+            }
+        }
+
+        // Check created alerts
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alerts not saved", 2, alerts.size)
+        alerts.forEach {
+            verifyAlert(it, monitor, ACTIVE)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun `test aggregation monitor with per execution action frequency`() {
+        val testIndex = createTestIndex()
+        insertSampleTimeSerializedData(
+            testIndex,
+            listOf(
+                "test_value_1",
+                "test_value_1",
+                "test_value_3",
+                "test_value_2",
+                "test_value_2"
+            )
+        )
+
+        val query = QueryBuilders.rangeQuery("test_strict_date_time")
+            .gt("{{period_end}}||-10d")
+            .lte("{{period_end}}")
+            .format("epoch_millis")
+        val compositeSources = listOf(
+            TermsValuesSourceBuilder("test_field").field("test_field")
+        )
+        val compositeAgg = CompositeAggregationBuilder("composite_agg", compositeSources)
+        val input = SearchInput(indices = listOf(testIndex), query = SearchSourceBuilder().size(0).query(query).aggregation(compositeAgg))
+        // Trigger script should only create Alerts for 'test_value_1' and 'test_value_2'
+        val triggerScript = """
+            params.docCount > 1
+        """.trimIndent()
+
+        val action = randomAction(
+            template = randomTemplateScript("Hello {{ctx.monitor.name}}"),
+            destinationId = createDestination().id,
+            actionExecutionPolicy = ActionExecutionPolicy(null, PerExecutionActionFrequency())
+        )
+        var trigger = randomAggregationTrigger(actions = listOf(action))
+        trigger = trigger.copy(
+            bucketSelector = BucketSelectorExtAggregationBuilder(
+                name = trigger.id,
+                bucketsPathsMap = mapOf("docCount" to "_count"),
+                script = Script(triggerScript),
+                parentBucketPath = "composite_agg",
+                filter = null
+            )
+        )
+        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+
+        val output = entityAsMap(executeMonitor(monitor.id))
+        // The 'events' in this case are the bucketKeys hashes representing the Alert events
+        val expectedEvents = setOf("test_value_1", "test_value_2")
+
+        assertEquals(monitor.name, output["monitor_name"])
+        for (triggerResult in output.objectMap("trigger_results").values) {
+            for (alertEvent in triggerResult.objectMap("action_results")) {
+                assertTrue(expectedEvents.contains(alertEvent.key))
+                val actionResults = alertEvent.value.values as Collection<Map<String, Any>>
+                for (actionResult in actionResults) {
+                    val actionOutput = actionResult["output"] as Map<String, String>
+                    assertEquals("Unknown action: ${actionResult["name"]}", action.name, actionResult["name"])
+                    assertEquals("Hello ${monitor.name}", actionOutput["message"])
+                }
+            }
+        }
+
+        // Check created alerts
+        val alerts = searchAlerts(monitor)
+        assertEquals("Alerts not saved", 2, alerts.size)
+        alerts.forEach {
+            verifyAlert(it, monitor, ACTIVE)
+        }
     }
 
     private fun prepareTestAnomalyResult(detectorId: String, user: User) {
