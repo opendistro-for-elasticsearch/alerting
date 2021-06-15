@@ -332,7 +332,25 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             return monitorResult.copy(error = e)
         }
 
+        /*
+         * Since the aggregation query can consist of multiple pages, each iteration of the do-while loop only has partial results
+         * from the runAggregationTrigger results whereas the currentAlerts has a complete view of existing Alerts. This means that
+         * it can be confirmed if an Alert is new or de-duped local to the do-while loop if a key appears or doesn't appear in
+         * the currentAlerts. However, it cannot be guaranteed that an existing Alert is COMPLETED until all pages have been
+         * iterated over (since a bucket that did not appear in one page of the aggregation results, could appear in a later page).
+         *
+         * To solve for this, the currentAlerts will be acting as a list of "potentially completed alerts" throughout the execution.
+         * When categorizing the Alerts in each iteration, de-duped Alerts will be removed from the currentAlerts map
+         * (for the Trigger being executed) and the Alerts left in currentAlerts after all pages have been iterated through can
+         * be marked as COMPLETED since they were never de-duped.
+         *
+         * Meanwhile, the nextAlerts map will contain Alerts that will exist at the end of this Monitor execution. It is a compilation
+         * across Triggers because in the case of executing actions at a PER_EXECUTION frequency, all the Alerts are needed before executing
+         * Actions which can only be done once all of the aggregation results (and Triggers given the pagination logic) have been evaluated.
+         */
         val triggerResults = mutableMapOf<String, AggregationTriggerRunResult>()
+        val triggerContexts = mutableMapOf<String, AggregationTriggerExecutionContext>()
+        val nextAlerts = mutableMapOf<String, MutableMap<AlertCategory, MutableList<Alert>>>()
         do {
             // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
             //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
@@ -343,91 +361,117 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                     monitorResult.inputResults))
             }
 
-            val alertsToUpdate = mutableSetOf<Alert>()
             for (trigger in monitor.triggers) {
                 val currentAlertsForTrigger = currentAlerts[trigger]
                 val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
+                triggerContexts[trigger.id] = triggerCtx
                 val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
                 triggerResults[trigger.id] = triggerResult.getCombinedTriggerRunResult(triggerResults[trigger.id])
+
                 // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
                 //  be refactored to use a map instead
                 val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
                     triggerResult.aggregationResultBuckets.values.toList()).toMutableMap()
                 val dedupedAlerts = categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList())
-                val completedAlerts = categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList())
-
-                // Index alerts here so they are available at the time the Actions are executed.
-                // Note: Index operations can fail for various reasons (such as write blocks on cluster), in such a case, the Actions
-                // will still execute with the alert information in the ctx but the alerts may not be visible or have been stored.
-                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList()), retryPolicy)
-                // TODO: Might not be able to save COMPLETED alerts here if there is going to be another update operation because
-                //  COMPLETED alerts are deleted (and optionally saved in the history index).
-//                alertService.saveAlerts(categorizedAlerts.getOrDefault(AlertCategory.COMPLETED, emptyList()), retryPolicy)
-
-                // The new Alerts have to be returned and saved back with their indexed doc ID to prevent duplicate documents
-                // when the Alerts are updated again after Action execution
                 var newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
-                categorizedAlerts[AlertCategory.NEW] = newAlerts
-                newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
 
-                for (action in trigger.actions) {
-                    if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_ALERT) {
-                        val perAlertActionFrequency = action.actionExecutionPolicy.actionExecutionFrequency as PerAlertActionFrequency
-                        for (alertCategory in perAlertActionFrequency.actionableAlerts) {
-                            for (alert in categorizedAlerts.getOrDefault(alertCategory, emptyList())) {
-                                if (isAggregationTriggerActionThrottled(action, alert)) continue
+                /*
+                 * Index de-duped and new Alerts here so they are available at the time the Actions are executed.
+                 *
+                 * The new Alerts have to be returned and saved back with their indexed doc ID to prevent duplicate documents
+                 * when the Alerts are updated again after Action execution.
+                 *
+                 * Note: Index operations can fail for various reasons (such as write blocks on cluster), in such a case, the Actions
+                 * will still execute with the Alert information in the ctx but the Alerts may not be visible.
+                 */
+                alertService.saveAlerts(dedupedAlerts, retryPolicy)
+                newAlerts = alertService.saveNewAlerts(
+                    categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList()), retryPolicy)
 
-                                val actionCtx = getActionContextForAlertCategory(alertCategory, alert, triggerCtx,
-                                    monitorResult.error ?: triggerResult.error)
-                                // AggregationResultBucket should not be null here
-                                val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
-                                if (!triggerResult.actionResultsMap.containsKey(alertBucketKeysHash)) {
-                                    triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
-                                }
+                // Store deduped and new Alerts to accumulate across pages
+                if (!nextAlerts.containsKey(trigger.id)) {
+                    nextAlerts[trigger.id] = mutableMapOf(
+                        AlertCategory.DEDUPED to mutableListOf(),
+                        AlertCategory.NEW to mutableListOf(),
+                        AlertCategory.COMPLETED to mutableListOf()
+                    )
+                }
+                nextAlerts[trigger.id]?.get(AlertCategory.DEDUPED)?.addAll(dedupedAlerts)
+                nextAlerts[trigger.id]?.get(AlertCategory.NEW)?.addAll(newAlerts)
+            }
+        } while (monitorResult.inputResults.afterKeysPresent())
 
-                                val actionResult = runAction(action, actionCtx, dryrun)
-                                triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
-                                alertsToUpdate.add(alert)
-                            }
-                        }
-                    } else if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_EXECUTION) {
-                        // TODO: PER_EXECUTION logic will need to be lifted out of the do-while loop since currently
-                        //  the Actions will be executed per page instead of once per run
-                        // If all categories of Alerts are empty, there is nothing to message on and we can skip the Action
-                        if (dedupedAlerts.isEmpty() && newAlerts.isEmpty() && completedAlerts.isEmpty()) continue
+        // The completed Alerts are whatever are left in the currentAlerts
+        currentAlerts.forEach { (trigger, keysToAlertsMap) ->
+            nextAlerts[trigger.id]?.get(AlertCategory.COMPLETED)?.addAll(alertService.convertToCompletedAlerts(keysToAlertsMap))
+        }
 
-                        val actionCtx = triggerCtx.copy(dedupedAlerts = dedupedAlerts, newAlerts = newAlerts,
-                            completedAlerts = completedAlerts, error = monitorResult.error ?: triggerResult.error)
-                        val actionResult = runAction(action, actionCtx, dryrun)
-                        // Save the Action run result for every Alert
-                        for (alert in (dedupedAlerts + newAlerts + completedAlerts)) {
+        for (trigger in monitor.triggers) {
+            val alertsToUpdate = mutableSetOf<Alert>()
+            val dedupedAlerts = nextAlerts[trigger.id]?.get(AlertCategory.DEDUPED) ?: mutableListOf()
+            val newAlerts = nextAlerts[trigger.id]?.get(AlertCategory.NEW) ?: mutableListOf()
+            val completedAlerts = nextAlerts[trigger.id]?.get(AlertCategory.COMPLETED) ?: mutableListOf()
+
+            // All trigger contexts and results should be available at this point since all triggers were evaluated in the main do-while loop
+            val triggerCtx = triggerContexts[trigger.id]!!
+            val triggerResult = triggerResults[trigger.id]!!
+            for (action in trigger.actions) {
+                if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_ALERT) {
+                    val perAlertActionFrequency = action.actionExecutionPolicy.actionExecutionFrequency as PerAlertActionFrequency
+                    for (alertCategory in perAlertActionFrequency.actionableAlerts) {
+                        val alertsToExecuteActionsFor = nextAlerts[trigger.id]?.get(alertCategory) ?: mutableListOf()
+                        for (alert in alertsToExecuteActionsFor) {
+                            if (isAggregationTriggerActionThrottled(action, alert)) continue
+
+                            val actionCtx = getActionContextForAlertCategory(alertCategory, alert, triggerCtx,
+                                monitorResult.error ?: triggerResult.error)
+                            // AggregationResultBucket should not be null here
                             val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
                             if (!triggerResult.actionResultsMap.containsKey(alertBucketKeysHash)) {
                                 triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
                             }
+
+                            val actionResult = runAction(action, actionCtx, dryrun)
                             triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
                             alertsToUpdate.add(alert)
                         }
                     }
-                }
+                } else if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_EXECUTION) {
+                    // If all categories of Alerts are empty, there is nothing to message on and we can skip the Action
+                    if (dedupedAlerts.isEmpty() && newAlerts.isEmpty() && completedAlerts.isEmpty()) continue
 
-                // Alerts are only added to alertsToUpdate after Action execution meaning the action results for it should be present
-                // in the actionResultsMap but returning a default value when accessing the map to be safe.
-                val updatedAlerts = alertsToUpdate.map { alert ->
-                    val bucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
-                    val actionResults = triggerResult.actionResultsMap.getOrDefault(bucketKeysHash, emptyMap<String, ActionRunResult>())
-                    alertService.updateActionResultsForAggregationAlert(
-                        alert,
-                        actionResults,
-                        // TODO: Update AggregationTriggerRunResult.alertError() to retrieve error based on the first failed Action
-                        monitorResult.alertError() ?: triggerResult.alertError()
-                    )
+                    val actionCtx = triggerCtx.copy(dedupedAlerts = dedupedAlerts, newAlerts = newAlerts,
+                        completedAlerts = completedAlerts, error = monitorResult.error ?: triggerResult.error)
+                    val actionResult = runAction(action, actionCtx, dryrun)
+                    // Save the Action run result for every Alert
+                    for (alert in (dedupedAlerts + newAlerts + completedAlerts)) {
+                        val alertBucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                        if (!triggerResult.actionResultsMap.containsKey(alertBucketKeysHash)) {
+                            triggerResult.actionResultsMap[alertBucketKeysHash] = mutableMapOf()
+                        }
+                        triggerResult.actionResultsMap[alertBucketKeysHash]?.set(action.id, actionResult)
+                        alertsToUpdate.add(alert)
+                    }
                 }
-
-                // Update Alerts with action execution results
-                alertService.saveAlerts(updatedAlerts, retryPolicy)
             }
-        } while (monitorResult.inputResults.afterKeysPresent())
+
+            // Alerts are only added to alertsToUpdate after Action execution meaning the action results for it should be present
+            // in the actionResultsMap but returning a default value when accessing the map to be safe.
+            val updatedAlerts = alertsToUpdate.map { alert ->
+                val bucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
+                val actionResults = triggerResult.actionResultsMap.getOrDefault(bucketKeysHash, emptyMap<String, ActionRunResult>())
+                alertService.updateActionResultsForAggregationAlert(
+                    alert,
+                    actionResults,
+                    // TODO: Update AggregationTriggerRunResult.alertError() to retrieve error based on the first failed Action
+                    monitorResult.alertError() ?: triggerResult.alertError()
+                )
+            }
+
+            // Update Alerts with action execution results
+            alertService.saveAlerts(updatedAlerts, retryPolicy)
+        }
+
         return monitorResult.copy(triggerResults = triggerResults)
     }
 

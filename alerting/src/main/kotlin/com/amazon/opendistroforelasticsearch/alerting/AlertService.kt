@@ -85,7 +85,7 @@ class AlertService(
         }
     }
 
-    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, Map<String, Alert>?> {
+    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, MutableMap<String, Alert>?> {
         val searchAlertsResponse: SearchResponse = searchAlerts(
             monitorId = monitor.id,
             size = 500 // TODO: This should be a constant and limited based on the circuit breaker that limits Alerts
@@ -97,7 +97,7 @@ class AlertService(
         return monitor.triggers.associateWith { trigger ->
             foundAlerts[trigger.id]?.mapNotNull { alert ->
                 alert.aggregationResultBucket?.let { it.getBucketKeysHash() to alert }
-            }?.toMap()
+            }?.toMap() as MutableMap<String, Alert>?
         }
     }
 
@@ -201,7 +201,7 @@ class AlertService(
     fun getCategorizedAlertsForAggregationMonitor(
         monitor: Monitor,
         trigger: AggregationTrigger,
-        currentAlerts: Map<String, Alert>?,
+        currentAlerts: MutableMap<String, Alert>?,
         aggResultBuckets: List<AggregationResultBucket>
     ): Map<AlertCategory, List<Alert>> {
         val dedupedAlerts = mutableListOf<Alert>()
@@ -209,12 +209,14 @@ class AlertService(
         var completedAlerts = listOf<Alert>()
         val currentTime = Instant.now()
 
-        // TODO: Need to update errorHistory and actionExecutionResults after Actions are run for these alerts (likely in MonitorRunner)
         aggResultBuckets.forEach { aggAlertBucket ->
             val currentAlert = currentAlerts?.get(aggAlertBucket.getBucketKeysHash())
             if (currentAlert != null) {
                 // De-duped Alert
                 dedupedAlerts.add(currentAlert.copy(lastNotificationTime = currentTime, aggregationResultBucket = aggAlertBucket))
+
+                // Remove de-duped Alert from currentAlerts since it is no longer a candidate for a potentially completed Alert
+                currentAlerts.remove(aggAlertBucket.getBucketKeysHash())
             } else {
                 // New Alert
                 // TODO: Setting lastNotificationTime is deceiving since the actions haven't run yet, maybe it should be null here
@@ -226,27 +228,19 @@ class AlertService(
             }
         }
 
-        // The completed alerts can be determined by getting the difference of the current alerts and the de-duped alerts
-        if (currentAlerts != null) {
-            // Creating a set of the deduped Alert bucketKeys hashes for easy checking against currentAlerts
-            // These Alerts should always contain an aggregationResultBucket
-            val dedupedAlertsKeys = dedupedAlerts.map { it.aggregationResultBucket!!.getBucketKeysHash() }.toSet()
-            // Take all Alerts from currentAlerts that do not contain their bucketKeys hashes in dedupedAlerts to get the difference between
-            // the two
-            completedAlerts = currentAlerts.filterNot { dedupedAlertsKeys.contains(it.key) }
-                .map {
-                    // TODO: errorHistory and actionExecutionResults will need to be updated after Action execution when sending
-                    //  messages on COMPLETED alerts is supported
-                    it.value.copy(state = Alert.State.COMPLETED, endTime = currentTime, errorMessage = null,
-                        schemaVersion = IndexUtils.alertIndexSchemaVersion)
-                }
-        }
-
         return mapOf(
             AlertCategory.DEDUPED to dedupedAlerts,
             AlertCategory.NEW to newAlerts,
             AlertCategory.COMPLETED to completedAlerts
         )
+    }
+
+    fun convertToCompletedAlerts(currentAlerts: Map<String, Alert>?): List<Alert> {
+        val currentTime = Instant.now()
+        return currentAlerts?.map {
+            it.value.copy(state = Alert.State.COMPLETED, endTime = currentTime, errorMessage = null,
+                schemaVersion = IndexUtils.alertIndexSchemaVersion)
+        } ?: listOf()
     }
 
     suspend fun saveAlerts(alerts: List<Alert>, retryPolicy: BackoffPolicy) {

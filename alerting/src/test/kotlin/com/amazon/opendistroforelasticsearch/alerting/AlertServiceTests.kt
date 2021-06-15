@@ -128,12 +128,14 @@ class AlertServiceTests : ESTestCase() {
         val aggResultBuckets = listOf<AggregationResultBucket>()
 
         val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        // Completed Alerts are what remains in currentAlerts after categorization
+        val completedAlerts = currentAlerts.values.toList()
         assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.DEDUPED])
         assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.NEW])
         assertAlertsExistForBucketKeys(listOf(
             listOf("a"),
             listOf("b")
-        ), categorizedAlerts[AlertCategory.COMPLETED] ?: error("Completed alerts not found"))
+        ), completedAlerts)
     }
 
     fun `test getting categorized alerts for aggregation monitor with de-duped and completed alerts`() {
@@ -150,23 +152,24 @@ class AlertServiceTests : ESTestCase() {
         ))
 
         val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        // Completed Alerts are what remains in currentAlerts after categorization
+        val completedAlerts = currentAlerts.values.toList()
         assertAlertsExistForBucketKeys(listOf(listOf("b")), categorizedAlerts[AlertCategory.DEDUPED] ?: error("Deduped alerts not found"))
         assertAlertsExistForBucketKeys(listOf(listOf("c")), categorizedAlerts[AlertCategory.NEW] ?: error("New alerts not found"))
-        assertAlertsExistForBucketKeys(listOf(listOf("a")),
-            categorizedAlerts[AlertCategory.COMPLETED] ?: error("Completed alerts not found"))
+        assertAlertsExistForBucketKeys(listOf(listOf("a")), completedAlerts)
     }
 
     private fun createCurrentAlertsFromBucketKeys(
         monitor: Monitor,
         trigger: AggregationTrigger,
         bucketKeysList: List<List<String>>
-    ): Map<String, Alert> {
+    ): MutableMap<String, Alert> {
         return bucketKeysList.map { bucketKeys ->
             val aggResultBucket = AggregationResultBucket("parent_bucket_path", bucketKeys, mapOf())
             val alert = Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
                 actionExecutionResults = listOf(randomActionExecutionResult()), aggregationResultBucket = aggResultBucket)
             aggResultBucket.getBucketKeysHash() to alert
-        }.toMap()
+        }.toMap() as MutableMap<String, Alert>
     }
 
     private fun createAggregationResultBucketsFromBucketKeys(bucketKeysList: List<List<String>>): List<AggregationResultBucket> {
