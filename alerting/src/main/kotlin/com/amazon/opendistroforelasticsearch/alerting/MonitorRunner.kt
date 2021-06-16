@@ -362,7 +362,8 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             }
 
             for (trigger in monitor.triggers) {
-                val currentAlertsForTrigger = currentAlerts[trigger]
+                // The currentAlerts map is formed by iterating over the Monitor's Triggers as keys so null should not be returned here
+                val currentAlertsForTrigger = currentAlerts[trigger]!!
                 val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
                 triggerContexts[trigger.id] = triggerCtx
                 val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
@@ -385,8 +386,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                  * will still execute with the Alert information in the ctx but the Alerts may not be visible.
                  */
                 alertService.saveAlerts(dedupedAlerts, retryPolicy)
-                newAlerts = alertService.saveNewAlerts(
-                    categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList()), retryPolicy)
+                newAlerts = alertService.saveNewAlerts(newAlerts, retryPolicy)
 
                 // Store deduped and new Alerts to accumulate across pages
                 if (!nextAlerts.containsKey(trigger.id)) {

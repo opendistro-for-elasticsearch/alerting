@@ -80,12 +80,12 @@ class AlertService(
             }
         }
 
-        return monitor.triggers.associate { trigger ->
-            trigger to (foundAlerts[trigger.id]?.firstOrNull())
+        return monitor.triggers.associateWith { trigger ->
+            foundAlerts[trigger.id]?.firstOrNull()
         }
     }
 
-    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, MutableMap<String, Alert>?> {
+    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, MutableMap<String, Alert>> {
         val searchAlertsResponse: SearchResponse = searchAlerts(
             monitorId = monitor.id,
             size = 500 // TODO: This should be a constant and limited based on the circuit breaker that limits Alerts
@@ -95,9 +95,10 @@ class AlertService(
             .groupBy { it.triggerId }
 
         return monitor.triggers.associateWith { trigger ->
-            foundAlerts[trigger.id]?.mapNotNull { alert ->
+            // Default to an empty map if there are no Alerts found for a Trigger to make Alert categorization logic easier
+            (foundAlerts[trigger.id]?.mapNotNull { alert ->
                 alert.aggregationResultBucket?.let { it.getBucketKeysHash() to alert }
-            }?.toMap() as MutableMap<String, Alert>?
+            }?.toMap() ?: mutableMapOf()) as MutableMap<String, Alert>
         }
     }
 
@@ -201,16 +202,15 @@ class AlertService(
     fun getCategorizedAlertsForAggregationMonitor(
         monitor: Monitor,
         trigger: AggregationTrigger,
-        currentAlerts: MutableMap<String, Alert>?,
+        currentAlerts: MutableMap<String, Alert>,
         aggResultBuckets: List<AggregationResultBucket>
     ): Map<AlertCategory, List<Alert>> {
         val dedupedAlerts = mutableListOf<Alert>()
         val newAlerts = mutableListOf<Alert>()
-        var completedAlerts = listOf<Alert>()
         val currentTime = Instant.now()
 
         aggResultBuckets.forEach { aggAlertBucket ->
-            val currentAlert = currentAlerts?.get(aggAlertBucket.getBucketKeysHash())
+            val currentAlert = currentAlerts[aggAlertBucket.getBucketKeysHash()]
             if (currentAlert != null) {
                 // De-duped Alert
                 dedupedAlerts.add(currentAlert.copy(lastNotificationTime = currentTime, aggregationResultBucket = aggAlertBucket))
@@ -230,8 +230,7 @@ class AlertService(
 
         return mapOf(
             AlertCategory.DEDUPED to dedupedAlerts,
-            AlertCategory.NEW to newAlerts,
-            AlertCategory.COMPLETED to completedAlerts
+            AlertCategory.NEW to newAlerts
         )
     }
 

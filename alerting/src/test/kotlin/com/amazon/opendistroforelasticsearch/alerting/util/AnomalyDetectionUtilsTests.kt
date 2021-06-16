@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 import com.amazon.opendistroforelasticsearch.alerting.ANOMALY_RESULT_INDEX
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
@@ -30,7 +30,7 @@ import org.elasticsearch.test.ESTestCase
 class AnomalyDetectionUtilsTests : ESTestCase() {
 
     fun `test is ad monitor`() {
-        val monitor = randomMonitor(
+        val monitor = randomTraditionalMonitor(
                 inputs = listOf(SearchInput(listOf(ANOMALY_RESULT_INDEX),
                         SearchSourceBuilder().query(QueryBuilders.matchAllQuery())))
         )
@@ -39,14 +39,14 @@ class AnomalyDetectionUtilsTests : ESTestCase() {
 
     fun `test not ad monitor if monitor have no inputs`() {
 
-        val monitor = randomMonitor(
+        val monitor = randomTraditionalMonitor(
                 inputs = listOf()
         )
         assertFalse(isADMonitor(monitor))
     }
 
     fun `test not ad monitor if monitor input is not search input`() {
-        val monitor = randomMonitor(
+        val monitor = randomTraditionalMonitor(
                 inputs = listOf(object : Input {
                     override fun name(): String {
                         TODO("Not yet implemented")
@@ -65,7 +65,7 @@ class AnomalyDetectionUtilsTests : ESTestCase() {
     }
 
     fun `test not ad monitor if monitor input has more than 1 indices`() {
-        val monitor = randomMonitor(
+        val monitor = randomTraditionalMonitor(
                 inputs = listOf(SearchInput(listOf(randomAlphaOfLength(5), randomAlphaOfLength(5)),
                         SearchSourceBuilder().query(QueryBuilders.matchAllQuery())))
         )
@@ -73,7 +73,7 @@ class AnomalyDetectionUtilsTests : ESTestCase() {
     }
 
     fun `test not ad monitor if monitor input's index name is not AD result index`() {
-        val monitor = randomMonitor(
+        val monitor = randomTraditionalMonitor(
                 inputs = listOf(SearchInput(listOf(randomAlphaOfLength(5)), SearchSourceBuilder().query(QueryBuilders.matchAllQuery())))
         )
         assertFalse(isADMonitor(monitor))

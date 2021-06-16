@@ -32,7 +32,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomAnomalyDetector
 import com.amazon.opendistroforelasticsearch.alerting.randomAnomalyDetectorWithUser
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
@@ -90,7 +90,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
 
     @Throws(Exception::class)
     fun `test creating a monitor`() {
-        val monitor = randomMonitor()
+        val monitor = randomTraditionalMonitor()
 
         val createResponse = client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
 
@@ -138,7 +138,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
 
     fun `test creating a monitor with PUT fails`() {
         try {
-            val monitor = randomMonitor()
+            val monitor = randomTraditionalMonitor()
             client().makeRequest("PUT", ALERTING_BASE_URI, emptyMap(), monitor.toHttpEntity())
             fail("Expected 405 Method Not Allowed response")
         } catch (e: ResponseException) {
@@ -149,7 +149,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
     fun `test creating a monitor with illegal index name`() {
         try {
             val si = SearchInput(listOf("_#*IllegalIndexCharacters"), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
-            val monitor = randomMonitor()
+            val monitor = randomTraditionalMonitor()
             client().makeRequest("POST", ALERTING_BASE_URI, emptyMap(), monitor.copy(inputs = listOf(si)).toHttpEntity())
         } catch (e: ResponseException) {
             // When an index with invalid name is mentioned, instead of returning invalid_index_name_exception security plugin throws security_exception.
@@ -657,7 +657,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         client().updateSettings(ScheduledJobSettings.SWEEPER_ENABLED.key, true)
         putAlertMappings()
         val trigger = randomTraditionalTrigger()
-        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
+        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
         val alert = createAlert(randomAlert(monitor).copy(triggerId = trigger.id, state = Alert.State.ACTIVE))
         refreshIndex("*")
         val updatedMonitor = monitor.copy(triggers = emptyList())
@@ -681,7 +681,7 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         putAlertMappings()
         val triggerToDelete = randomTraditionalTrigger()
         val triggerToKeep = randomTraditionalTrigger()
-        val monitor = createMonitor(randomMonitor(triggers = listOf(triggerToDelete, triggerToKeep)))
+        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(triggerToDelete, triggerToKeep)))
         val alertKeep = createAlert(randomAlert(monitor).copy(triggerId = triggerToKeep.id, state = Alert.State.ACTIVE))
         val alertDelete = createAlert(randomAlert(monitor).copy(triggerId = triggerToDelete.id, state = Alert.State.ACTIVE))
         refreshIndex("*")
@@ -814,6 +814,6 @@ class MonitorRestApiIT : AlertingRestTestCase() {
         val throttle = randomThrottle(value, unit)
         val action = randomAction().copy(throttle = throttle)
         val trigger = randomTraditionalTrigger(actions = listOf(action))
-        return randomMonitor(triggers = listOf(trigger))
+        return randomTraditionalMonitor(triggers = listOf(trigger))
     }
 }

@@ -312,7 +312,8 @@ data class Alert(
             SEVERITY_FIELD to severity,
             START_TIME_FIELD to startTime.toEpochMilli(),
             STATE_FIELD to state.toString(),
-            BUCKET_KEYS to aggregationResultBucket?.bucketKeys,
+            // Converting bucket keys to comma separated String to avoid manipulation in Action mustache templates
+            BUCKET_KEYS to aggregationResultBucket?.bucketKeys?.joinToString(","),
             PARENTS_BUCKET_PATH to aggregationResultBucket?.parentBucketPath)
     }
 }

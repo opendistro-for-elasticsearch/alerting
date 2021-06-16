@@ -80,19 +80,21 @@ class AlertServiceTests : ESTestCase() {
         val trigger = randomAggregationTrigger()
         val monitor = randomAggregationMonitor(triggers = listOf(trigger))
 
-        val currentAlerts = null
+        val currentAlerts = mutableMapOf<String, Alert>()
         val aggResultBuckets = createAggregationResultBucketsFromBucketKeys(listOf(
             listOf("a"),
             listOf("b")
         ))
 
         val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        // Completed Alerts are what remains in currentAlerts after categorization
+        val completedAlerts = currentAlerts.values.toList()
         assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.DEDUPED])
         assertAlertsExistForBucketKeys(listOf(
             listOf("a"),
             listOf("b")
         ), categorizedAlerts[AlertCategory.NEW] ?: error("New alerts not found"))
-        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.COMPLETED])
+        assertEquals(listOf<Alert>(), completedAlerts)
     }
 
     fun `test getting categorized alerts for aggregation monitor with de-duped alerts`() {
@@ -109,12 +111,14 @@ class AlertServiceTests : ESTestCase() {
         ))
 
         val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        // Completed Alerts are what remains in currentAlerts after categorization
+        val completedAlerts = currentAlerts.values.toList()
         assertAlertsExistForBucketKeys(listOf(
             listOf("a"),
             listOf("b")
         ), categorizedAlerts[AlertCategory.DEDUPED] ?: error("Deduped alerts not found"))
         assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.NEW])
-        assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.COMPLETED])
+        assertEquals(listOf<Alert>(), completedAlerts)
     }
 
     fun `test getting categorized alerts for aggregation monitor with completed alerts`() {

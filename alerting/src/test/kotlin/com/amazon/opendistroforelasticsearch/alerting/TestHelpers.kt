@@ -67,6 +67,7 @@ import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomBoolean
@@ -76,7 +77,7 @@ import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-fun randomMonitor(
+fun randomTraditionalMonitor(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     user: User = randomUser(),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
@@ -93,7 +94,7 @@ fun randomMonitor(
 }
 
 // Monitor of older versions without security.
-fun randomMonitorWithoutUser(
+fun randomTraditionalMonitorWithoutUser(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
@@ -111,7 +112,12 @@ fun randomMonitorWithoutUser(
 fun randomAggregationMonitor(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     user: User = randomUser(),
-    inputs: List<Input> = listOf(SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))),
+    inputs: List<Input> = listOf(
+        SearchInput(
+            emptyList(),
+            SearchSourceBuilder().query(QueryBuilders.matchAllQuery()).aggregation(TermsAggregationBuilder("test_agg"))
+        )
+    ),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
     triggers: List<Trigger> = (1..randomInt(10)).map { randomAggregationTrigger() },
@@ -242,14 +248,14 @@ fun randomActionExecutionFrequency(): ActionExecutionFrequency {
     }
 }
 
-fun randomAlert(monitor: Monitor = randomMonitor()): Alert {
+fun randomAlert(monitor: Monitor = randomTraditionalMonitor()): Alert {
     val trigger = randomTraditionalTrigger()
     val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
     return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,
             actionExecutionResults = actionExecutionResults)
 }
 
-fun randomAlertWithAggregationResultBucket(monitor: Monitor = randomMonitor()): Alert {
+fun randomAlertWithAggregationResultBucket(monitor: Monitor = randomTraditionalMonitor()): Alert {
     val trigger = randomAggregationTrigger()
     val actionExecutionResults = mutableListOf(randomActionExecutionResult(), randomActionExecutionResult())
     return Alert(monitor, trigger, Instant.now().truncatedTo(ChronoUnit.MILLIS), null,

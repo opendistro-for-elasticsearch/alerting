@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.builder
+import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionPolicy
@@ -26,12 +27,13 @@ import com.amazon.opendistroforelasticsearch.alerting.parser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionPolicy
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
+import com.amazon.opendistroforelasticsearch.alerting.randomAggregationMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitorWithoutUser
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitorWithoutUser
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
@@ -39,6 +41,8 @@ import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
@@ -95,7 +99,7 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test traditional monitor parsing`() {
-        val monitor = randomMonitor()
+        val monitor = randomTraditionalMonitor()
 
         val monitorString = monitor.toJsonString()
         val parsedMonitor = Monitor.parse(parser(monitorString))
@@ -163,7 +167,7 @@ class XContentTests : ESTestCase() {
     fun `test creating a monitor with duplicate trigger ids fails`() {
         try {
             val repeatedTrigger = randomTraditionalTrigger()
-            randomMonitor().copy(triggers = listOf(repeatedTrigger, repeatedTrigger))
+            randomTraditionalMonitor().copy(triggers = listOf(repeatedTrigger, repeatedTrigger))
             fail("Creating a monitor with duplicate triggers did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
@@ -187,7 +191,7 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test traditional monitor parsing without user`() {
-        val monitor = randomMonitorWithoutUser()
+        val monitor = randomTraditionalMonitorWithoutUser()
 
         val monitorString = monitor.toJsonString()
         val parsedMonitor = Monitor.parse(parser(monitorString))
@@ -211,7 +215,7 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping EmailGroup doesn't work", emailGroup, parsedEmailGroup)
     }
 
-    fun `test old destination format parsing`() {
+    fun `test old monitor format parsing`() {
         val monitorString = """
             {
               "type": "monitor",
@@ -291,6 +295,33 @@ class XContentTests : ESTestCase() {
         val trigger = parsedMonitor.triggers.first()
         assertTrue("Incorrect trigger type", trigger is TraditionalTrigger)
         assertEquals("Incorrect name for parsed trigger", "abc", trigger.name)
+    }
+
+    fun `test creating an traditional monitor with invalid trigger type fails`() {
+        try {
+            val aggregationTrigger = randomAggregationTrigger()
+            randomTraditionalMonitor().copy(triggers = listOf(aggregationTrigger))
+            fail("Creating a traditional monitor with aggregation triggers did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
+    fun `test creating an aggregation monitor with invalid trigger type fails`() {
+        try {
+            val traditionalTrigger = randomTraditionalTrigger()
+            randomAggregationMonitor().copy(triggers = listOf(traditionalTrigger))
+            fail("Creating an aggregation monitor with traditional triggers did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+    }
+
+    fun `test creating an aggregation monitor with invalid input fails`() {
+        try {
+            val invalidInput = SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
+            randomAggregationMonitor().copy(inputs = listOf(invalidInput))
+            fail("Creating an aggregation monitor with an invalid input did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
     }
 
     fun `test action execution policy`() {

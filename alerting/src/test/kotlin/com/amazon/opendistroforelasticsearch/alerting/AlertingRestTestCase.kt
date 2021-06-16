@@ -357,7 +357,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     }
 
     protected fun createRandomMonitor(refresh: Boolean = false, withMetadata: Boolean = false): Monitor {
-        val monitor = randomMonitor(withMetadata = withMetadata)
+        val monitor = randomTraditionalMonitor(withMetadata = withMetadata)
         val monitorId = createMonitor(monitor, refresh).id
         if (withMetadata) {
             return getMonitor(monitorId = monitorId, header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))

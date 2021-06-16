@@ -75,7 +75,13 @@ data class Monitor(
         val triggerIds = mutableSetOf<String>()
         triggers.forEach { trigger ->
             require(triggerIds.add(trigger.id)) { "Duplicate trigger id: ${trigger.id}. Trigger ids must be unique." }
-            // TODO: Verify Trigger type based on Monitor type
+            // Verify Trigger type based on Monitor type
+            when (monitorType) {
+                MonitorType.TRADITIONAL_MONITOR ->
+                    require(trigger is TraditionalTrigger) { "Incompatible trigger [$trigger.id] for monitor type [$monitorType]" }
+                MonitorType.AGGREGATION_MONITOR ->
+                    require(trigger is AggregationTrigger) { "Incompatible trigger [$trigger.id] for monitor type [$monitorType]" }
+            }
         }
         if (enabled) {
             requireNotNull(enabledTime)
@@ -85,7 +91,14 @@ data class Monitor(
         require(inputs.size <= MONITOR_MAX_INPUTS) { "Monitors can only have $MONITOR_MAX_INPUTS search input." }
         require(triggers.size <= MONITOR_MAX_TRIGGERS) { "Monitors can only support up to $MONITOR_MAX_TRIGGERS triggers." }
         if (this.isAggregationMonitor()) {
-            // TODO: Add a verification on Inputs when there is an Aggregation Monitor
+            inputs.forEach { input ->
+                require(input is SearchInput) { "Unsupported input [$input] for Monitor" }
+                // TODO: Keeping query validation simple for now, only term aggregations have full support for the "group by" on the
+                //  initial release. Should either add tests for other aggregation types or add validation to prevent using them.
+                require(input.query.aggregations() != null && !input.query.aggregations().aggregatorFactories.isEmpty()) {
+                    "At least one aggregation is required for the input [$input]"
+                }
+            }
         }
     }
 
@@ -169,7 +182,6 @@ data class Monitor(
         out.writeInt(schemaVersion)
         out.writeCollection(inputs)
         // Outputting type with each Trigger so that the generic Trigger.readFrom() can read it
-        // TODO: Could probably move this out somewhere else to clean this up
         out.writeVInt(triggers.size)
         triggers.forEach {
             if (it is TraditionalTrigger) out.writeEnum(Trigger.Type.TRADITIONAL_TRIGGER)

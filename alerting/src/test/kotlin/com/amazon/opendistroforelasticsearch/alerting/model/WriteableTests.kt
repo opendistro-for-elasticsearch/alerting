@@ -30,7 +30,7 @@ import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTriggerRu
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomInputRunResults
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
 import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitorRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
@@ -91,7 +91,7 @@ class WriteableTests : ESTestCase() {
     }
 
     fun `test monitor as stream`() {
-        val monitor = randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder())))
+        val monitor = randomTraditionalMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder())))
         val out = BytesStreamOutput()
         monitor.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)

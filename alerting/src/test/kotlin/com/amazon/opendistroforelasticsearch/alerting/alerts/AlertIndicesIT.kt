@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.ALWAYS_RUN
 import com.amazon.opendistroforelasticsearch.alerting.AlertingRestTestCase
 import com.amazon.opendistroforelasticsearch.alerting.NEVER_RUN
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
-import com.amazon.opendistroforelasticsearch.alerting.randomMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings
 import com.amazon.opendistroforelasticsearch.alerting.makeRequest
@@ -33,7 +33,7 @@ import org.elasticsearch.rest.RestStatus
 class AlertIndicesIT : AlertingRestTestCase() {
 
     fun `test create alert index`() {
-        executeMonitor(randomMonitor(triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN))))
+        executeMonitor(randomTraditionalMonitor(triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN))))
 
         assertIndexExists(AlertIndices.ALERT_INDEX)
         assertIndexExists(AlertIndices.HISTORY_WRITE_INDEX)
@@ -62,7 +62,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
     fun `test alert index gets recreated automatically if deleted`() {
         wipeAllODFEIndices()
         assertIndexDoesNotExist(AlertIndices.ALERT_INDEX)
-        val trueMonitor = randomMonitor(triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN)))
+        val trueMonitor = randomTraditionalMonitor(triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN)))
 
         executeMonitor(trueMonitor)
         assertIndexExists(AlertIndices.ALERT_INDEX)
@@ -82,7 +82,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         client().updateSettings(AlertingSettings.ALERT_HISTORY_ROLLOVER_PERIOD.key, "1s")
         client().updateSettings(AlertingSettings.ALERT_HISTORY_INDEX_MAX_AGE.key, "1s")
 
-        val trueMonitor = randomMonitor(triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN)))
+        val trueMonitor = randomTraditionalMonitor(triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN)))
         executeMonitor(trueMonitor)
 
         // Allow for a rollover index.
@@ -94,7 +94,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         resetHistorySettings()
 
         val trigger1 = randomTraditionalTrigger(condition = ALWAYS_RUN)
-        val monitor1 = createMonitor(randomMonitor(triggers = listOf(trigger1)))
+        val monitor1 = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger1)))
         executeMonitor(monitor1.id)
 
         // Check if alert is active
@@ -114,7 +114,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
         client().updateSettings(AlertingSettings.ALERT_HISTORY_ENABLED.key, "false")
 
         val trigger2 = randomTraditionalTrigger(condition = ALWAYS_RUN)
-        val monitor2 = createMonitor(randomMonitor(triggers = listOf(trigger2)))
+        val monitor2 = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger2)))
         executeMonitor(monitor2.id)
 
         // Check if second alert is active
@@ -139,7 +139,7 @@ class AlertIndicesIT : AlertingRestTestCase() {
 
         // Create monitor and execute
         val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN)
-        val monitor = createMonitor(randomMonitor(triggers = listOf(trigger)))
+        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
         executeMonitor(monitor.id)
 
         // Check if alert is active and alert index is created
