@@ -15,16 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.alerting.script
 
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
 import java.time.Instant
 
-data class AggregationTriggerExecutionContext(
+data class BucketLevelTriggerExecutionContext(
     override val monitor: Monitor,
-    val trigger: AggregationTrigger,
+    val trigger: BucketLevelTrigger,
     override val results: List<Map<String, Any>>,
     override val periodStart: Instant,
     override val periodEnd: Instant,
@@ -36,8 +36,8 @@ data class AggregationTriggerExecutionContext(
 
     constructor(
         monitor: Monitor,
-        trigger: AggregationTrigger,
-        monitorRunResult: MonitorRunResult<AggregationTriggerRunResult>,
+        trigger: BucketLevelTrigger,
+        monitorRunResult: MonitorRunResult<BucketLevelTriggerRunResult>,
         dedupedAlerts: List<Alert> = listOf(),
         newAlerts: List<Alert> = listOf(),
         completedAlerts: List<Alert> = listOf()

@@ -4,7 +4,7 @@
 
 class com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript {
     Map getParams()
-    boolean execute(TraditionalTriggerExecutionContext)
+    boolean execute(QueryLevelTriggerExecutionContext)
     String[] PARAMETERS
 }
 
@@ -20,9 +20,9 @@ class com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionCont
     Exception getError()
 }
 
-class com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext {
+class com.amazon.opendistroforelasticsearch.alerting.script.QueryLevelTriggerExecutionContext {
     Monitor getMonitor()
-    TraditionalTrigger getTrigger()
+    QueryLevelTrigger getTrigger()
     List getResults()
     java.time.Instant getPeriodStart()
     java.time.Instant getPeriodEnd()
@@ -38,7 +38,7 @@ class com.amazon.opendistroforelasticsearch.alerting.model.Monitor {
     boolean getEnabled()
 }
 
-class com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger {
+class com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTrigger {
     String getId()
     String getName()
     String getSeverity()

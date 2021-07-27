@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.action
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelMonitor
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.unit.TimeValue
@@ -41,7 +41,7 @@ class ExecuteMonitorRequestTests : ESTestCase() {
     }
 
     fun `test execute monitor request with monitor`() {
-        val monitor = randomTraditionalMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder())))
+        val monitor = randomQueryLevelMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder())))
         val req = ExecuteMonitorRequest(false, TimeValue.timeValueSeconds(100L), null, monitor)
         assertNotNull(req.monitor)
 

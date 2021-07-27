@@ -184,7 +184,7 @@
                 }
               }
             },
-            "traditional_trigger": {
+            "query_level_trigger": {
               "properties": {
                 "name": {
                   "type": "text",

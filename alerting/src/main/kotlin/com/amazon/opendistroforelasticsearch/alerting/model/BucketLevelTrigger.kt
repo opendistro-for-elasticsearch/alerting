@@ -35,10 +35,10 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 /**
- * A multi-alert Trigger available with Aggregation Monitors that filters aggregation buckets via a pipeline
+ * A multi-alert Trigger available with Bucket-Level Monitors that filters aggregation buckets via a pipeline
  * aggregator.
  */
-data class AggregationTrigger(
+data class BucketLevelTrigger(
     override val id: String = UUIDs.base64UUID(),
     override val name: String,
     override val severity: String,
@@ -57,7 +57,7 @@ data class AggregationTrigger(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-            .startObject(AGGREGATION_TRIGGER_FIELD)
+            .startObject(BUCKET_LEVEL_TRIGGER_FIELD)
             .field(ID_FIELD, id)
             .field(NAME_FIELD, name)
             .field(SEVERITY_FIELD, severity)
@@ -71,7 +71,7 @@ data class AggregationTrigger(
     }
 
     override fun name(): String {
-        return AGGREGATION_TRIGGER_FIELD
+        return BUCKET_LEVEL_TRIGGER_FIELD
     }
 
     @Throws(IOException::class)
@@ -98,16 +98,16 @@ data class AggregationTrigger(
     }
 
     companion object {
-        const val AGGREGATION_TRIGGER_FIELD = "aggregation_trigger"
+        const val BUCKET_LEVEL_TRIGGER_FIELD = "bucket_level_trigger"
         const val CONDITION_FIELD = "condition"
         const val PARENT_BUCKET_PATH = "parentBucketPath"
 
-        val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(Trigger::class.java, ParseField(AGGREGATION_TRIGGER_FIELD),
+        val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(Trigger::class.java, ParseField(BUCKET_LEVEL_TRIGGER_FIELD),
             CheckedFunction { parseInner(it) })
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parseInner(xcp: XContentParser): AggregationTrigger {
+        fun parseInner(xcp: XContentParser): BucketLevelTrigger {
             var id = UUIDs.base64UUID() // assign a default triggerId if one is not specified
             lateinit var name: String
             lateinit var severity: String
@@ -139,7 +139,7 @@ data class AggregationTrigger(
                 }
             }
 
-            return AggregationTrigger(
+            return BucketLevelTrigger(
                 id = requireNotNull(id) { "Trigger id is null." },
                 name = requireNotNull(name) { "Trigger name is null" },
                 severity = requireNotNull(severity) { "Trigger severity is null" },
@@ -149,8 +149,8 @@ data class AggregationTrigger(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): AggregationTrigger {
-            return AggregationTrigger(sin)
+        fun readFrom(sin: StreamInput): BucketLevelTrigger {
+            return BucketLevelTrigger(sin)
         }
     }
 }

@@ -22,10 +22,10 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.string
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.EmailGroup
@@ -83,8 +83,8 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
             mutableListOf(
                 Monitor.XCONTENT_REGISTRY,
                 SearchInput.XCONTENT_REGISTRY,
-                TraditionalTrigger.XCONTENT_REGISTRY,
-                AggregationTrigger.XCONTENT_REGISTRY
+                QueryLevelTrigger.XCONTENT_REGISTRY,
+                BucketLevelTrigger.XCONTENT_REGISTRY
             ) + SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 
@@ -357,7 +357,7 @@ abstract class AlertingRestTestCase : ODFERestTestCase() {
     }
 
     protected fun createRandomMonitor(refresh: Boolean = false, withMetadata: Boolean = false): Monitor {
-        val monitor = randomTraditionalMonitor(withMetadata = withMetadata)
+        val monitor = randomQueryLevelMonitor(withMetadata = withMetadata)
         val monitorId = createMonitor(monitor, refresh).id
         if (withMetadata) {
             return getMonitor(monitorId = monitorId, header = BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))

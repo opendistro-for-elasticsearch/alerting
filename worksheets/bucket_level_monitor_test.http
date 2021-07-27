@@ -24,7 +24,7 @@ Content-Type: application/json
 
 {
   "type": "monitor",
-  "monitor_type": "aggregation_monitor",
+  "monitor_type": "bucket_level_monitor",
   "name": "test-monitor",
   "enabled": false,
   "schedule": {

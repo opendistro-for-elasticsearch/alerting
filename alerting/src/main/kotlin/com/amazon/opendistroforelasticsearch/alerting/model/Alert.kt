@@ -62,7 +62,7 @@ data class Alert(
 
     constructor(
         monitor: Monitor,
-        trigger: TraditionalTrigger,
+        trigger: QueryLevelTrigger,
         startTime: Instant,
         lastNotificationTime: Instant?,
         state: State = State.ACTIVE,
@@ -78,7 +78,7 @@ data class Alert(
 
     constructor(
         monitor: Monitor,
-        trigger: AggregationTrigger,
+        trigger: BucketLevelTrigger,
         startTime: Instant,
         lastNotificationTime: Instant?,
         state: State = State.ACTIVE,
@@ -94,7 +94,7 @@ data class Alert(
 
     constructor(
         monitor: Monitor,
-        trigger: AggregationTrigger,
+        trigger: BucketLevelTrigger,
         startTime: Instant,
         lastNotificationTime: Instant?,
         state: State = State.ACTIVE,
@@ -250,7 +250,7 @@ data class Alert(
                     AggregationResultBucket.CONFIG_NAME -> {
                         // If an Alert with aggAlertBucket contents is indexed into the alerts index first, then
                         // that field will be added to the mappings.
-                        // In this case, that field will default to null when it isn't present for Alerts created by Traditional Monitors
+                        // In this case, that field will default to null when it isn't present for Alerts created by Query-Level Monitors
                         // (even though the toXContent doesn't output the field) so null is being accounted for here.
                         aggAlertBucket = if (xcp.currentToken() == XContentParser.Token.VALUE_NULL) {
                             null

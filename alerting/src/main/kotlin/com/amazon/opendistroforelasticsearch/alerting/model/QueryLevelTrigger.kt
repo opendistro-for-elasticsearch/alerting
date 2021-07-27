@@ -39,7 +39,7 @@ import java.io.IOException
  * A single-alert Trigger that uses Painless scripts which execute on the response of the Monitor input query to define
  * alerting conditions.
  */
-data class TraditionalTrigger(
+data class QueryLevelTrigger(
     override val id: String = UUIDs.base64UUID(),
     override val name: String,
     override val severity: String,
@@ -58,7 +58,7 @@ data class TraditionalTrigger(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-            .startObject(TRADITIONAL_TRIGGER_FIELD)
+            .startObject(QUERY_LEVEL_TRIGGER_FIELD)
             .field(ID_FIELD, id)
             .field(NAME_FIELD, name)
             .field(SEVERITY_FIELD, severity)
@@ -72,7 +72,7 @@ data class TraditionalTrigger(
     }
 
     override fun name(): String {
-        return TRADITIONAL_TRIGGER_FIELD
+        return QUERY_LEVEL_TRIGGER_FIELD
     }
 
     /** Returns a representation of the trigger suitable for passing into painless and mustache scripts. */
@@ -91,16 +91,16 @@ data class TraditionalTrigger(
     }
 
     companion object {
-        const val TRADITIONAL_TRIGGER_FIELD = "traditional_trigger"
+        const val QUERY_LEVEL_TRIGGER_FIELD = "query_level_trigger"
         const val CONDITION_FIELD = "condition"
         const val SCRIPT_FIELD = "script"
 
-        val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(Trigger::class.java, ParseField(TRADITIONAL_TRIGGER_FIELD),
+        val XCONTENT_REGISTRY = NamedXContentRegistry.Entry(Trigger::class.java, ParseField(QUERY_LEVEL_TRIGGER_FIELD),
             CheckedFunction { parseInner(it) })
 
         /**
          * This parse method needs to account for both the old and new Trigger format.
-         * In the old format, only one Trigger existed (which is now TraditionalTrigger) and it was
+         * In the old format, only one Trigger existed (which is now QueryLevelTrigger) and it was
          * not a named object.
          *
          * The parse() method in the Trigger interface needs to consume the outer START_OBJECT to be able
@@ -120,7 +120,7 @@ data class TraditionalTrigger(
          * New Format
          * ----------
          * {
-         *   "traditional_trigger": {
+         *   "query_level_trigger": {
          *     "id": ...,           ^ Current token starts here
          *     "name": ...,
          *     ...
@@ -131,7 +131,7 @@ data class TraditionalTrigger(
          * and FIELD_NAME as the starting token to cover both cases.
          */
         @JvmStatic @Throws(IOException::class)
-        fun parseInner(xcp: XContentParser): TraditionalTrigger {
+        fun parseInner(xcp: XContentParser): QueryLevelTrigger {
             var id = UUIDs.base64UUID() // assign a default triggerId if one is not specified
             lateinit var name: String
             lateinit var severity: String
@@ -172,7 +172,7 @@ data class TraditionalTrigger(
                 xcp.nextToken()
             }
 
-            return TraditionalTrigger(
+            return QueryLevelTrigger(
                 name = requireNotNull(name) { "Trigger name is null" },
                 severity = requireNotNull(severity) { "Trigger severity is null" },
                 condition = requireNotNull(condition) { "Trigger is null" },
@@ -182,8 +182,8 @@ data class TraditionalTrigger(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): TraditionalTrigger {
-            return TraditionalTrigger(sin)
+        fun readFrom(sin: StreamInput): QueryLevelTrigger {
+            return QueryLevelTrigger(sin)
         }
     }
 }

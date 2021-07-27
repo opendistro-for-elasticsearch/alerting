@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.IntervalSchedul
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.index.query.BoolQueryBuilder
@@ -480,12 +480,12 @@ fun maxAnomalyGradeSearchInput(
     return SearchInput(indices = listOf(adResultIndex), query = searchSourceBuilder)
 }
 
-fun adMonitorTrigger(): TraditionalTrigger {
+fun adMonitorTrigger(): QueryLevelTrigger {
     val triggerScript = """
             return ctx.results[0].aggregations.max_anomaly_grade.value != null && 
                    ctx.results[0].aggregations.max_anomaly_grade.value > 0.7
         """.trimIndent()
-    return randomTraditionalTrigger(condition = Script(triggerScript))
+    return randomQueryLevelTrigger(condition = Script(triggerScript))
 }
 
 fun adSearchInput(detectorId: String): SearchInput {
@@ -498,12 +498,12 @@ fun randomADMonitor(
     inputs: List<Input> = listOf(adSearchInput("test_detector_id")),
     schedule: Schedule = IntervalSchedule(interval = 5, unit = ChronoUnit.MINUTES),
     enabled: Boolean = ESTestCase.randomBoolean(),
-    triggers: List<Trigger> = (1..ESTestCase.randomInt(10)).map { randomTraditionalTrigger() },
+    triggers: List<Trigger> = (1..ESTestCase.randomInt(10)).map { randomQueryLevelTrigger() },
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     lastUpdateTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     withMetadata: Boolean = false
 ): Monitor {
-    return Monitor(name = name, monitorType = Monitor.MonitorType.TRADITIONAL_MONITOR, enabled = enabled, inputs = inputs,
+    return Monitor(name = name, monitorType = Monitor.MonitorType.QUERY_LEVEL_MONITOR, enabled = enabled, inputs = inputs,
         schedule = schedule, triggers = triggers, enabledTime = enabledTime, lastUpdateTime = lastUpdateTime,
         user = user, uiMetadata = if (withMetadata) mapOf("foo" to "bar") else mapOf())
 }

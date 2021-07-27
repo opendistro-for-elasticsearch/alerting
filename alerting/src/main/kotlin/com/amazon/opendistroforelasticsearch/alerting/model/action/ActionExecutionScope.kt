@@ -30,7 +30,7 @@ import java.lang.IllegalArgumentException
 /**
  * This class represents configurations used to control the scope of Action executions when Alerts are created.
  */
-sealed class ActionExecutionFrequency : Writeable, ToXContentObject {
+sealed class ActionExecutionScope : Writeable, ToXContentObject {
 
     enum class Type { PER_ALERT, PER_EXECUTION }
 
@@ -41,9 +41,9 @@ sealed class ActionExecutionFrequency : Writeable, ToXContentObject {
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): ActionExecutionFrequency {
+        fun parse(xcp: XContentParser): ActionExecutionScope {
             var type: Type? = null
-            var actionExecutionFrequency: ActionExecutionFrequency? = null
+            var actionExecutionScope: ActionExecutionScope? = null
             val alertFilter = mutableSetOf<AlertCategory>()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
@@ -53,7 +53,7 @@ sealed class ActionExecutionFrequency : Writeable, ToXContentObject {
 
                 // If the type field has already been set, the user has provided more than one type of schedule
                 if (type != null) {
-                    throw IllegalArgumentException("You can only specify one type of action execution frequency.")
+                    throw IllegalArgumentException("You can only specify one type of action execution scope.")
                 }
 
                 when (fieldName) {
@@ -81,27 +81,27 @@ sealed class ActionExecutionFrequency : Writeable, ToXContentObject {
                         type = Type.PER_EXECUTION
                         while (xcp.nextToken() != Token.END_OBJECT) {}
                     }
-                    else -> throw IllegalArgumentException("Invalid field [$fieldName] found in action execution frequency.")
+                    else -> throw IllegalArgumentException("Invalid field [$fieldName] found in action execution scope.")
                 }
             }
 
             if (type == Type.PER_ALERT) {
-                actionExecutionFrequency = PerAlertActionFrequency(alertFilter)
+                actionExecutionScope = PerAlertActionScope(alertFilter)
             } else if (type == Type.PER_EXECUTION) {
-                actionExecutionFrequency = PerExecutionActionFrequency()
+                actionExecutionScope = PerExecutionActionScope()
             }
 
-            return requireNotNull(actionExecutionFrequency) { "Action execution frequency is null." }
+            return requireNotNull(actionExecutionScope) { "Action execution scope is null." }
         }
 
         @JvmStatic
         @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): ActionExecutionFrequency {
-            val type = sin.readEnum(ActionExecutionFrequency.Type::class.java)
+        fun readFrom(sin: StreamInput): ActionExecutionScope {
+            val type = sin.readEnum(ActionExecutionScope.Type::class.java)
             return if (type == Type.PER_ALERT) {
-                PerAlertActionFrequency(sin)
+                PerAlertActionScope(sin)
             } else {
-                PerExecutionActionFrequency(sin)
+                PerExecutionActionScope(sin)
             }
         }
     }
@@ -109,9 +109,9 @@ sealed class ActionExecutionFrequency : Writeable, ToXContentObject {
     abstract fun getExecutionFrequency(): Type
 }
 
-data class PerAlertActionFrequency(
+data class PerAlertActionScope(
     val actionableAlerts: Set<AlertCategory>
-) : ActionExecutionFrequency() {
+) : ActionExecutionScope() {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput): this(
@@ -136,13 +136,13 @@ data class PerAlertActionFrequency(
     companion object {
         @JvmStatic
         @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): PerAlertActionFrequency {
-            return PerAlertActionFrequency(sin)
+        fun readFrom(sin: StreamInput): PerAlertActionScope {
+            return PerAlertActionScope(sin)
         }
     }
 }
 
-class PerExecutionActionFrequency() : ActionExecutionFrequency() {
+class PerExecutionActionScope() : ActionExecutionScope() {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this()
@@ -174,8 +174,8 @@ class PerExecutionActionFrequency() : ActionExecutionFrequency() {
     companion object {
         @JvmStatic
         @Throws(IOException::class)
-        fun readFrom(sin: StreamInput): PerExecutionActionFrequency {
-            return PerExecutionActionFrequency(sin)
+        fun readFrom(sin: StreamInput): PerExecutionActionScope {
+            return PerExecutionActionScope(sin)
         }
     }
 }

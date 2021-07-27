@@ -24,17 +24,17 @@ import com.amazon.opendistroforelasticsearch.alerting.model.destination.email.Em
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionPolicy
 import com.amazon.opendistroforelasticsearch.alerting.randomActionRunResult
-import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
-import com.amazon.opendistroforelasticsearch.alerting.randomAggregationMonitorRunResult
-import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomBucketLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomBucketLevelMonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomBucketLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
 import com.amazon.opendistroforelasticsearch.alerting.randomInputRunResults
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelMonitor
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitorRunResult
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelMonitorRunResult
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -90,31 +90,31 @@ class WriteableTests : ESTestCase() {
         assertEquals("Round tripping Action doesn't work", action, newAction)
     }
 
-    fun `test monitor as stream`() {
-        val monitor = randomTraditionalMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder())))
+    fun `test query-level monitor as stream`() {
+        val monitor = randomQueryLevelMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder())))
         val out = BytesStreamOutput()
         monitor.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newMonitor = Monitor(sin)
-        assertEquals("Round tripping Monitor doesn't work", monitor, newMonitor)
+        assertEquals("Round tripping QueryLevelMonitor doesn't work", monitor, newMonitor)
     }
 
-    fun `test traditional trigger as stream`() {
-        val trigger = randomTraditionalTrigger()
+    fun `test query-level trigger as stream`() {
+        val trigger = randomQueryLevelTrigger()
         val out = BytesStreamOutput()
         trigger.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newTrigger = TraditionalTrigger.readFrom(sin)
-        assertEquals("Round tripping Trigger doesn't work", trigger, newTrigger)
+        val newTrigger = QueryLevelTrigger.readFrom(sin)
+        assertEquals("Round tripping QueryLevelTrigger doesn't work", trigger, newTrigger)
     }
 
-    fun `test aggregation trigger as stream`() {
-        val trigger = randomAggregationTrigger()
+    fun `test bucket-level trigger as stream`() {
+        val trigger = randomBucketLevelTrigger()
         val out = BytesStreamOutput()
         trigger.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newTrigger = AggregationTrigger.readFrom(sin)
-        assertEquals("Round tripping Trigger doesn't work", trigger, newTrigger)
+        val newTrigger = BucketLevelTrigger.readFrom(sin)
+        assertEquals("Round tripping BucketLevelTrigger doesn't work", trigger, newTrigger)
     }
 
     fun `test actionrunresult as stream`() {
@@ -126,21 +126,21 @@ class WriteableTests : ESTestCase() {
         assertEquals("Round tripping ActionRunResult doesn't work", actionRunResult, newActionRunResult)
     }
 
-    fun `test traditional triggerrunresult as stream`() {
-        val runResult = randomTraditionalTriggerRunResult()
+    fun `test query-level triggerrunresult as stream`() {
+        val runResult = randomQueryLevelTriggerRunResult()
         val out = BytesStreamOutput()
         runResult.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRunResult = TraditionalTriggerRunResult(sin)
+        val newRunResult = QueryLevelTriggerRunResult(sin)
         assertEquals("Round tripping ActionRunResult doesn't work", runResult, newRunResult)
     }
 
-    fun `test aggregation triggerrunresult as stream`() {
-        val runResult = randomAggregationTriggerRunResult()
+    fun `test bucket-level triggerrunresult as stream`() {
+        val runResult = randomBucketLevelTriggerRunResult()
         val out = BytesStreamOutput()
         runResult.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRunResult = AggregationTriggerRunResult(sin)
+        val newRunResult = BucketLevelTriggerRunResult(sin)
         assertEquals("Round tripping ActionRunResult doesn't work", runResult, newRunResult)
     }
 
@@ -153,21 +153,21 @@ class WriteableTests : ESTestCase() {
         assertEquals("Round tripping InputRunResults doesn't work", runResult, newRunResult)
     }
 
-    fun `test traditional monitorrunresult as stream`() {
-        val runResult = randomTraditionalMonitorRunResult()
+    fun `test query-level monitorrunresult as stream`() {
+        val runResult = randomQueryLevelMonitorRunResult()
         val out = BytesStreamOutput()
         runResult.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRunResult = MonitorRunResult<TraditionalTriggerRunResult>(sin)
+        val newRunResult = MonitorRunResult<QueryLevelTriggerRunResult>(sin)
         assertEquals("Round tripping MonitorRunResult doesn't work", runResult, newRunResult)
     }
 
-    fun `test aggregation monitorrunresult as stream`() {
-        val runResult = randomAggregationMonitorRunResult()
+    fun `test bucket-level monitorrunresult as stream`() {
+        val runResult = randomBucketLevelMonitorRunResult()
         val out = BytesStreamOutput()
         runResult.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRunResult = MonitorRunResult<AggregationTriggerRunResult>(sin)
+        val newRunResult = MonitorRunResult<BucketLevelTriggerRunResult>(sin)
         assertEquals("Round tripping MonitorRunResult doesn't work", runResult, newRunResult)
     }
 

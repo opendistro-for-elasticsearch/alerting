@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.alerting.util
 
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import org.elasticsearch.action.search.SearchResponse
@@ -21,7 +21,7 @@ class AggregationQueryRewriter {
          */
         fun rewriteQuery(query: SearchSourceBuilder, prevResult: InputRunResults?, triggers: List<Trigger>) {
             triggers.forEach { trigger ->
-                if (trigger is AggregationTrigger) {
+                if (trigger is BucketLevelTrigger) {
                     // add bucket selector pipeline aggregation for each trigger in query
                     query.aggregation(trigger.bucketSelector)
                     // if this request is processing the subsequent pages of input query result, then add after key
@@ -61,7 +61,7 @@ class AggregationQueryRewriter {
         fun getAfterKeysFromSearchResponse(searchResponse: SearchResponse, triggers: List<Trigger>): Map<String, Map<String, Any>?> {
             val aggTriggerAfterKeys = mutableMapOf<String, Map<String, Any>?>()
             triggers.forEach { trigger ->
-                if (trigger is AggregationTrigger) {
+                if (trigger is BucketLevelTrigger) {
                     val parentBucketPath = AggregationPath.parse(trigger.bucketSelector.parentBucketPath)
                     var aggs = searchResponse.aggregations
                     // assuming all intermediate aggregations as SingleBucketAggregation

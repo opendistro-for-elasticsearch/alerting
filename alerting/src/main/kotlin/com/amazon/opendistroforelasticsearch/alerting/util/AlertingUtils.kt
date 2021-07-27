@@ -17,10 +17,10 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
-import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionScope
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.alerting.settings.DestinationSettings
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
@@ -121,7 +121,7 @@ fun <T : Any> checkUserFilterByPermissions(
     return true
 }
 
-fun Monitor.isAggregationMonitor(): Boolean = this.monitorType == Monitor.MonitorType.AGGREGATION_MONITOR
+fun Monitor.isBucketLevelMonitor(): Boolean = this.monitorType == Monitor.MonitorType.BUCKET_LEVEL_MONITOR
 
 /**
  * Since buckets can have multi-value keys, this converts the bucket key values to a string that can be used
@@ -129,12 +129,12 @@ fun Monitor.isAggregationMonitor(): Boolean = this.monitorType == Monitor.Monito
  */
 fun AggregationResultBucket.getBucketKeysHash(): String = this.bucketKeys.joinToString(separator = "#")
 
-fun Action.getActionFrequency(): ActionExecutionFrequency.Type =
-    this.actionExecutionPolicy.actionExecutionFrequency.getExecutionFrequency()
+fun Action.getActionFrequency(): ActionExecutionScope.Type =
+    this.actionExecutionPolicy.actionExecutionScope.getExecutionFrequency()
 
-fun AggregationTriggerRunResult.getCombinedTriggerRunResult(
-    prevTriggerRunResult: AggregationTriggerRunResult?
-): AggregationTriggerRunResult {
+fun BucketLevelTriggerRunResult.getCombinedTriggerRunResult(
+    prevTriggerRunResult: BucketLevelTriggerRunResult?
+): BucketLevelTriggerRunResult {
     if (prevTriggerRunResult == null) return this
 
     // The aggregation results and action results across to two trigger run results should not have overlapping keys

@@ -32,13 +32,13 @@ import java.io.IOException
 // TODO: Should throttleEnabled be included in here as well?
 data class ActionExecutionPolicy(
     val throttle: Throttle? = null,
-    val actionExecutionFrequency: ActionExecutionFrequency
+    val actionExecutionScope: ActionExecutionScope
 ) : Writeable, ToXContentObject {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this (
         sin.readOptionalWriteable(::Throttle), // throttle
-        ActionExecutionFrequency.readFrom(sin) // actionExecutionFrequency
+        ActionExecutionScope.readFrom(sin) // actionExecutionFrequency
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -46,7 +46,7 @@ data class ActionExecutionPolicy(
         if (throttle != null) {
             xContentBuilder.field(THROTTLE_FIELD, throttle)
         }
-        xContentBuilder.field(ACTION_EXECUTION_FREQUENCY, actionExecutionFrequency)
+        xContentBuilder.field(ACTION_EXECUTION_FREQUENCY, actionExecutionScope)
         return xContentBuilder.endObject()
     }
 
@@ -58,12 +58,12 @@ data class ActionExecutionPolicy(
         } else {
             out.writeBoolean(false)
         }
-        if (actionExecutionFrequency is PerAlertActionFrequency) {
-            out.writeEnum(ActionExecutionFrequency.Type.PER_ALERT)
+        if (actionExecutionScope is PerAlertActionScope) {
+            out.writeEnum(ActionExecutionScope.Type.PER_ALERT)
         } else {
-            out.writeEnum(ActionExecutionFrequency.Type.PER_EXECUTION)
+            out.writeEnum(ActionExecutionScope.Type.PER_EXECUTION)
         }
-        actionExecutionFrequency.writeTo(out)
+        actionExecutionScope.writeTo(out)
     }
 
     companion object {
@@ -74,7 +74,7 @@ data class ActionExecutionPolicy(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ActionExecutionPolicy {
             var throttle: Throttle? = null
-            lateinit var actionExecutionFrequency: ActionExecutionFrequency
+            lateinit var actionExecutionScope: ActionExecutionScope
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -85,13 +85,13 @@ data class ActionExecutionPolicy(
                     THROTTLE_FIELD -> {
                         throttle = if (xcp.currentToken() == Token.VALUE_NULL) null else Throttle.parse(xcp)
                     }
-                    ACTION_EXECUTION_FREQUENCY -> actionExecutionFrequency = ActionExecutionFrequency.parse(xcp)
+                    ACTION_EXECUTION_FREQUENCY -> actionExecutionScope = ActionExecutionScope.parse(xcp)
                 }
             }
 
             return ActionExecutionPolicy(
                 throttle,
-                requireNotNull(actionExecutionFrequency) { "Action execution frequency is null" }
+                requireNotNull(actionExecutionScope) { "Action execution scope is null" }
             )
         }
 
@@ -104,15 +104,15 @@ data class ActionExecutionPolicy(
         /**
          * The default [ActionExecutionPolicy] configuration.
          *
-         * This is currently only used by Aggregation Monitors and was configured with that in mind.
-         * If Traditional Monitors integrate the use of [ActionExecutionPolicy] then a separate default configuration
+         * This is currently only used by Bucket-Level Monitors and was configured with that in mind.
+         * If Query-Level Monitors integrate the use of [ActionExecutionPolicy] then a separate default configuration
          * might need to be made depending on the desired behavior.
          */
         fun getDefaultConfiguration(): ActionExecutionPolicy {
-            val defaultActionExecutionFrequency = PerAlertActionFrequency(
+            val defaultActionExecutionFrequency = PerAlertActionScope(
                 actionableAlerts = setOf(AlertCategory.DEDUPED, AlertCategory.NEW)
             )
-            return ActionExecutionPolicy(throttle = null, actionExecutionFrequency = defaultActionExecutionFrequency)
+            return ActionExecutionPolicy(throttle = null, actionExecutionScope = defaultActionExecutionFrequency)
         }
     }
 }

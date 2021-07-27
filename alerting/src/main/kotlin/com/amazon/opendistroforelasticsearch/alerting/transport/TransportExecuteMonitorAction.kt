@@ -7,7 +7,7 @@ import com.amazon.opendistroforelasticsearch.alerting.action.ExecuteMonitorRespo
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.util.AlertingException
-import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
+import com.amazon.opendistroforelasticsearch.alerting.util.isBucketLevelMonitor
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import kotlinx.coroutines.Dispatchers
@@ -57,10 +57,10 @@ class TransportExecuteMonitorAction @Inject constructor(
                     val (periodStart, periodEnd) =
                             monitor.schedule.getPeriodEndingAt(Instant.ofEpochMilli(execMonitorRequest.requestEnd.millis))
                     try {
-                        val monitorRunResult = if (monitor.isAggregationMonitor()) {
-                            runner.runAggregationMonitor(monitor, periodStart, periodEnd, execMonitorRequest.dryrun)
+                        val monitorRunResult = if (monitor.isBucketLevelMonitor()) {
+                            runner.runBucketLevelMonitor(monitor, periodStart, periodEnd, execMonitorRequest.dryrun)
                         } else {
-                            runner.runMonitor(monitor, periodStart, periodEnd, execMonitorRequest.dryrun)
+                            runner.runQueryLevelMonitor(monitor, periodStart, periodEnd, execMonitorRequest.dryrun)
                         }
                         withContext(Dispatchers.IO) {
                             actionListener.onResponse(ExecuteMonitorResponse(monitorRunResult))

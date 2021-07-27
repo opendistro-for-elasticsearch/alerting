@@ -23,13 +23,13 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
 import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
-import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.script.QueryLevelTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.apache.logging.log4j.LogManager
@@ -66,7 +66,7 @@ class AlertService(
 
     private val logger = LogManager.getLogger(AlertService::class.java)
 
-    suspend fun loadCurrentAlertsForTraditionalMonitor(monitor: Monitor): Map<Trigger, Alert?> {
+    suspend fun loadCurrentAlertsForQueryLevelMonitor(monitor: Monitor): Map<Trigger, Alert?> {
         val searchAlertsResponse: SearchResponse = searchAlerts(
             monitorId = monitor.id,
             size = monitor.triggers.size * 2 // We expect there to be only a single in-progress alert so fetch 2 to check
@@ -85,7 +85,7 @@ class AlertService(
         }
     }
 
-    suspend fun loadCurrentAlertsForAggregationMonitor(monitor: Monitor): Map<Trigger, MutableMap<String, Alert>> {
+    suspend fun loadCurrentAlertsForBucketLevelMonitor(monitor: Monitor): Map<Trigger, MutableMap<String, Alert>> {
         val searchAlertsResponse: SearchResponse = searchAlerts(
             monitorId = monitor.id,
             size = 500 // TODO: This should be a constant and limited based on the circuit breaker that limits Alerts
@@ -102,9 +102,9 @@ class AlertService(
         }
     }
 
-    fun composeTraditionalAlert(
-        ctx: TraditionalTriggerExecutionContext,
-        result: TraditionalTriggerRunResult,
+    fun composeQueryLevelAlert(
+        ctx: QueryLevelTriggerExecutionContext,
+        result: QueryLevelTriggerRunResult,
         alertError: AlertError?
     ): Alert? {
         val currentTime = Instant.now()
@@ -156,7 +156,7 @@ class AlertService(
         }
     }
 
-    fun updateActionResultsForAggregationAlert(
+    fun updateActionResultsForBucketLevelAlert(
         currentAlert: Alert,
         actionResults: Map<String, ActionRunResult>,
         alertError: AlertError?
@@ -196,12 +196,12 @@ class AlertService(
         }
     }
 
-    // TODO: Can change the parameters to use ctx: AggregationTriggerExecutionContext instead of monitor/trigger and
+    // TODO: Can change the parameters to use ctx: BucketLevelTriggerExecutionContext instead of monitor/trigger and
     //  result: AggTriggerRunResult for aggResultBuckets
     // TODO: Can refactor this method to use Sets instead which can cleanup some of the categorization logic (like getting completed alerts)
-    fun getCategorizedAlertsForAggregationMonitor(
+    fun getCategorizedAlertsForBucketLevelMonitor(
         monitor: Monitor,
-        trigger: AggregationTrigger,
+        trigger: BucketLevelTrigger,
         currentAlerts: MutableMap<String, Alert>,
         aggResultBuckets: List<AggregationResultBucket>
     ): Map<AlertCategory, List<Alert>> {
@@ -291,8 +291,8 @@ class AlertService(
     }
 
     /**
-     * This is a separate method created specifically for saving new Alerts during the Aggregation Monitor run.
-     * Alerts are saved in two batches during the execution of an Aggregation Monitor, once before the Actions are executed
+     * This is a separate method created specifically for saving new Alerts during the Bucket-Level Monitor run.
+     * Alerts are saved in two batches during the execution of an Bucket-Level Monitor, once before the Actions are executed
      * and once afterwards. This method saves Alerts to the [AlertIndices.ALERT_INDEX] but returns the same Alerts with their document IDs.
      *
      * The Alerts are required with their indexed ID so that when the new Alerts are updated after the Action execution,

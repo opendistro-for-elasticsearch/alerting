@@ -44,9 +44,9 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.core.resthandler.RestScheduledJobStatsHandler
 import com.amazon.opendistroforelasticsearch.alerting.core.schedule.JobScheduler
 import com.amazon.opendistroforelasticsearch.alerting.core.settings.ScheduledJobSettings
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestAcknowledgeAlertAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteDestinationAction
 import com.amazon.opendistroforelasticsearch.alerting.resthandler.RestDeleteEmailAccountAction
@@ -124,8 +124,8 @@ import java.util.function.Supplier
 /**
  * Entry point of the OpenDistro for Elasticsearch alerting plugin
  * This class initializes the [RestGetMonitorAction], [RestDeleteMonitorAction], [RestIndexMonitorAction] rest handlers.
- * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [TraditionalTrigger.XCONTENT_REGISTRY],
- * [AggregationTrigger.XCONTENT_REGISTRY], [LocalUriInput.XCONTENT_REGISTRY] to the [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
+ * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY], [QueryLevelTrigger.XCONTENT_REGISTRY],
+ * [BucketLevelTrigger.XCONTENT_REGISTRY], [LocalUriInput.XCONTENT_REGISTRY] to the [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
  */
 internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, ReloadablePlugin, SearchPlugin, Plugin() {
     override fun getContextWhitelists(): Map<ScriptContext<*>, List<Whitelist>> {
@@ -210,8 +210,8 @@ internal class AlertingPlugin : PainlessExtension, ActionPlugin, ScriptPlugin, R
         return listOf(
             Monitor.XCONTENT_REGISTRY,
             SearchInput.XCONTENT_REGISTRY,
-            TraditionalTrigger.XCONTENT_REGISTRY,
-            AggregationTrigger.XCONTENT_REGISTRY,
+            QueryLevelTrigger.XCONTENT_REGISTRY,
+            BucketLevelTrigger.XCONTENT_REGISTRY,
             LocalUriInput.XCONTENT_REGISTRY)
     }
 

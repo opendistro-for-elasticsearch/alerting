@@ -18,14 +18,14 @@ package com.amazon.opendistroforelasticsearch.alerting
 import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorIndices.Fields.BUCKET_INDICES
 import com.amazon.opendistroforelasticsearch.alerting.aggregation.bucketselectorext.BucketSelectorIndices.Fields.PARENT_BUCKET_PATH
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
-import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
-import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.script.BucketLevelTriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.script.QueryLevelTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerScript
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import org.apache.logging.log4j.LogManager
@@ -41,35 +41,35 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
 
     private val logger = LogManager.getLogger(TriggerService::class.java)
 
-    fun isTraditionalTriggerActionable(ctx: TraditionalTriggerExecutionContext, result: TraditionalTriggerRunResult): Boolean {
+    fun isQueryLevelTriggerActionable(ctx: QueryLevelTriggerExecutionContext, result: QueryLevelTriggerRunResult): Boolean {
         // Suppress actions if the current alert is acknowledged and there are no errors.
         val suppress = ctx.alert?.state == Alert.State.ACKNOWLEDGED && result.error == null && ctx.error == null
         return result.triggered && !suppress
     }
 
-    fun runTraditionalTrigger(
+    fun runQueryLevelTrigger(
         monitor: Monitor,
-        trigger: TraditionalTrigger,
-        ctx: TraditionalTriggerExecutionContext
-    ): TraditionalTriggerRunResult {
+        trigger: QueryLevelTrigger,
+        ctx: QueryLevelTriggerExecutionContext
+    ): QueryLevelTriggerRunResult {
         return try {
             val triggered = scriptService.compile(trigger.condition, TriggerScript.CONTEXT)
                 .newInstance(trigger.condition.params)
                 .execute(ctx)
-            TraditionalTriggerRunResult(trigger.name, triggered, null)
+            QueryLevelTriggerRunResult(trigger.name, triggered, null)
         } catch (e: Exception) {
             logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
             // if the script fails we need to send an alert so set triggered = true
-            TraditionalTriggerRunResult(trigger.name, true, e)
+            QueryLevelTriggerRunResult(trigger.name, true, e)
         }
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun runAggregationTrigger(
+    fun runBucketLevelTrigger(
         monitor: Monitor,
-        trigger: AggregationTrigger,
-        ctx: AggregationTriggerExecutionContext
-    ): AggregationTriggerRunResult {
+        trigger: BucketLevelTrigger,
+        ctx: BucketLevelTriggerExecutionContext
+    ): BucketLevelTriggerRunResult {
         return try {
             val bucketIndices =
                 ((ctx.results[0][Aggregations.AGGREGATIONS_FIELD] as HashMap<*, *>)[trigger.id] as HashMap<*, *>)[BUCKET_INDICES] as List<*>
@@ -89,11 +89,11 @@ class TriggerService(val client: Client, val scriptService: ScriptService) {
                 val aggResultBucket = AggregationResultBucket(parentBucketPath, bucketKeyValuesList, bucketDict)
                 selectedBuckets[aggResultBucket.getBucketKeysHash()] = aggResultBucket
             }
-            AggregationTriggerRunResult(trigger.name, null, selectedBuckets)
+            BucketLevelTriggerRunResult(trigger.name, null, selectedBuckets)
         } catch (e: Exception) {
             logger.info("Error running script for monitor ${monitor.id}, trigger: ${trigger.id}", e)
-            // TODO empty map here with error should be treated in the same way as TraditionTrigger with error running script
-            AggregationTriggerRunResult(trigger.name, e, emptyMap())
+            // TODO empty map here with error should be treated in the same way as QueryLevelTrigger with error running script
+            BucketLevelTriggerRunResult(trigger.name, e, emptyMap())
         }
     }
 

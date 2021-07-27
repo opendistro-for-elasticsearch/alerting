@@ -2,8 +2,8 @@ package com.amazon.opendistroforelasticsearch.alerting.util
 
 import com.amazon.opendistroforelasticsearch.alerting.model.InputRunResults
 import com.amazon.opendistroforelasticsearch.alerting.model.Trigger
-import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomBucketLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelTrigger
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.cluster.ClusterModule
 import org.elasticsearch.common.CheckedFunction
@@ -27,7 +27,7 @@ class AggregationQueryRewriterTests : ESTestCase() {
     fun `test RewriteQuery empty previous result`() {
         val triggers: MutableList<Trigger> = mutableListOf()
         for (i in 0 until 10) {
-            triggers.add(randomAggregationTrigger())
+            triggers.add(randomBucketLevelTrigger())
         }
         val queryBuilder = SearchSourceBuilder()
         val termAgg: AggregationBuilder = TermsAggregationBuilder("testPath").field("sports")
@@ -40,7 +40,7 @@ class AggregationQueryRewriterTests : ESTestCase() {
     fun `skip test RewriteQuery with non-empty previous result`() {
         val triggers: MutableList<Trigger> = mutableListOf()
         for (i in 0 until 10) {
-            triggers.add(randomAggregationTrigger())
+            triggers.add(randomBucketLevelTrigger())
         }
         val queryBuilder = SearchSourceBuilder()
         val termAgg: AggregationBuilder = CompositeAggregationBuilder(
@@ -70,7 +70,7 @@ class AggregationQueryRewriterTests : ESTestCase() {
     fun `test RewriteQuery with non aggregation trigger`() {
         val triggers: MutableList<Trigger> = mutableListOf()
         for (i in 0 until 10) {
-            triggers.add(randomTraditionalTrigger())
+            triggers.add(randomQueryLevelTrigger())
         }
         val queryBuilder = SearchSourceBuilder()
         val termAgg: AggregationBuilder = TermsAggregationBuilder("testPath").field("sports")
@@ -117,8 +117,8 @@ class AggregationQueryRewriterTests : ESTestCase() {
         }
         """.trimIndent()
 
-        val aggTriggers: MutableList<Trigger> = mutableListOf(randomAggregationTrigger())
-        val tradTriggers: MutableList<Trigger> = mutableListOf(randomTraditionalTrigger())
+        val aggTriggers: MutableList<Trigger> = mutableListOf(randomBucketLevelTrigger())
+        val tradTriggers: MutableList<Trigger> = mutableListOf(randomQueryLevelTrigger())
 
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, responseContent))
         val afterKeys = AggregationQueryRewriter.getAfterKeysFromSearchResponse(searchResponse, aggTriggers)

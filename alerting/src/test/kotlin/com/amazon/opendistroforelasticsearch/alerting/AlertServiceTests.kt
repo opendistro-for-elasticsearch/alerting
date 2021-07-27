@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.alerting
 
 import com.amazon.opendistroforelasticsearch.alerting.alerts.AlertIndices
 import com.amazon.opendistroforelasticsearch.alerting.model.AggregationResultBucket
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
@@ -76,9 +76,9 @@ class AlertServiceTests : ESTestCase() {
         alertService = AlertService(client, xContentRegistry, alertIndices)
     }
 
-    fun `test getting categorized alerts for aggregation monitor with no current alerts`() {
-        val trigger = randomAggregationTrigger()
-        val monitor = randomAggregationMonitor(triggers = listOf(trigger))
+    fun `test getting categorized alerts for bucket-level monitor with no current alerts`() {
+        val trigger = randomBucketLevelTrigger()
+        val monitor = randomBucketLevelMonitor(triggers = listOf(trigger))
 
         val currentAlerts = mutableMapOf<String, Alert>()
         val aggResultBuckets = createAggregationResultBucketsFromBucketKeys(listOf(
@@ -86,7 +86,7 @@ class AlertServiceTests : ESTestCase() {
             listOf("b")
         ))
 
-        val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        val categorizedAlerts = alertService.getCategorizedAlertsForBucketLevelMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
         // Completed Alerts are what remains in currentAlerts after categorization
         val completedAlerts = currentAlerts.values.toList()
         assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.DEDUPED])
@@ -97,9 +97,9 @@ class AlertServiceTests : ESTestCase() {
         assertEquals(listOf<Alert>(), completedAlerts)
     }
 
-    fun `test getting categorized alerts for aggregation monitor with de-duped alerts`() {
-        val trigger = randomAggregationTrigger()
-        val monitor = randomAggregationMonitor(triggers = listOf(trigger))
+    fun `test getting categorized alerts for bucket-level monitor with de-duped alerts`() {
+        val trigger = randomBucketLevelTrigger()
+        val monitor = randomBucketLevelMonitor(triggers = listOf(trigger))
 
         val currentAlerts = createCurrentAlertsFromBucketKeys(monitor, trigger, listOf(
             listOf("a"),
@@ -110,7 +110,7 @@ class AlertServiceTests : ESTestCase() {
             listOf("b")
         ))
 
-        val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        val categorizedAlerts = alertService.getCategorizedAlertsForBucketLevelMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
         // Completed Alerts are what remains in currentAlerts after categorization
         val completedAlerts = currentAlerts.values.toList()
         assertAlertsExistForBucketKeys(listOf(
@@ -121,9 +121,9 @@ class AlertServiceTests : ESTestCase() {
         assertEquals(listOf<Alert>(), completedAlerts)
     }
 
-    fun `test getting categorized alerts for aggregation monitor with completed alerts`() {
-        val trigger = randomAggregationTrigger()
-        val monitor = randomAggregationMonitor(triggers = listOf(trigger))
+    fun `test getting categorized alerts for bucket-level monitor with completed alerts`() {
+        val trigger = randomBucketLevelTrigger()
+        val monitor = randomBucketLevelMonitor(triggers = listOf(trigger))
 
         val currentAlerts = createCurrentAlertsFromBucketKeys(monitor, trigger, listOf(
             listOf("a"),
@@ -131,7 +131,7 @@ class AlertServiceTests : ESTestCase() {
         ))
         val aggResultBuckets = listOf<AggregationResultBucket>()
 
-        val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        val categorizedAlerts = alertService.getCategorizedAlertsForBucketLevelMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
         // Completed Alerts are what remains in currentAlerts after categorization
         val completedAlerts = currentAlerts.values.toList()
         assertEquals(listOf<Alert>(), categorizedAlerts[AlertCategory.DEDUPED])
@@ -142,9 +142,9 @@ class AlertServiceTests : ESTestCase() {
         ), completedAlerts)
     }
 
-    fun `test getting categorized alerts for aggregation monitor with de-duped and completed alerts`() {
-        val trigger = randomAggregationTrigger()
-        val monitor = randomAggregationMonitor(triggers = listOf(trigger))
+    fun `test getting categorized alerts for bucket-level monitor with de-duped and completed alerts`() {
+        val trigger = randomBucketLevelTrigger()
+        val monitor = randomBucketLevelMonitor(triggers = listOf(trigger))
 
         val currentAlerts = createCurrentAlertsFromBucketKeys(monitor, trigger, listOf(
             listOf("a"),
@@ -155,7 +155,7 @@ class AlertServiceTests : ESTestCase() {
             listOf("c")
         ))
 
-        val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
+        val categorizedAlerts = alertService.getCategorizedAlertsForBucketLevelMonitor(monitor, trigger, currentAlerts, aggResultBuckets)
         // Completed Alerts are what remains in currentAlerts after categorization
         val completedAlerts = currentAlerts.values.toList()
         assertAlertsExistForBucketKeys(listOf(listOf("b")), categorizedAlerts[AlertCategory.DEDUPED] ?: error("Deduped alerts not found"))
@@ -165,7 +165,7 @@ class AlertServiceTests : ESTestCase() {
 
     private fun createCurrentAlertsFromBucketKeys(
         monitor: Monitor,
-        trigger: AggregationTrigger,
+        trigger: BucketLevelTrigger,
         bucketKeysList: List<List<String>>
     ): MutableMap<String, Alert> {
         return bucketKeysList.map { bucketKeys ->

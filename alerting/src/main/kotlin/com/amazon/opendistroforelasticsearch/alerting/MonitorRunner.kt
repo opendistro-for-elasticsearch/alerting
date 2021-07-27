@@ -22,24 +22,24 @@ import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionRunResult
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTrigger
-import com.amazon.opendistroforelasticsearch.alerting.model.AggregationTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.BucketLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.Alert
 import com.amazon.opendistroforelasticsearch.alerting.model.AlertingConfigAccessor
 import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.model.MonitorRunResult
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTrigger
-import com.amazon.opendistroforelasticsearch.alerting.model.TraditionalTriggerRunResult
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTrigger
+import com.amazon.opendistroforelasticsearch.alerting.model.QueryLevelTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.MESSAGE_ID
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Action.Companion.SUBJECT
-import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionScope
 import com.amazon.opendistroforelasticsearch.alerting.model.action.AlertCategory
-import com.amazon.opendistroforelasticsearch.alerting.model.action.PerAlertActionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerAlertActionScope
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.DestinationContextFactory
-import com.amazon.opendistroforelasticsearch.alerting.script.AggregationTriggerExecutionContext
-import com.amazon.opendistroforelasticsearch.alerting.script.TraditionalTriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.script.BucketLevelTriggerExecutionContext
+import com.amazon.opendistroforelasticsearch.alerting.script.QueryLevelTriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.script.TriggerExecutionContext
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.ALERT_BACKOFF_MILLIS
@@ -55,7 +55,7 @@ import com.amazon.opendistroforelasticsearch.alerting.util.getActionFrequency
 import com.amazon.opendistroforelasticsearch.alerting.util.getBucketKeysHash
 import com.amazon.opendistroforelasticsearch.alerting.util.getCombinedTriggerRunResult
 import com.amazon.opendistroforelasticsearch.alerting.util.isADMonitor
-import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
+import com.amazon.opendistroforelasticsearch.alerting.util.isBucketLevelMonitor
 import com.amazon.opendistroforelasticsearch.alerting.util.isAllowed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -244,16 +244,16 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
 
         launch {
-            if (job.isAggregationMonitor()) {
-                runAggregationMonitor(job, periodStart, periodEnd)
+            if (job.isBucketLevelMonitor()) {
+                runBucketLevelMonitor(job, periodStart, periodEnd)
             } else {
-                runMonitor(job, periodStart, periodEnd)
+                runQueryLevelMonitor(job, periodStart, periodEnd)
             }
         }
     }
 
-    suspend fun runMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false):
-            MonitorRunResult<TraditionalTriggerRunResult> {
+    suspend fun runQueryLevelMonitor(monitor: Monitor, periodStart: Instant, periodEnd: Instant, dryrun: Boolean = false):
+            MonitorRunResult<QueryLevelTriggerRunResult> {
         val roles = getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
@@ -261,11 +261,11 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
 
-        var monitorResult = MonitorRunResult<TraditionalTriggerRunResult>(monitor.name, periodStart, periodEnd)
+        var monitorResult = MonitorRunResult<QueryLevelTriggerRunResult>(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
             alertIndices.createOrUpdateInitialHistoryIndex()
-            alertService.loadCurrentAlertsForTraditionalMonitor(monitor)
+            alertService.loadCurrentAlertsForQueryLevelMonitor(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
             val id = if (monitor.id.trim().isEmpty()) "_na_" else monitor.id
@@ -281,21 +281,21 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
 
         val updatedAlerts = mutableListOf<Alert>()
-        val triggerResults = mutableMapOf<String, TraditionalTriggerRunResult>()
+        val triggerResults = mutableMapOf<String, QueryLevelTriggerRunResult>()
         for (trigger in monitor.triggers) {
             val currentAlert = currentAlerts[trigger]
-            val triggerCtx = TraditionalTriggerExecutionContext(monitor, trigger as TraditionalTrigger, monitorResult, currentAlert)
-            val triggerResult = triggerService.runTraditionalTrigger(monitor, trigger, triggerCtx)
+            val triggerCtx = QueryLevelTriggerExecutionContext(monitor, trigger as QueryLevelTrigger, monitorResult, currentAlert)
+            val triggerResult = triggerService.runQueryLevelTrigger(monitor, trigger, triggerCtx)
             triggerResults[trigger.id] = triggerResult
 
-            if (triggerService.isTraditionalTriggerActionable(triggerCtx, triggerResult)) {
+            if (triggerService.isQueryLevelTriggerActionable(triggerCtx, triggerResult)) {
                 val actionCtx = triggerCtx.copy(error = monitorResult.error ?: triggerResult.error)
                 for (action in trigger.actions) {
                     triggerResult.actionResults[action.id] = runAction(action, actionCtx, dryrun)
                 }
             }
 
-            val updatedAlert = alertService.composeTraditionalAlert(triggerCtx, triggerResult,
+            val updatedAlert = alertService.composeQueryLevelAlert(triggerCtx, triggerResult,
                 monitorResult.alertError() ?: triggerResult.alertError())
             if (updatedAlert != null) updatedAlerts += updatedAlert
         }
@@ -307,12 +307,12 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         return monitorResult.copy(triggerResults = triggerResults)
     }
 
-    suspend fun runAggregationMonitor(
+    suspend fun runBucketLevelMonitor(
         monitor: Monitor,
         periodStart: Instant,
         periodEnd: Instant,
         dryrun: Boolean = false
-    ): MonitorRunResult<AggregationTriggerRunResult> {
+    ): MonitorRunResult<BucketLevelTriggerRunResult> {
         val roles = getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
@@ -320,11 +320,11 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             logger.warn("Start and end time are the same: $periodStart. This monitor will probably only run once.")
         }
 
-        var monitorResult = MonitorRunResult<AggregationTriggerRunResult>(monitor.name, periodStart, periodEnd)
+        var monitorResult = MonitorRunResult<BucketLevelTriggerRunResult>(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             alertIndices.createOrUpdateAlertIndex()
             alertIndices.createOrUpdateInitialHistoryIndex()
-            alertService.loadCurrentAlertsForAggregationMonitor(monitor)
+            alertService.loadCurrentAlertsForBucketLevelMonitor(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
             val id = if (monitor.id.trim().isEmpty()) "_na_" else monitor.id
@@ -334,7 +334,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
 
         /*
          * Since the aggregation query can consist of multiple pages, each iteration of the do-while loop only has partial results
-         * from the runAggregationTrigger results whereas the currentAlerts has a complete view of existing Alerts. This means that
+         * from the runBucketLevelTrigger results whereas the currentAlerts has a complete view of existing Alerts. This means that
          * it can be confirmed if an Alert is new or de-duped local to the do-while loop if a key appears or doesn't appear in
          * the currentAlerts. However, it cannot be guaranteed that an existing Alert is COMPLETED until all pages have been
          * iterated over (since a bucket that did not appear in one page of the aggregation results, could appear in a later page).
@@ -348,12 +348,12 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
          * across Triggers because in the case of executing actions at a PER_EXECUTION frequency, all the Alerts are needed before executing
          * Actions which can only be done once all of the aggregation results (and Triggers given the pagination logic) have been evaluated.
          */
-        val triggerResults = mutableMapOf<String, AggregationTriggerRunResult>()
-        val triggerContexts = mutableMapOf<String, AggregationTriggerExecutionContext>()
+        val triggerResults = mutableMapOf<String, BucketLevelTriggerRunResult>()
+        val triggerContexts = mutableMapOf<String, BucketLevelTriggerExecutionContext>()
         val nextAlerts = mutableMapOf<String, MutableMap<AlertCategory, MutableList<Alert>>>()
         do {
             // TODO: Since a composite aggregation is being used for the input query, the total bucket count cannot be determined.
-            //  If a setting is imposed that limits buckets that can be processed for Aggregation Monitors, we'd need to iterate over
+            //  If a setting is imposed that limits buckets that can be processed for Bucket-Level Monitors, we'd need to iterate over
             //  the buckets until we hit that threshold. In that case, we'd want to exit the execution without creating any alerts since the
             //  buckets we iterate over before hitting the limit is not deterministic. Is there a better way to fail faster in this case?
             runBlocking(InjectorContextElement(monitor.id, settings, threadPool.threadContext, roles)) {
@@ -364,14 +364,14 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             for (trigger in monitor.triggers) {
                 // The currentAlerts map is formed by iterating over the Monitor's Triggers as keys so null should not be returned here
                 val currentAlertsForTrigger = currentAlerts[trigger]!!
-                val triggerCtx = AggregationTriggerExecutionContext(monitor, trigger as AggregationTrigger, monitorResult)
+                val triggerCtx = BucketLevelTriggerExecutionContext(monitor, trigger as BucketLevelTrigger, monitorResult)
                 triggerContexts[trigger.id] = triggerCtx
-                val triggerResult = triggerService.runAggregationTrigger(monitor, trigger, triggerCtx)
+                val triggerResult = triggerService.runBucketLevelTrigger(monitor, trigger, triggerCtx)
                 triggerResults[trigger.id] = triggerResult.getCombinedTriggerRunResult(triggerResults[trigger.id])
 
-                // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForAggregationMonitor can
+                // TODO: Should triggerResult's aggregationResultBucket be a list? If not, getCategorizedAlertsForBucketLevelMonitor can
                 //  be refactored to use a map instead
-                val categorizedAlerts = alertService.getCategorizedAlertsForAggregationMonitor(monitor, trigger, currentAlertsForTrigger,
+                val categorizedAlerts = alertService.getCategorizedAlertsForBucketLevelMonitor(monitor, trigger, currentAlertsForTrigger,
                     triggerResult.aggregationResultBuckets.values.toList()).toMutableMap()
                 val dedupedAlerts = categorizedAlerts.getOrDefault(AlertCategory.DEDUPED, emptyList())
                 var newAlerts = categorizedAlerts.getOrDefault(AlertCategory.NEW, emptyList())
@@ -416,12 +416,12 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             val triggerCtx = triggerContexts[trigger.id]!!
             val triggerResult = triggerResults[trigger.id]!!
             for (action in trigger.actions) {
-                if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_ALERT) {
-                    val perAlertActionFrequency = action.actionExecutionPolicy.actionExecutionFrequency as PerAlertActionFrequency
+                if (action.getActionFrequency() == ActionExecutionScope.Type.PER_ALERT) {
+                    val perAlertActionFrequency = action.actionExecutionPolicy.actionExecutionScope as PerAlertActionScope
                     for (alertCategory in perAlertActionFrequency.actionableAlerts) {
                         val alertsToExecuteActionsFor = nextAlerts[trigger.id]?.get(alertCategory) ?: mutableListOf()
                         for (alert in alertsToExecuteActionsFor) {
-                            if (isAggregationTriggerActionThrottled(action, alert)) continue
+                            if (isBucketLevelTriggerActionThrottled(action, alert)) continue
 
                             val actionCtx = getActionContextForAlertCategory(alertCategory, alert, triggerCtx,
                                 monitorResult.error ?: triggerResult.error)
@@ -436,7 +436,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
                             alertsToUpdate.add(alert)
                         }
                     }
-                } else if (action.getActionFrequency() == ActionExecutionFrequency.Type.PER_EXECUTION) {
+                } else if (action.getActionFrequency() == ActionExecutionScope.Type.PER_EXECUTION) {
                     // If all categories of Alerts are empty, there is nothing to message on and we can skip the Action
                     if (dedupedAlerts.isEmpty() && newAlerts.isEmpty() && completedAlerts.isEmpty()) continue
 
@@ -460,10 +460,10 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
             val updatedAlerts = alertsToUpdate.map { alert ->
                 val bucketKeysHash = alert.aggregationResultBucket!!.getBucketKeysHash()
                 val actionResults = triggerResult.actionResultsMap.getOrDefault(bucketKeysHash, emptyMap<String, ActionRunResult>())
-                alertService.updateActionResultsForAggregationAlert(
+                alertService.updateActionResultsForBucketLevelAlert(
                     alert,
                     actionResults,
-                    // TODO: Update AggregationTriggerRunResult.alertError() to retrieve error based on the first failed Action
+                    // TODO: Update BucketLevelTriggerRunResult.alertError() to retrieve error based on the first failed Action
                     monitorResult.alertError() ?: triggerResult.alertError()
                 )
             }
@@ -511,8 +511,8 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
     }
 
     // TODO: Add unit test for this method (or at least cover it in MonitorRunnerIT)
-    // Aggregation Monitors use the throttle configurations defined in ActionExecutionPolicy, this method evaluates that configuration.
-    private fun isAggregationTriggerActionThrottled(action: Action, alert: Alert): Boolean {
+    // Bucket-Level Monitors use the throttle configurations defined in ActionExecutionPolicy, this method evaluates that configuration.
+    private fun isBucketLevelTriggerActionThrottled(action: Action, alert: Alert): Boolean {
         if (action.actionExecutionPolicy.throttle == null) return false
         // TODO: This will need to be updated if throttleEnabled is moved to ActionExecutionPolicy
         if (action.throttleEnabled) {
@@ -528,9 +528,9 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
     private fun getActionContextForAlertCategory(
         alertCategory: AlertCategory,
         alert: Alert,
-        ctx: AggregationTriggerExecutionContext,
+        ctx: BucketLevelTriggerExecutionContext,
         error: Exception?
-    ): AggregationTriggerExecutionContext {
+    ): BucketLevelTriggerExecutionContext {
         return when (alertCategory) {
             AlertCategory.DEDUPED ->
                 ctx.copy(dedupedAlerts = listOf(alert), newAlerts = emptyList(), completedAlerts = emptyList(), error = error)
@@ -541,7 +541,7 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
     }
 
-    private suspend fun runAction(action: Action, ctx: TraditionalTriggerExecutionContext, dryrun: Boolean): ActionRunResult {
+    private suspend fun runAction(action: Action, ctx: QueryLevelTriggerExecutionContext, dryrun: Boolean): ActionRunResult {
         return try {
             if (!isActionActionable(action, ctx.alert)) {
                 return ActionRunResult(action.id, action.name, mapOf(), true, null, null)
@@ -574,9 +574,9 @@ object MonitorRunner : JobRunner, CoroutineScope, AbstractLifecycleComponent() {
         }
     }
 
-    // TODO: This is largely a duplicate of runAction above for AggregationTriggerExecutionContext for now.
+    // TODO: This is largely a duplicate of runAction above for BucketLevelTriggerExecutionContext for now.
     //   After suppression logic implementation, if this remains mostly the same, it can be refactored.
-    private suspend fun runAction(action: Action, ctx: AggregationTriggerExecutionContext, dryrun: Boolean): ActionRunResult {
+    private suspend fun runAction(action: Action, ctx: BucketLevelTriggerExecutionContext, dryrun: Boolean): ActionRunResult {
         return try {
             val actionOutput = mutableMapOf<String, String>()
             actionOutput[SUBJECT] = if (action.subjectTemplate != null) compileTemplate(action.subjectTemplate, ctx) else ""

@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.alerting.action
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelMonitor
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
@@ -29,7 +29,7 @@ class IndexMonitorRequestTests : ESTestCase() {
     fun `test index monitor post request`() {
 
         val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.POST,
-                randomTraditionalMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
+                randomQueryLevelMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
         assertNotNull(req)
 
         val out = BytesStreamOutput()
@@ -46,7 +46,7 @@ class IndexMonitorRequestTests : ESTestCase() {
     fun `test index monitor put request`() {
 
         val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.PUT,
-                randomTraditionalMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
+                randomQueryLevelMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
         assertNotNull(req)
 
         val out = BytesStreamOutput()

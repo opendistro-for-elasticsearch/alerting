@@ -54,7 +54,7 @@ class GetMonitorResponseTests : ESTestCase() {
             schedule = cronSchedule,
             lastUpdateTime = Instant.now(),
             enabledTime = Instant.now(),
-            monitorType = Monitor.MonitorType.TRADITIONAL_MONITOR,
+            monitorType = Monitor.MonitorType.QUERY_LEVEL_MONITOR,
             user = randomUser(),
             schemaVersion = 0,
             inputs = mutableListOf(),

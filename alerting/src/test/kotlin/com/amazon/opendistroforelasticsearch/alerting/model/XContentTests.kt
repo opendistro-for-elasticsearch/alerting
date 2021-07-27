@@ -27,15 +27,15 @@ import com.amazon.opendistroforelasticsearch.alerting.parser
 import com.amazon.opendistroforelasticsearch.alerting.randomAction
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionPolicy
 import com.amazon.opendistroforelasticsearch.alerting.randomActionExecutionResult
-import com.amazon.opendistroforelasticsearch.alerting.randomAggregationMonitor
-import com.amazon.opendistroforelasticsearch.alerting.randomAggregationTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomBucketLevelMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomBucketLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomAlert
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailAccount
 import com.amazon.opendistroforelasticsearch.alerting.randomEmailGroup
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitor
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalMonitorWithoutUser
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelMonitor
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelMonitorWithoutUser
 import com.amazon.opendistroforelasticsearch.alerting.randomThrottle
-import com.amazon.opendistroforelasticsearch.alerting.randomTraditionalTrigger
+import com.amazon.opendistroforelasticsearch.alerting.randomQueryLevelTrigger
 import com.amazon.opendistroforelasticsearch.alerting.randomUser
 import com.amazon.opendistroforelasticsearch.alerting.randomUserEmpty
 import com.amazon.opendistroforelasticsearch.alerting.toJsonString
@@ -98,30 +98,30 @@ class XContentTests : ESTestCase() {
         assertFailsWith<IllegalArgumentException>("Can only set positive throttle period") { Throttle.parse(parser(throttleString)) }
     }
 
-    fun `test traditional monitor parsing`() {
-        val monitor = randomTraditionalMonitor()
+    fun `test query-level monitor parsing`() {
+        val monitor = randomQueryLevelMonitor()
 
         val monitorString = monitor.toJsonString()
         val parsedMonitor = Monitor.parse(parser(monitorString))
-        assertEquals("Round tripping Monitor doesn't work", monitor, parsedMonitor)
+        assertEquals("Round tripping QueryLevelMonitor doesn't work", monitor, parsedMonitor)
     }
 
-    fun `test traditional trigger parsing`() {
-        val trigger = randomTraditionalTrigger()
+    fun `test query-level trigger parsing`() {
+        val trigger = randomQueryLevelTrigger()
 
         val triggerString = trigger.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedTrigger = Trigger.parse(parser(triggerString))
 
-        assertEquals("Round tripping TraditionalTrigger doesn't work", trigger, parsedTrigger)
+        assertEquals("Round tripping QueryLevelTrigger doesn't work", trigger, parsedTrigger)
     }
 
-    fun `test aggregation trigger parsing`() {
-        val trigger = randomAggregationTrigger()
+    fun `test bucket-level trigger parsing`() {
+        val trigger = randomBucketLevelTrigger()
 
         val triggerString = trigger.toXContent(builder(), ToXContent.EMPTY_PARAMS).string()
         val parsedTrigger = Trigger.parse(parser(triggerString))
 
-        assertEquals("Round tripping AggregationTrigger doesn't work", trigger, parsedTrigger)
+        assertEquals("Round tripping BucketLevelTrigger doesn't work", trigger, parsedTrigger)
     }
 
     fun `test alert parsing`() {
@@ -166,8 +166,8 @@ class XContentTests : ESTestCase() {
 
     fun `test creating a monitor with duplicate trigger ids fails`() {
         try {
-            val repeatedTrigger = randomTraditionalTrigger()
-            randomTraditionalMonitor().copy(triggers = listOf(repeatedTrigger, repeatedTrigger))
+            val repeatedTrigger = randomQueryLevelTrigger()
+            randomQueryLevelMonitor().copy(triggers = listOf(repeatedTrigger, repeatedTrigger))
             fail("Creating a monitor with duplicate triggers did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
@@ -190,12 +190,12 @@ class XContentTests : ESTestCase() {
         assertEquals(0, parsedUser.roles.size)
     }
 
-    fun `test traditional monitor parsing without user`() {
-        val monitor = randomTraditionalMonitorWithoutUser()
+    fun `test query-level monitor parsing without user`() {
+        val monitor = randomQueryLevelMonitorWithoutUser()
 
         val monitorString = monitor.toJsonString()
         val parsedMonitor = Monitor.parse(parser(monitorString))
-        assertEquals("Round tripping Monitor doesn't work", monitor, parsedMonitor)
+        assertEquals("Round tripping QueryLevelMonitor doesn't work", monitor, parsedMonitor)
         assertNull(parsedMonitor.user)
     }
 
@@ -290,36 +290,36 @@ class XContentTests : ESTestCase() {
             }
         """.trimIndent()
         val parsedMonitor = Monitor.parse(parser(monitorString))
-        assertEquals("Incorrect monitor type", Monitor.MonitorType.TRADITIONAL_MONITOR, parsedMonitor.monitorType)
+        assertEquals("Incorrect monitor type", Monitor.MonitorType.QUERY_LEVEL_MONITOR, parsedMonitor.monitorType)
         assertEquals("Incorrect trigger count", 1, parsedMonitor.triggers.size)
         val trigger = parsedMonitor.triggers.first()
-        assertTrue("Incorrect trigger type", trigger is TraditionalTrigger)
+        assertTrue("Incorrect trigger type", trigger is QueryLevelTrigger)
         assertEquals("Incorrect name for parsed trigger", "abc", trigger.name)
     }
 
-    fun `test creating an traditional monitor with invalid trigger type fails`() {
+    fun `test creating an query-level monitor with invalid trigger type fails`() {
         try {
-            val aggregationTrigger = randomAggregationTrigger()
-            randomTraditionalMonitor().copy(triggers = listOf(aggregationTrigger))
-            fail("Creating a traditional monitor with aggregation triggers did not fail.")
+            val bucketLevelTrigger = randomBucketLevelTrigger()
+            randomQueryLevelMonitor().copy(triggers = listOf(bucketLevelTrigger))
+            fail("Creating a query-level monitor with bucket-level triggers did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
     }
 
-    fun `test creating an aggregation monitor with invalid trigger type fails`() {
+    fun `test creating an bucket-level monitor with invalid trigger type fails`() {
         try {
-            val traditionalTrigger = randomTraditionalTrigger()
-            randomAggregationMonitor().copy(triggers = listOf(traditionalTrigger))
-            fail("Creating an aggregation monitor with traditional triggers did not fail.")
+            val queryLevelTrigger = randomQueryLevelTrigger()
+            randomBucketLevelMonitor().copy(triggers = listOf(queryLevelTrigger))
+            fail("Creating a bucket-level monitor with query-level triggers did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
     }
 
-    fun `test creating an aggregation monitor with invalid input fails`() {
+    fun `test creating an bucket-level monitor with invalid input fails`() {
         try {
             val invalidInput = SearchInput(emptyList(), SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
-            randomAggregationMonitor().copy(inputs = listOf(invalidInput))
-            fail("Creating an aggregation monitor with an invalid input did not fail.")
+            randomBucketLevelMonitor().copy(inputs = listOf(invalidInput))
+            fail("Creating an bucket-level monitor with an invalid input did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
     }

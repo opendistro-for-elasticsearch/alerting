@@ -28,7 +28,7 @@ import com.amazon.opendistroforelasticsearch.alerting.model.Monitor
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
 import com.amazon.opendistroforelasticsearch.alerting.model.ActionExecutionResult
 import com.amazon.opendistroforelasticsearch.alerting.model.action.ActionExecutionPolicy
-import com.amazon.opendistroforelasticsearch.alerting.model.action.PerExecutionActionFrequency
+import com.amazon.opendistroforelasticsearch.alerting.model.action.PerExecutionActionScope
 import com.amazon.opendistroforelasticsearch.alerting.model.action.Throttle
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.CustomWebhook
 import com.amazon.opendistroforelasticsearch.alerting.model.destination.Destination
@@ -58,8 +58,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test execute monitor with dryrun`() {
         val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name}}"), destinationId = createDestination().id)
-        val monitor = randomTraditionalMonitor(
-            triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
+        val monitor = randomQueryLevelMonitor(
+            triggers = listOf(randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
 
         val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
 
@@ -94,8 +94,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             return ctx.results[0].hits.hits.size() == 1
         """.trimIndent()
 
-        val trigger = randomTraditionalTrigger(condition = Script(triggerScript))
-        val monitor = randomTraditionalMonitor(inputs = listOf(input), triggers = listOf(trigger))
+        val trigger = randomQueryLevelTrigger(condition = Script(triggerScript))
+        val monitor = randomQueryLevelMonitor(inputs = listOf(input), triggers = listOf(trigger))
         val response = executeMonitor(monitor, params = DRYRUN_MONITOR)
 
         val output = entityAsMap(response)
@@ -109,7 +109,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     fun `test execute monitor not triggered`() {
-        val monitor = randomTraditionalMonitor(triggers = listOf(randomTraditionalTrigger(condition = NEVER_RUN)))
+        val monitor = randomQueryLevelMonitor(triggers = listOf(randomQueryLevelTrigger(condition = NEVER_RUN)))
 
         val response = executeMonitor(monitor)
 
@@ -125,8 +125,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test active alert is updated on each run`() {
         val monitor = createMonitor(
-            randomTraditionalMonitor(
-                triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, destinationId = createDestination().id))
+            randomQueryLevelMonitor(
+                triggers = listOf(randomQueryLevelTrigger(condition = ALWAYS_RUN, destinationId = createDestination().id))
             )
         )
 
@@ -150,8 +150,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         // use a non-existent index to trigger an input error
         createIndex("foo", Settings.EMPTY)
         val input = SearchInput(indices = listOf("foo"), query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
-        val monitor = createMonitor(randomTraditionalMonitor(inputs = listOf(input),
-                triggers = listOf(randomTraditionalTrigger(condition = NEVER_RUN))))
+        val monitor = createMonitor(randomQueryLevelMonitor(inputs = listOf(input),
+                triggers = listOf(randomQueryLevelTrigger(condition = NEVER_RUN))))
 
         deleteIndex("foo")
         val response = executeMonitor(monitor.id)
@@ -171,8 +171,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         // use a non-existent monitoid to trigger a 404.
         createIndex("foo", Settings.EMPTY)
         val input = SearchInput(indices = listOf("foo"), query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
-        val monitor = createMonitor(randomTraditionalMonitor(inputs = listOf(input),
-                triggers = listOf(randomTraditionalTrigger(condition = NEVER_RUN))))
+        val monitor = createMonitor(randomQueryLevelMonitor(inputs = listOf(input),
+                triggers = listOf(randomQueryLevelTrigger(condition = NEVER_RUN))))
 
         var exception: ResponseException? = null
         try {
@@ -189,8 +189,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         createIndex("foo", Settings.EMPTY)
         val input = SearchInput(indices = listOf("foo"), query = SearchSourceBuilder().query(QueryBuilders.matchAllQuery()))
         val monitor = createMonitor(
-                randomTraditionalMonitor(inputs = listOf(input),
-                triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, destinationId = destinationId))))
+                randomQueryLevelMonitor(inputs = listOf(input),
+                triggers = listOf(randomQueryLevelTrigger(condition = ALWAYS_RUN, destinationId = destinationId))))
 
         var response = executeMonitor(monitor.id)
 
@@ -213,8 +213,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test acknowledged alert is not updated unnecessarily`() {
         val monitor = createMonitor(
-            randomTraditionalMonitor(
-                triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, destinationId = createDestination().id))
+            randomQueryLevelMonitor(
+                triggers = listOf(randomQueryLevelTrigger(condition = ALWAYS_RUN, destinationId = createDestination().id))
             )
         )
         executeMonitor(monitor.id)
@@ -237,8 +237,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     fun `test alert completion`() {
-        val trigger = randomTraditionalTrigger(condition = Script("ctx.alert == null"), destinationId = createDestination().id)
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val trigger = randomQueryLevelTrigger(condition = Script("ctx.alert == null"), destinationId = createDestination().id)
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
 
         executeMonitor(monitor.id)
         val activeAlert = searchAlerts(monitor).single()
@@ -252,8 +252,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test execute monitor script error`() {
         // This painless script should cause a syntax error
-        val trigger = randomTraditionalTrigger(condition = Script("foo bar baz"))
-        val monitor = randomTraditionalMonitor(triggers = listOf(trigger))
+        val trigger = randomQueryLevelTrigger(condition = Script("foo bar baz"))
+        val monitor = randomQueryLevelMonitor(triggers = listOf(trigger))
 
         val response = executeMonitor(monitor)
 
@@ -270,8 +270,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     fun `test execute action template error`() {
         // Intentional syntax error in mustache template
         val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name"))
-        val monitor = randomTraditionalMonitor(
-            triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
+        val monitor = randomQueryLevelMonitor(
+            triggers = listOf(randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = listOf(action))))
 
         val response = executeMonitor(monitor)
 
@@ -305,8 +305,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             return ctx.results[0].hits.hits.size() > 0
         """.trimIndent()
         val destinationId = createDestination().id
-        val trigger = randomTraditionalTrigger(condition = Script(triggerScript), destinationId = destinationId)
-        val monitor = createMonitor(randomTraditionalMonitor(inputs = listOf(input), triggers = listOf(trigger)))
+        val trigger = randomQueryLevelTrigger(condition = Script(triggerScript), destinationId = destinationId)
+        val monitor = createMonitor(randomQueryLevelMonitor(inputs = listOf(input), triggers = listOf(trigger)))
 
         val response = executeMonitor(monitor.id)
 
@@ -340,8 +340,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             // make sure there is exactly one hit
             return ctx.results[0].hits.hits.size() == 1
         """.trimIndent()
-        val trigger = randomTraditionalTrigger(condition = Script(triggerScript))
-        val monitor = randomTraditionalMonitor(inputs = listOf(input), triggers = listOf(trigger))
+        val trigger = randomQueryLevelTrigger(condition = Script(triggerScript))
+        val monitor = randomQueryLevelMonitor(inputs = listOf(input), triggers = listOf(trigger))
 
         val response = executeMonitor(monitor)
 
@@ -369,7 +369,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         )
         val actions = listOf(goodAction, syntaxErrorAction)
         val monitor = createMonitor(
-            randomTraditionalMonitor(triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, actions = actions)))
+            randomQueryLevelMonitor(triggers = listOf(randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = actions)))
         )
 
         val output = entityAsMap(executeMonitor(monitor.id))
@@ -397,8 +397,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name"))
-        val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val trigger = randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
         val listOfFiveErrorMessages = (1..5).map { i -> AlertError(timestamp = Instant.now(), message = "error message $i") }
         val activeAlert = createAlert(randomAlert(monitor).copy(state = ACTIVE, errorHistory = listOfFiveErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
@@ -419,14 +419,14 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test latest error is not lost when alert is completed`() {
         // Creates an active alert the first time it's run and completes it the second time the monitor is run.
-        val trigger = randomTraditionalTrigger(condition = Script("""
+        val trigger = randomQueryLevelTrigger(condition = Script("""
             if (ctx.alert == null) {
                 throw new RuntimeException("foo");
             } else {
                 return false;
             }
         """.trimIndent()))
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
 
         executeMonitor(monitor.id)
         val errorAlert = searchAlerts(monitor).single()
@@ -443,10 +443,10 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test throw script exception`() {
         // Creates an active alert the first time it's run and completes it the second time the monitor is run.
-        val trigger = randomTraditionalTrigger(condition = Script("""
+        val trigger = randomQueryLevelTrigger(condition = Script("""
             param[0]; return true
         """.trimIndent()))
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
 
         executeMonitor(monitor.id)
         val errorAlert = searchAlerts(monitor).single()
@@ -460,8 +460,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         putAlertMappings() // Required as we do not have a create alert API.
         // This template script has a parsing error to purposefully create an errorMessage during runMonitor
         val action = randomAction(template = randomTemplateScript("Hello {{ctx.monitor.name"))
-        val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val trigger = randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
         val listOfTenErrorMessages = (1..10).map { i -> AlertError(timestamp = Instant.now(), message = "error message $i") }
         val activeAlert = createAlert(randomAlert(monitor).copy(state = ACTIVE, errorHistory = listOfTenErrorMessages,
                 triggerId = trigger.id, triggerName = trigger.name, severity = trigger.severity))
@@ -483,8 +483,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     fun `test execute monitor creates alert for trigger with no actions`() {
         putAlertMappings() // Required as we do not have a create alert API.
 
-        val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN, actions = emptyList(), destinationId = createDestination().id)
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val trigger = randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = emptyList(), destinationId = createDestination().id)
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
 
         executeMonitor(monitor.id)
 
@@ -495,7 +495,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test execute monitor non-dryrun`() {
         val monitor = createMonitor(
-                randomTraditionalMonitor(triggers = listOf(randomTraditionalTrigger(
+                randomQueryLevelMonitor(triggers = listOf(randomQueryLevelTrigger(
                         condition = ALWAYS_RUN,
                         actions = listOf(randomAction(destinationId = createDestination().id))))))
 
@@ -509,7 +509,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
 
     fun `test execute monitor with already active alert`() {
         val monitor = createMonitor(
-                randomTraditionalMonitor(triggers = listOf(randomTraditionalTrigger(
+                randomQueryLevelMonitor(triggers = listOf(randomQueryLevelTrigger(
                         condition = ALWAYS_RUN,
                         actions = listOf(randomAction(destinationId = createDestination().id))))))
 
@@ -532,8 +532,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         putAlertMappings()
 
         val newMonitor = createMonitor(
-            randomTraditionalMonitor(
-                triggers = listOf(randomTraditionalTrigger(condition = NEVER_RUN, actions = listOf(randomAction())))
+            randomQueryLevelMonitor(
+                triggers = listOf(randomQueryLevelTrigger(condition = NEVER_RUN, actions = listOf(randomAction())))
             )
         )
         val deleteNewMonitorResponse = client().makeRequest("DELETE", "$ALERTING_BASE_URI/${newMonitor.id}")
@@ -542,7 +542,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     fun `test update monitor stays on schedule`() {
-        val monitor = createMonitor(randomTraditionalMonitor(enabled = true))
+        val monitor = createMonitor(randomQueryLevelMonitor(enabled = true))
 
         updateMonitor(monitor.copy(enabledTime = Instant.now()))
 
@@ -551,19 +551,19 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     fun `test enabled time by disabling and re-enabling monitor`() {
-        val monitor = createMonitor(randomTraditionalMonitor(enabled = true))
+        val monitor = createMonitor(randomQueryLevelMonitor(enabled = true))
         assertNotNull("Enabled time is null on a enabled monitor.", getMonitor(monitor.id).enabledTime)
 
-        val disabledMonitor = updateMonitor(randomTraditionalMonitor(enabled = false).copy(id = monitor.id))
+        val disabledMonitor = updateMonitor(randomQueryLevelMonitor(enabled = false).copy(id = monitor.id))
         assertNull("Enabled time is not null on a disabled monitor.", disabledMonitor.enabledTime)
 
-        val enabledMonitor = updateMonitor(randomTraditionalMonitor(enabled = true).copy(id = monitor.id))
+        val enabledMonitor = updateMonitor(randomQueryLevelMonitor(enabled = true).copy(id = monitor.id))
         assertNotNull("Enabled time is null on a enabled monitor.", enabledMonitor.enabledTime)
     }
 
     fun `test enabled time by providing enabled time`() {
         val enabledTime = Instant.ofEpochSecond(1538164858L) // This is 2018-09-27 20:00:58 GMT
-        val monitor = createMonitor(randomTraditionalMonitor(enabled = true, enabledTime = enabledTime))
+        val monitor = createMonitor(randomQueryLevelMonitor(enabled = true, enabledTime = enabledTime))
 
         val retrievedMonitor = getMonitor(monitorId = monitor.id)
         assertTrue("Monitor is not enabled", retrievedMonitor.enabled)
@@ -579,8 +579,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 throttleEnabled = false, throttle = Throttle(value = 5, unit = MINUTES))
         val actions = listOf(actionThrottleEnabled, actionThrottleNotEnabled)
         val monitor = createMonitor(
-            randomTraditionalMonitor(
-                triggers = listOf(randomTraditionalTrigger(condition = ALWAYS_RUN, actions = actions)),
+            randomQueryLevelMonitor(
+                triggers = listOf(randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = actions)),
                 schedule = IntervalSchedule(interval = 1, unit = ChronoUnit.MINUTES))
         )
         val monitorRunResultNotThrottled = entityAsMap(executeMonitor(monitor.id))
@@ -615,8 +615,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 destinationId = createDestination().id,
                 throttleEnabled = true, throttle = Throttle(value = 5, unit = MINUTES))
         val actions = listOf(actionThrottleEnabled)
-        val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN, actions = actions)
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger),
+        val trigger = randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = actions)
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger),
                 schedule = IntervalSchedule(interval = 1, unit = ChronoUnit.MINUTES)))
         val monitorRunResult1 = entityAsMap(executeMonitor(monitor.id))
         verifyActionThrottleResults(monitorRunResult1, mutableMapOf(Pair(actionThrottleEnabled.id, false)))
@@ -669,8 +669,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 email = email
         ))
         val action = randomAction(destinationId = destination.id)
-        val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val trigger = randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
 
         executeMonitor(monitor.id)
 
@@ -693,8 +693,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                         email = null
                 ))
         val action = randomAction(destinationId = destination.id)
-        val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))
-        val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+        val trigger = randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+        val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
         executeMonitor(adminClient(), monitor.id)
 
         val alerts = searchAlerts(monitor)
@@ -719,8 +719,8 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                             email = null
                     ))
             val action = randomAction(destinationId = destination.id)
-            val trigger = randomTraditionalTrigger(condition = ALWAYS_RUN, actions = listOf(action))
-            val monitor = createMonitor(randomTraditionalMonitor(triggers = listOf(trigger)))
+            val trigger = randomQueryLevelTrigger(condition = ALWAYS_RUN, actions = listOf(action))
+            val monitor = createMonitor(randomQueryLevelMonitor(triggers = listOf(trigger)))
             executeMonitor(adminClient(), monitor.id)
 
             val alerts = searchAlerts(monitor)
@@ -840,7 +840,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             scheme = clusterHosts[clusterIndex].schemeName,
             path = path
         )
-        val monitor = createMonitor(randomTraditionalMonitor(inputs = listOf(input)))
+        val monitor = createMonitor(randomQueryLevelMonitor(inputs = listOf(input)))
 
         // WHEN
         val response = executeMonitor(monitor.id)
@@ -865,7 +865,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             scheme = clusterHosts[clusterIndex].schemeName,
             path = path
         )
-        val monitor = createMonitor(randomTraditionalMonitor(inputs = listOf(input)))
+        val monitor = createMonitor(randomQueryLevelMonitor(inputs = listOf(input)))
 
         // WHEN
         val response = executeMonitor(monitor.id)
@@ -885,7 +885,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     fun `test LocalUriInput monitor with alert triggered`() {
         // GIVEN
         putAlertMappings()
-        val trigger = randomTraditionalTrigger(condition = Script("""
+        val trigger = randomQueryLevelTrigger(condition = Script("""
             return ctx.results[0].number_of_pending_tasks < 1
         """.trimIndent()), destinationId = createDestination().id)
         val path = "/_cluster/health"
@@ -894,7 +894,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             scheme = clusterHosts[clusterIndex].schemeName,
             path = path
         )
-        val monitor = createMonitor(randomTraditionalMonitor(inputs = listOf(input), triggers = listOf(trigger)))
+        val monitor = createMonitor(randomQueryLevelMonitor(inputs = listOf(input), triggers = listOf(trigger)))
 
         // WHEN
         val response = executeMonitor(monitor.id)
@@ -917,7 +917,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     fun `test LocalUriInput monitor with no alert triggered`() {
         // GIVEN
         putAlertMappings()
-        val trigger = randomTraditionalTrigger(condition = Script("""
+        val trigger = randomQueryLevelTrigger(condition = Script("""
             return ctx.results[0].status.equals("red")
         """.trimIndent()))
         val path = "/_cluster/stats"
@@ -926,7 +926,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             scheme = clusterHosts[clusterIndex].schemeName,
             path = path
         )
-        val monitor = createMonitor(randomTraditionalMonitor(inputs = listOf(input), triggers = listOf(trigger)))
+        val monitor = createMonitor(randomQueryLevelMonitor(inputs = listOf(input), triggers = listOf(trigger)))
 
         // WHEN
         val response = executeMonitor(monitor.id)
@@ -951,11 +951,11 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     //  This will likely involve adding an API to the list before creating the monitor, and then removing
     //  the API from the list before executing the monitor.
 
-    // TODO: The composite aggregation will paginate through all results during the Aggregation Monitor run.
+    // TODO: The composite aggregation will paginate through all results during the Bucket-Level Monitor run.
     //  The last page (when after_key is null) is empty if all the contents fit on the previous page, meaning the
     //  input results returned by the monitor execution is empty.
     //  Skipping this test for now until this is resolved to show a non-empty result.
-    fun `skip test execute aggregation monitor returns search result`() {
+    fun `skip test execute bucket-level monitor returns search result`() {
         val testIndex = createTestIndex()
         insertSampleTimeSerializedData(
             testIndex,
@@ -979,7 +979,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             params.docCount > 0
         """.trimIndent()
 
-        var trigger = randomAggregationTrigger()
+        var trigger = randomBucketLevelTrigger()
         trigger = trigger.copy(
             bucketSelector = BucketSelectorExtAggregationBuilder(
                 name = trigger.id,
@@ -989,7 +989,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 filter = null
             )
         )
-        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+        val monitor = createMonitor(randomBucketLevelMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
         val response = executeMonitor(monitor.id, params = DRYRUN_MONITOR)
         val output = entityAsMap(response)
         // print("Output is: $output")
@@ -1002,7 +1002,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         assertEquals("Incorrect search result", 2, buckets.size)
     }
 
-    fun `test aggregation monitor alert creation and completion`() {
+    fun `test bucket-level monitor alert creation and completion`() {
         val testIndex = createTestIndex()
         insertSampleTimeSerializedData(
             testIndex,
@@ -1026,7 +1026,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             params.docCount > 0
         """.trimIndent()
 
-        var trigger = randomAggregationTrigger()
+        var trigger = randomBucketLevelTrigger()
         trigger = trigger.copy(
             bucketSelector = BucketSelectorExtAggregationBuilder(
                 name = trigger.id,
@@ -1036,7 +1036,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 filter = null
             )
         )
-        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+        val monitor = createMonitor(randomBucketLevelMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
         executeMonitor(monitor.id, params = DRYRUN_MONITOR)
 
         // Check created alerts
@@ -1067,7 +1067,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun `test aggregation monitor with one good action and one bad action`() {
+    fun `test bucket-level monitor with one good action and one bad action`() {
         val testIndex = createTestIndex()
         insertSampleTimeSerializedData(
             testIndex,
@@ -1101,7 +1101,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
             destinationId = createDestination().id)
         val actions = listOf(goodAction, syntaxErrorAction)
 
-        var trigger = randomAggregationTrigger(actions = actions)
+        var trigger = randomBucketLevelTrigger(actions = actions)
         trigger = trigger.copy(
             bucketSelector = BucketSelectorExtAggregationBuilder(
                 name = trigger.id,
@@ -1111,7 +1111,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 filter = null
             )
         )
-        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+        val monitor = createMonitor(randomBucketLevelMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
 
         val output = entityAsMap(executeMonitor(monitor.id))
         // The 'events' in this case are the bucketKeys hashes representing the Alert events
@@ -1144,7 +1144,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun `test aggregation monitor with per execution action frequency`() {
+    fun `test bucket-level monitor with per execution action frequency`() {
         val testIndex = createTestIndex()
         insertSampleTimeSerializedData(
             testIndex,
@@ -1174,9 +1174,9 @@ class MonitorRunnerIT : AlertingRestTestCase() {
         val action = randomAction(
             template = randomTemplateScript("Hello {{ctx.monitor.name}}"),
             destinationId = createDestination().id,
-            actionExecutionPolicy = ActionExecutionPolicy(null, PerExecutionActionFrequency())
+            actionExecutionPolicy = ActionExecutionPolicy(null, PerExecutionActionScope())
         )
-        var trigger = randomAggregationTrigger(actions = listOf(action))
+        var trigger = randomBucketLevelTrigger(actions = listOf(action))
         trigger = trigger.copy(
             bucketSelector = BucketSelectorExtAggregationBuilder(
                 name = trigger.id,
@@ -1186,7 +1186,7 @@ class MonitorRunnerIT : AlertingRestTestCase() {
                 filter = null
             )
         )
-        val monitor = createMonitor(randomAggregationMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
+        val monitor = createMonitor(randomBucketLevelMonitor(inputs = listOf(input), enabled = false, triggers = listOf(trigger)))
 
         val output = entityAsMap(executeMonitor(monitor.id))
         // The 'events' in this case are the bucketKeys hashes representing the Alert events

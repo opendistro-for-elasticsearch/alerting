@@ -30,7 +30,7 @@ import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSetti
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
-import com.amazon.opendistroforelasticsearch.alerting.util.isAggregationMonitor
+import com.amazon.opendistroforelasticsearch.alerting.util.isBucketLevelMonitor
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import org.elasticsearch.common.CheckedFunction
 import org.elasticsearch.common.ParseField
@@ -77,10 +77,10 @@ data class Monitor(
             require(triggerIds.add(trigger.id)) { "Duplicate trigger id: ${trigger.id}. Trigger ids must be unique." }
             // Verify Trigger type based on Monitor type
             when (monitorType) {
-                MonitorType.TRADITIONAL_MONITOR ->
-                    require(trigger is TraditionalTrigger) { "Incompatible trigger [$trigger.id] for monitor type [$monitorType]" }
-                MonitorType.AGGREGATION_MONITOR ->
-                    require(trigger is AggregationTrigger) { "Incompatible trigger [$trigger.id] for monitor type [$monitorType]" }
+                MonitorType.QUERY_LEVEL_MONITOR ->
+                    require(trigger is QueryLevelTrigger) { "Incompatible trigger [$trigger.id] for monitor type [$monitorType]" }
+                MonitorType.BUCKET_LEVEL_MONITOR ->
+                    require(trigger is BucketLevelTrigger) { "Incompatible trigger [$trigger.id] for monitor type [$monitorType]" }
             }
         }
         if (enabled) {
@@ -90,7 +90,7 @@ data class Monitor(
         }
         require(inputs.size <= MONITOR_MAX_INPUTS) { "Monitors can only have $MONITOR_MAX_INPUTS search input." }
         require(triggers.size <= MONITOR_MAX_TRIGGERS) { "Monitors can only support up to $MONITOR_MAX_TRIGGERS triggers." }
-        if (this.isAggregationMonitor()) {
+        if (this.isBucketLevelMonitor()) {
             inputs.forEach { input ->
                 require(input is SearchInput) { "Unsupported input [$input] for Monitor" }
                 // TODO: Keeping query validation simple for now, only term aggregations have full support for the "group by" on the
@@ -124,8 +124,8 @@ data class Monitor(
     // This enum classifies different Monitors
     // This is different from 'type' which denotes the Scheduled Job type
     enum class MonitorType(val value: String) {
-        TRADITIONAL_MONITOR("traditional_monitor"),
-        AGGREGATION_MONITOR("aggregation_monitor");
+        QUERY_LEVEL_MONITOR("query_level_monitor"),
+        BUCKET_LEVEL_MONITOR("bucket_level_monitor");
 
         override fun toString(): String {
             return value
@@ -184,8 +184,8 @@ data class Monitor(
         // Outputting type with each Trigger so that the generic Trigger.readFrom() can read it
         out.writeVInt(triggers.size)
         triggers.forEach {
-            if (it is TraditionalTrigger) out.writeEnum(Trigger.Type.TRADITIONAL_TRIGGER)
-            else out.writeEnum(Trigger.Type.AGGREGATION_TRIGGER)
+            if (it is QueryLevelTrigger) out.writeEnum(Trigger.Type.QUERY_LEVEL_TRIGGER)
+            else out.writeEnum(Trigger.Type.BUCKET_LEVEL_TRIGGER)
             it.writeTo(out)
         }
         out.writeMap(uiMetadata)
@@ -219,8 +219,8 @@ data class Monitor(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Monitor {
             lateinit var name: String
-            // Default to TRADITIONAL_MONITOR to cover Monitors that existed before the addition of MonitorType
-            var monitorType: String = MonitorType.TRADITIONAL_MONITOR.toString()
+            // Default to QUERY_LEVEL_MONITOR to cover Monitors that existed before the addition of MonitorType
+            var monitorType: String = MonitorType.QUERY_LEVEL_MONITOR.toString()
             var user: User? = null
             lateinit var schedule: Schedule
             var lastUpdateTime: Instant? = null
