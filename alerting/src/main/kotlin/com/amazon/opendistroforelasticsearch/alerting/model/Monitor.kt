@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.alerting.model
 
 import com.amazon.opendistroforelasticsearch.alerting.core.model.CronSchedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Input
-import com.amazon.opendistroforelasticsearch.alerting.core.model.LocalUriInput
 import com.amazon.opendistroforelasticsearch.alerting.core.model.Schedule
 import com.amazon.opendistroforelasticsearch.alerting.core.model.ScheduledJob
 import com.amazon.opendistroforelasticsearch.alerting.core.model.SearchInput
@@ -26,7 +25,6 @@ import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalTimeFie
 import com.amazon.opendistroforelasticsearch.alerting.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MONITOR_MAX_INPUTS
 import com.amazon.opendistroforelasticsearch.alerting.settings.AlertingSettings.Companion.MONITOR_MAX_TRIGGERS
-import com.amazon.opendistroforelasticsearch.alerting.settings.SupportedApiSettings
 import com.amazon.opendistroforelasticsearch.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import com.amazon.opendistroforelasticsearch.alerting.util._ID
 import com.amazon.opendistroforelasticsearch.alerting.util._VERSION
@@ -252,11 +250,7 @@ data class Monitor(
                     INPUTS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            val input = Input.parse(xcp)
-                            if (input is LocalUriInput) {
-                                SupportedApiSettings.validatePath(input.toConstructedUri().path)
-                            }
-                            inputs.add(input)
+                            inputs.add(Input.parse(xcp))
                         }
                     }
                     TRIGGERS_FIELD -> {

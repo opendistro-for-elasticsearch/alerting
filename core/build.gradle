@@ -26,7 +26,6 @@ dependencies {
     compile "org.elasticsearch.client:elasticsearch-rest-client:${es_version}"
     compile 'com.google.googlejavaformat:google-java-format:1.3'
     compile "com.amazon.opendistroforelasticsearch:common-utils:1.13.0.0"
-    compile 'commons-validator:commons-validator:1.7'
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
