@@ -46,7 +46,7 @@ data class ActionExecutionPolicy(
         if (throttle != null) {
             xContentBuilder.field(THROTTLE_FIELD, throttle)
         }
-        xContentBuilder.field(ACTION_EXECUTION_FREQUENCY, actionExecutionScope)
+        xContentBuilder.field(ACTION_EXECUTION_SCOPE, actionExecutionScope)
         return xContentBuilder.endObject()
     }
 
@@ -68,7 +68,7 @@ data class ActionExecutionPolicy(
 
     companion object {
         const val THROTTLE_FIELD = "throttle"
-        const val ACTION_EXECUTION_FREQUENCY = "action_execution_frequency"
+        const val ACTION_EXECUTION_SCOPE = "action_execution_scope"
 
         @JvmStatic
         @Throws(IOException::class)
@@ -85,7 +85,7 @@ data class ActionExecutionPolicy(
                     THROTTLE_FIELD -> {
                         throttle = if (xcp.currentToken() == Token.VALUE_NULL) null else Throttle.parse(xcp)
                     }
-                    ACTION_EXECUTION_FREQUENCY -> actionExecutionScope = ActionExecutionScope.parse(xcp)
+                    ACTION_EXECUTION_SCOPE -> actionExecutionScope = ActionExecutionScope.parse(xcp)
                 }
             }
 
