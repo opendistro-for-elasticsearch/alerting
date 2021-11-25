@@ -27,7 +27,7 @@ class DeleteEmailGroupRequest : ActionRequest {
     val emailGroupID: String
     val refreshPolicy: WriteRequest.RefreshPolicy
 
-    constructor(emailGroupID: String, refreshPolicy: WriteRequest.RefreshPolicy): super() {
+    constructor(emailGroupID: String, refreshPolicy: WriteRequest.RefreshPolicy) : super() {
         this.emailGroupID = emailGroupID
         this.refreshPolicy = refreshPolicy
     }

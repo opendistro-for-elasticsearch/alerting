@@ -28,7 +28,7 @@ class ScheduledJobsStatsRequest : BaseNodesRequest<ScheduledJobsStatsRequest> {
     var jobSchedulingMetrics: Boolean = true
     var jobsInfo: Boolean = true
 
-    constructor(si: StreamInput): super(si) {
+    constructor(si: StreamInput) : super(si) {
         jobSchedulingMetrics = si.readBoolean()
         jobsInfo = si.readBoolean()
     }

@@ -44,7 +44,7 @@ class GetEmailGroupResponse : ActionResponse, ToXContentObject {
         primaryTerm: Long,
         status: RestStatus,
         emailGroup: EmailGroup?
-    ): super() {
+    ) : super() {
         this.id = id
         this.version = version
         this.seqNo = seqNo
@@ -54,7 +54,7 @@ class GetEmailGroupResponse : ActionResponse, ToXContentObject {
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readString(), // id
         sin.readLong(), // version
         sin.readLong(), // seqNo

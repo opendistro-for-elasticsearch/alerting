@@ -28,12 +28,12 @@ class SearchMonitorRequest : ActionRequest {
 
     constructor(
         searchRequest: SearchRequest
-    ): super() {
+    ) : super() {
         this.searchRequest = searchRequest
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         searchRequest = SearchRequest(sin)
     )
 
