@@ -38,7 +38,7 @@ data class MonitorRunResult(
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readString(), // monitorName
         sin.readInstant(), // periodStart
         sin.readInstant(), // periodEnd
@@ -143,7 +143,7 @@ data class TriggerRunResult(
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readString(), // triggerName
         sin.readBoolean(), // triggered
         sin.readException(), // error
@@ -206,7 +206,7 @@ data class ActionRunResult(
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readString(), // actionId
         sin.readString(), // actionName
         suppressWarning(sin.readMap()), // output

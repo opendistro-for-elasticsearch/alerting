@@ -31,7 +31,7 @@ import java.io.IOException
 data class SearchInput(val indices: List<String>, val query: SearchSourceBuilder) : Input {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readStringList(), // indices
         SearchSourceBuilder(sin) // query
     )

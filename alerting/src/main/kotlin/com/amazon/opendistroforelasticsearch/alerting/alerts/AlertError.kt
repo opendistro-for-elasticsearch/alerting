@@ -30,7 +30,7 @@ import java.time.Instant
 data class AlertError(val timestamp: Instant, val message: String) : Writeable, ToXContent {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readInstant(), // timestamp
         sin.readString() // message
     )

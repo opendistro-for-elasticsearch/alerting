@@ -37,7 +37,7 @@ data class Trigger(
 ) : Writeable, ToXContent {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
             sin.readString(), // name
             sin.readString(), // severity
             Script(sin), // condition

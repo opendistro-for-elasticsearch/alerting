@@ -129,7 +129,7 @@ class ScheduledJobsStatsTransportAction : TransportNodesAction<ScheduledJobsStat
 
         constructor() : super()
 
-        constructor(si: StreamInput): super(si) {
+        constructor(si: StreamInput) : super(si) {
             request = ScheduledJobsStatsRequest(si)
         }
 
