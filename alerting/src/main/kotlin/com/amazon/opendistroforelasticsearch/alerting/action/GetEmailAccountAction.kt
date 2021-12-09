@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class GetEmailAccountAction private constructor() : ActionType<GetEmailAccountResponse>(NAME, ::GetEmailAccountResponse) {
     companion object {
         val INSTANCE = GetEmailAccountAction()
-        val NAME = "cluster:admin/opendistro/alerting/destination/email_account/get"
+        const val NAME = "cluster:admin/opendistro/alerting/destination/email_account/get"
     }
 }

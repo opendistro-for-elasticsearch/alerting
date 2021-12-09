@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class AcknowledgeAlertAction private constructor() : ActionType<AcknowledgeAlertResponse>(NAME, ::AcknowledgeAlertResponse) {
     companion object {
         val INSTANCE = AcknowledgeAlertAction()
-        val NAME = "cluster:admin/opendistro/alerting/alerts/ack"
+        const val NAME = "cluster:admin/opendistro/alerting/alerts/ack"
     }
 }

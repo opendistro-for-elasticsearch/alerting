@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class IndexEmailAccountAction private constructor() : ActionType<IndexEmailAccountResponse>(NAME, ::IndexEmailAccountResponse) {
     companion object {
         val INSTANCE = IndexEmailAccountAction()
-        val NAME = "cluster:admin/opendistro/alerting/destination/email_account/write"
+        const val NAME = "cluster:admin/opendistro/alerting/destination/email_account/write"
     }
 }
