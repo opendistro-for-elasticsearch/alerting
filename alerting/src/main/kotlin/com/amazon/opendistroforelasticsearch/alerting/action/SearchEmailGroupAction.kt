@@ -21,6 +21,6 @@ import org.elasticsearch.action.search.SearchResponse
 class SearchEmailGroupAction private constructor() : ActionType<SearchResponse>(NAME, ::SearchResponse) {
     companion object {
         val INSTANCE = SearchEmailGroupAction()
-        val NAME = "cluster:admin/opendistro/alerting/destination/email_group/search"
+        const val NAME = "cluster:admin/opendistro/alerting/destination/email_group/search"
     }
 }
