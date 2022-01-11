@@ -115,7 +115,7 @@ import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
 
 /**
- * Entry point of the OpenDistro for Elasticsearch alerting plugin
+ * Entry point of the OpenDistro alerting plugin
  * This class initializes the [RestGetMonitorAction], [RestDeleteMonitorAction], [RestIndexMonitorAction] rest handlers.
  * It also adds [Monitor.XCONTENT_REGISTRY], [SearchInput.XCONTENT_REGISTRY] to the
  * [NamedXContentRegistry] so that we are able to deserialize the custom named objects.
