@@ -57,10 +57,10 @@ publishing {
             artifact javadocJar
 
             pom {
-                name = "Open Distro for Elasticsearch Notification"
+                name = "Open Distro Notification"
                 packaging = "jar"
                 url = "https://github.com/opendistro-for-elasticsearch/alerting"
-                description = "Open Distro for Elasticsearch Notification"
+                description = "Open Distro Notification"
                 scm {
                     connection = "scm:git@github.com:opendistro-for-elasticsearch/alerting.git"
                     developerConnection = "scm:git@github.com:opendistro-for-elasticsearch/alerting.git"

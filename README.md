@@ -5,9 +5,9 @@
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
 
 
-# Open Distro for Elasticsearch Alerting
+# Open Distro Alerting
 
-The Open Distro for Elasticsearch Alerting enables you to monitor your data and send alert notifications automatically to your stakeholders. With an intuitive Kibana interface and a powerful API, it is easy to set up, manage, and monitor your alerts. Craft highly specific alert conditions using Elasticsearch's full query language and scripting capabilities.
+The Open Distro Alerting enables you to monitor your data and send alert notifications automatically to your stakeholders. With an intuitive Kibana interface and a powerful API, it is easy to set up, manage, and monitor your alerts. Craft highly specific alert conditions using Elasticsearch's full query language and scripting capabilities.
 
 
 ## Highlights
