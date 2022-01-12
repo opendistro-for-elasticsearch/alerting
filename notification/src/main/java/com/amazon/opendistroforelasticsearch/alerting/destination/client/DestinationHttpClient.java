@@ -20,34 +20,22 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.Custom
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-import org.apache.http.client.methods.HttpPatch;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.client.methods.*;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -63,6 +51,27 @@ public class DestinationHttpClient {
     private static final int SOCKET_TIMEOUT_MILLISECONDS = (int)TimeValue.timeValueSeconds(50).millis();
 
     /**
+     * Watches for stale connections and evicts them.
+     */
+    private static class IdleConnectionMonitor extends TimerTask {
+
+        private static final Logger logger = LogManager.getLogger(IdleConnectionMonitor.class);
+
+        private final PoolingHttpClientConnectionManager cm;
+
+        IdleConnectionMonitor(PoolingHttpClientConnectionManager cm) {
+            this.cm = cm;
+        }
+
+        @Override
+        public void run() {
+            logger.debug("Trying to close expired and idle connections.");
+            cm.closeExpiredConnections();
+            cm.closeIdleConnections(60, TimeUnit.SECONDS);
+        }
+    }
+
+    /**
      * all valid response status
      */
     private static final Set<Integer> VALID_RESPONSE_STATUS = Collections.unmodifiableSet(new HashSet<>(
@@ -70,8 +79,9 @@ public class DestinationHttpClient {
             RestStatus.NON_AUTHORITATIVE_INFORMATION.getStatus(), RestStatus.NO_CONTENT.getStatus(),
             RestStatus.RESET_CONTENT.getStatus(), RestStatus.PARTIAL_CONTENT.getStatus(),
             RestStatus.MULTI_STATUS.getStatus())));
-    
+
     private static CloseableHttpClient HTTP_CLIENT = createHttpClient();
+    private static IdleConnectionMonitor monitor;
 
     private static CloseableHttpClient createHttpClient() {
         RequestConfig config = RequestConfig.custom()
@@ -84,12 +94,18 @@ public class DestinationHttpClient {
         connectionManager.setMaxTotal(MAX_CONNECTIONS);
         connectionManager.setDefaultMaxPerRoute(MAX_CONNECTIONS_PER_ROUTE);
 
-        return HttpClientBuilder.create()
+        CloseableHttpClient client = HttpClientBuilder.create()
                 .setDefaultRequestConfig(config)
                 .setConnectionManager(connectionManager)
-                .setRetryHandler(new DefaultHttpRequestRetryHandler())
                 .useSystemProperties()
                 .build();
+
+        // Start up the eviction task
+        Timer timer = new Timer(true);
+        monitor = new IdleConnectionMonitor(connectionManager);
+        timer.schedule(monitor, 60000L, 60000L);
+
+        return client;
     }
 
     public String execute(BaseMessage message) throws Exception {
