@@ -39,7 +39,7 @@ data class ActionExecutionResult(
 ) : Writeable, ToXContentObject {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readString(), // actionId
         sin.readOptionalInstant(), // lastExecutionTime
         sin.readInt() // throttledCount

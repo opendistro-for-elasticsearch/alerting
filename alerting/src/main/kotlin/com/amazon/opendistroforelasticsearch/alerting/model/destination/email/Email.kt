@@ -123,7 +123,7 @@ data class Recipient(
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readEnum(Recipient.RecipientType::class.java), // type
         sin.readOptionalString(), // emailGroupId
         sin.readOptionalString() // email

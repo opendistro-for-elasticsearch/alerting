@@ -39,7 +39,7 @@ class IndexDestinationRequest : ActionRequest {
         refreshPolicy: WriteRequest.RefreshPolicy,
         method: RestRequest.Method,
         destination: Destination
-    ): super() {
+    ) : super() {
         this.destinationId = destinationId
         this.seqNo = seqNo
         this.primaryTerm = primaryTerm
@@ -49,7 +49,7 @@ class IndexDestinationRequest : ActionRequest {
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): super() {
+    constructor(sin: StreamInput) : super() {
         this.destinationId = sin.readString()
         this.seqNo = sin.readLong()
         this.primaryTerm = sin.readLong()
