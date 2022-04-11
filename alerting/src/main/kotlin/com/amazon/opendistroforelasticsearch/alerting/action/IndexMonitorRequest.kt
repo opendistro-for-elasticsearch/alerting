@@ -39,7 +39,7 @@ class IndexMonitorRequest : ActionRequest {
         refreshPolicy: WriteRequest.RefreshPolicy,
         method: RestRequest.Method,
         monitor: Monitor
-    ): super() {
+    ) : super() {
         this.monitorId = monitorId
         this.seqNo = seqNo
         this.primaryTerm = primaryTerm
@@ -49,7 +49,7 @@ class IndexMonitorRequest : ActionRequest {
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         monitorId = sin.readString(),
         seqNo = sin.readLong(),
         primaryTerm = sin.readLong(),

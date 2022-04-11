@@ -31,7 +31,7 @@ data class TriggerExecutionContext(
     val error: Exception? = null
 ) {
 
-    constructor(monitor: Monitor, trigger: Trigger, monitorRunResult: MonitorRunResult, alert: Alert? = null):
+    constructor(monitor: Monitor, trigger: Trigger, monitorRunResult: MonitorRunResult, alert: Alert? = null) :
             this(monitor, trigger, monitorRunResult.inputResults.results, monitorRunResult.periodStart,
             monitorRunResult.periodEnd, alert, monitorRunResult.scriptContextError(trigger))
 

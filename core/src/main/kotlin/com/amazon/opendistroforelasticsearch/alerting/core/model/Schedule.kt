@@ -169,7 +169,7 @@ data class CronSchedule(
     val executionTime: ExecutionTime = ExecutionTime.forCron(cronParser.parse(expression))
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readString(), // expression
         sin.readZoneId() // timezone
     )
@@ -274,7 +274,7 @@ data class IntervalSchedule(
     @Transient val testInstant: Instant? = null
 ) : Schedule() {
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         sin.readInt(), // interval
         sin.readEnum(ChronoUnit::class.java) // unit
     )
